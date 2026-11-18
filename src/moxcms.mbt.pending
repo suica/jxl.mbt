@@ -1,0 +1,104 @@
+// Port of jxl-oxide/src/moxcms.rs: moxcms integration for ICC profile
+// handling. Pending src/moxcms (moxcms 0.9.0); rename to moxcms.mbt, add
+// "suica/jxl/moxcms" to moon.pkg and adjust the names below to that port.
+
+///|
+/// moxcms integration for ICC profile handling.
+#derive(Debug)
+pub(all) struct Moxcms {}
+
+///|
+priv struct MoxcmsPreparedTransform {
+  transform : @moxcms.TransformF32Executor
+  from_channels : Int
+  to_channels : Int
+}
+
+///|
+fn color_space_to_layout(
+  color_space : @moxcms.DataColorSpace,
+) -> (@moxcms.Layout, Int) raise @bitstream.JxlError {
+  match color_space {
+    Xyz | Lab | Luv | YCbr | Yxy | Rgb | Hsv | Hls | Cmy => (Rgb, 3)
+    Gray => (Gray, 1)
+    Cmyk => (Rgba, 4)
+    _ => raise @bitstream.Color("CmsFailure: UnsupportedProfileConnection")
+  }
+}
+
+///|
+pub impl @color.ColorManagementSystem for Moxcms with fn prepare_transform(
+  _self,
+  from_icc,
+  to_icc,
+  intent,
+) {
+  let profile_from = @moxcms.ColorProfile::new_from_slice(from_icc)
+  let profile_to = @moxcms.ColorProfile::new_from_slice(to_icc)
+  let (layout_from, from_channels) = color_space_to_layout(
+    profile_from.color_space,
+  )
+  let (layout_to, to_channels) = color_space_to_layout(profile_to.color_space)
+  let rendering_intent : @moxcms.RenderingIntent = match intent {
+    Perceptual => Perceptual
+    Relative => RelativeColorimetric
+    Saturation => Saturation
+    Absolute => AbsoluteColorimetric
+  }
+  let options = { ..@moxcms.TransformOptions::default(), rendering_intent }
+  let transform = profile_from.create_transform_f32(
+    layout_from,
+    profile_to,
+    layout_to,
+    options,
+  )
+  ({ transform, from_channels, to_channels } : MoxcmsPreparedTransform) as &@color.PreparedTransform
+}
+
+///|
+impl @color.PreparedTransform for MoxcmsPreparedTransform with fn num_input_channels(
+  self,
+) {
+  self.from_channels
+}
+
+///|
+impl @color.PreparedTransform for MoxcmsPreparedTransform with fn num_output_channels(
+  self,
+) {
+  self.to_channels
+}
+
+///|
+impl @color.PreparedTransform for MoxcmsPreparedTransform with fn transform(
+  self,
+  channels,
+  start,
+  len,
+) {
+  let { transform, from_channels, to_channels } = self
+  let buf_in = FixedArray::make(1024 * from_channels, (0.0 : Float))
+  let buf_out = FixedArray::make(1024 * to_channels, (0.0 : Float))
+  let mut idx = 0
+  while idx < len {
+    let chunk_len = @cmp.minimum(len - idx, 1024)
+    for k in 0..<chunk_len {
+      for channel_idx in 0..<from_channels {
+        buf_in[k * from_channels + channel_idx] = channels[channel_idx][start +
+          idx +
+          k]
+      }
+    }
+    transform.transform(
+      buf_in[:chunk_len * from_channels],
+      buf_out[:chunk_len * to_channels],
+    )
+    for k in 0..<chunk_len {
+      for channel_idx in 0..<to_channels {
+        channels[channel_idx][start + idx + k] = buf_out[k * to_channels +
+          channel_idx]
+      }
+    }
+    idx += 1024
+  }
+}
