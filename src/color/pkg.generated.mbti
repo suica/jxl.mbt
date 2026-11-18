@@ -1,0 +1,48 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/color"
+
+import {
+  "suica/jxl/image",
+}
+
+// Values
+pub let illuminant_d50 : FixedArray[Float]
+
+pub let illuminant_d65 : FixedArray[Float]
+
+pub let illuminant_dci : FixedArray[Float]
+
+pub let illuminant_e : FixedArray[Float]
+
+pub let primaries_bt2100 : FixedArray[FixedArray[Float]]
+
+pub let primaries_p3 : FixedArray[FixedArray[Float]]
+
+pub let primaries_srgb : FixedArray[FixedArray[Float]]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+pub using @image {type ColourEncoding}
+
+pub using @image {type ColourSpace}
+
+pub using @image {type Customxy}
+
+pub using @image {type EnumColourEncoding}
+
+pub using @image {type OpsinInverseMatrix}
+
+pub using @image {type Primaries}
+
+pub using @image {type RenderingIntent}
+
+pub using @image {type ToneMapping}
+
+pub using @image {type TransferFunction}
+
+pub using @image {type WhitePoint}
+
+// Traits
