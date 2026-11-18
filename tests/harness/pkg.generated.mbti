@@ -8,6 +8,8 @@ import {
 // Values
 pub fn cache_dir() -> String
 
+pub fn cache_file_path(String, String) -> String
+
 pub fn channel_errors(FixedArray[Float], Int32, FixedArray[Float], Int32, Int32, Int32) -> ChannelError
 
 pub fn check_errors(ChannelError, Array[Tolerance]) -> Array[String]
@@ -20,29 +22,35 @@ pub fn conformance_path(String) -> String
 
 pub fn conformance_testcases_dir() -> String
 
-pub fn data_dir() -> String
+pub fn create_dir_all(String) -> Unit raise Failure
 
 pub fn debug_enabled() -> Bool
 
 pub fn decode_testcases_dir() -> String
 
+pub fn download_object_with_cache(String, String) -> Bytes raise
+
+pub fn download_url_with_cache(String, String) -> Bytes raise
+
 pub fn file_exists(String) -> Bool
 
-pub fn fixture_dir(String, String) -> String? raise Failure
+pub fn fixture_dir(String, String) -> String raise Failure
 
 pub fn format_errors(ChannelError) -> String
 
+pub fn from_hex(String) -> Bytes raise Failure
+
+pub fn manifest_dir() -> String
+
 pub fn read_file(String) -> Bytes raise Failure
 
-pub fn read_fixture(String) -> Bytes? raise Failure
+pub fn read_fixture(String) -> Bytes raise Failure
 
 pub fn read_npy(Bytes) -> Npy raise Failure
 
 pub fn read_text(String) -> String raise Failure
 
 pub fn read_u32_le(Bytes, Int32) -> Int32
-
-pub fn require_fixtures() -> Bool
 
 pub fn sha256(BytesView) -> Bytes
 
@@ -51,6 +59,8 @@ pub fn sha256_hex(BytesView) -> String
 pub fn test_json_frame_tolerances(String) -> Array[Tolerance] raise Failure
 
 pub fn to_hex(BytesView) -> String
+
+pub fn write_file(String, Bytes) -> Unit raise Failure
 
 pub fn write_npy_bytes(Array[Int32], FixedArray[Float]) -> Bytes
 

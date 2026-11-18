@@ -44,7 +44,10 @@ pub fn AllocTracker::free(
 ///|
 /// Expands the current limit by `by_bytes` bytes (wrapping, like
 /// `AtomicUsize::fetch_add`).
-pub fn AllocTracker::expand_limit(self : AllocTracker, by_bytes : Int64) -> Unit {
+pub fn AllocTracker::expand_limit(
+  self : AllocTracker,
+  by_bytes : Int64,
+) -> Unit {
   self.bytes_left += by_bytes
 }
 

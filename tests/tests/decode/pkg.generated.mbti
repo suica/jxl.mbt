@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "suica/jxl_tests/decode"
+package "suica/jxl_tests/tests/decode"
 
 // Values
-pub fn run_decode(String) -> Unit raise
+pub fn run(String) -> Unit raise
 
 // Errors
 

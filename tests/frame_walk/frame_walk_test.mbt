@@ -7,7 +7,7 @@
 // Conformance directory: `@harness.conformance_testcases_dir()`.
 
 ///|
-fn testcases_dir() -> String? raise Failure {
+fn testcases_dir() -> String raise Failure {
   @harness.fixture_dir(@harness.conformance_testcases_dir(), "cafe")
 }
 
@@ -133,7 +133,7 @@ fn walk(
 
 ///|
 test "conformance frame walk" {
-  guard testcases_dir() is Some(dir) else { return }
+  let dir = testcases_dir()
   let cases = @fs.read_dir(dir).to_owned()
   cases.sort()
   let lines = []
@@ -306,7 +306,7 @@ fn decode_frame_data(frame : @frame.Frame) -> Unit raise {
 
 ///|
 test "conformance frame data decode" {
-  guard testcases_dir() is Some(dir) else { return }
+  let dir = testcases_dir()
   let only = @env.get_env_var("JXL_FRAME_WALK_ONLY")
   let cases = @fs.read_dir(dir).to_owned()
   cases.sort()

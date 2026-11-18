@@ -38,7 +38,7 @@ fn decode_jxl_rgba8(
     .read(Cursor::new(b))
   // The adapter converts ICC-profiled and CMYK images itself: it picks the
   // MoonBit CMS (the library's default is `NullCms`, as upstream's).
-  image.set_cms(@cms.MoonCms::{  })
+  image.set_cms(@cms.MoonCms::{ })
   if image.num_loaded_keyframes() == 0 {
     return None
   }

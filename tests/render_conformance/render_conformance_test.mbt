@@ -345,13 +345,9 @@ fn expected_failure(name : String) -> String? {
 test "render conformance: all cases" {
   let root = conformance_dir()
   if !@fs.path_exists(root) {
-    if @harness.require_fixtures() {
-      fail(
-        "conformance testcases not found at \{root} (run scripts/fetch_fixtures.sh)",
-      )
-    }
-    println("SKIP: conformance testcases not found at \{root}")
-    return
+    fail(
+      "conformance testcases not found at \{root} (run scripts/fetch_fixtures.sh)",
+    )
   }
   let names = @fs.read_dir(root).iter().collect()
   names.sort()
@@ -399,13 +395,10 @@ test "render conformance: all cases" {
 /// RMS 1e-4, alpha 3.815e-6.
 test "alpha_premultiplied vs jxl-oxide" {
   let dir = conformance_dir() + "/alpha_premultiplied"
-  guard @harness.read_fixture(
-      @harness.cache_dir() + "/oxide/alpha_premultiplied.npy",
-    )
-    is Some(npy_buf) else {
-    return
-  }
-  guard @harness.read_fixture(dir + "/input.jxl") is Some(data) else { return }
+  let npy_buf = @harness.read_fixture(
+    @harness.cache_dir() + "/oxide/alpha_premultiplied.npy",
+  )
+  let data = @harness.read_fixture(dir + "/input.jxl")
   let npy = @harness.read_npy(npy_buf)
   let (ctx, header) = load_image(
     extract_codestream(data),

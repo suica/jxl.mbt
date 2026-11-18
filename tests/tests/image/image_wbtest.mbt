@@ -1,46 +1,72 @@
 ///|
 test "image/decode_u8" {
-  check_decode("lz77_flower", Rgb8, 834, 244)
+  let decoder = decoder_for("lz77_flower")
+  let (color, width, height) = from_decoder(decoder)
+  assert_eq(color, Rgb8)
+  assert_eq(width, 834)
+  assert_eq(height, 244)
 }
 
 ///|
 test "image/decode_u16" {
-  check_decode("sunset_logo", Rgba16, 924, 1386)
+  let decoder = decoder_for("sunset_logo")
+  let (color, width, height) = from_decoder(decoder)
+  assert_eq(color, Rgba16)
+  assert_eq(width, 924)
+  assert_eq(height, 1386)
 }
 
 ///|
 test "image/decode_f32" {
-  check_decode("lossless_pfm", Rgb32F, 500, 500)
+  let decoder = decoder_for("lossless_pfm")
+  let (color, width, height) = from_decoder(decoder)
+  assert_eq(color, Rgb32F)
+  assert_eq(width, 500)
+  assert_eq(height, 500)
 }
 
 ///|
 test "image/decode_gray_xyb" {
-  check_decode("grayscale", L8, 200, 200)
+  let decoder = decoder_for("grayscale")
+  let (color, width, height) = from_decoder(decoder)
+  assert_eq(color, L8)
+  assert_eq(width, 200)
+  assert_eq(height, 200)
 }
 
 ///|
 test "image/decode_gray_modular" {
-  check_decode("grayscale_public_university", L8, 2880, 1620)
+  let decoder = decoder_for("grayscale_public_university")
+  let (color, width, height) = from_decoder(decoder)
+  assert_eq(color, L8)
+  assert_eq(width, 2880)
+  assert_eq(height, 1620)
 }
 
 ///|
 test "image/decode_cmyk" {
-  check_decode("cmyk_layers", Rgba8, 512, 512)
+  let decoder = decoder_for("cmyk_layers")
+  let (color, width, height) = from_decoder(decoder)
+  assert_eq(color, Rgba8)
+  assert_eq(width, 512)
+  assert_eq(height, 512)
 }
 
 ///|
 test "image/icc_profile" {
-  guard open_decoder("grayscale") is Some(decoder) else { return }
+  let decoder = decoder_for("grayscale")
   let icc = decoder.icc_profile().unwrap()
+  // `include_bytes!("./grayscale.icc")`
   let expected = @harness.read_file(
-    @harness.data_dir() + "/image/grayscale.icc",
+    @harness.manifest_dir() + "/tests/image/grayscale.icc",
   )
   assert_eq(icc, expected)
 }
 
 ///|
 test "image/with_reference_frame" {
-  guard open_decoder("patches") is Some(decoder) else { return }
-  decoder.read_image() |> ignore
-  assert_eq(decoder.dimensions(), (1600, 1096))
+  let decoder = decoder_for("patches")
+  let (_, width, height) = from_decoder(decoder)
+  assert_eq(width, 1600)
+  assert_eq(height, 1096)
 }

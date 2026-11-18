@@ -89,13 +89,10 @@ fn check(input : String, expected : String) -> Unit raise {
 
 ///|
 test "jbrd conformance" {
-  guard @harness.fixture_dir(
-      @harness.conformance_testcases_dir(),
-      "cafe/reconstructed.jpg",
-    )
-    is Some(dir) else {
-    return
-  }
+  let dir = @harness.fixture_dir(
+    @harness.conformance_testcases_dir(),
+    "cafe/reconstructed.jpg",
+  )
   for name in ["bench_oriented_brg", "cafe", "grayscale_jpeg"] {
     check(
       dir + "/" + name + "/input.jxl",
@@ -106,13 +103,10 @@ test "jbrd conformance" {
 
 ///|
 test "jbrd jxl-oxide test images" {
-  guard @harness.fixture_dir(
-      @harness.decode_testcases_dir(),
-      "issue_425/ref.jpg",
-    )
-    is Some(dir) else {
-    return
-  }
+  let dir = @harness.fixture_dir(
+    @harness.decode_testcases_dir(),
+    "issue_425/ref.jpg",
+  )
   for name in ["genshin_ycbcr_420", "issue_425", "starrail_jpegli_xyb"] {
     check(dir + "/" + name + "/input.jxl", dir + "/" + name + "/ref.jpg")
   }

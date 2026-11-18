@@ -1,7 +1,7 @@
 ///|
 /// The libjxl conformance `testcases` directory
 /// (`@harness.conformance_testcases_dir()`).
-fn conformance_dir() -> String? raise Failure {
+fn conformance_dir() -> String raise Failure {
   @harness.fixture_dir(@harness.conformance_testcases_dir(), "cafe")
 }
 
@@ -26,7 +26,7 @@ fn extract_codestream(
 
 ///|
 test "conformance container parsing" {
-  guard conformance_dir() is Some(dir) else { return }
+  let dir = conformance_dir()
   let cases = @fs.read_dir(dir).to_owned()
   cases.sort()
   let mut n = 0

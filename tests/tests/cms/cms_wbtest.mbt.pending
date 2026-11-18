@@ -1,0 +1,24 @@
+// Upstream's test, exactly; pending src/moxcms (`@jxl.Moxcms`). Rename to
+// cms_wbtest.mbt (replacing the interim one) when it lands.
+
+///|
+test "cms/cmyk_lcms2_moxcms" {
+  let image = open_cmyk_layers()
+  let width = image.width()
+  let height = image.height()
+  image.request_color_encoding(linear_srgb())
+  image.set_cms(@jxl.Lcms2::{  })
+  let lcms2_frame = render_frame_rgb(image)
+  image.set_cms(@jxl.Moxcms::{  })
+  let moxcms_frame = render_frame_rgb(image)
+  let score = @harness.compute_frame_ssimulacra2(
+    lcms2_frame,
+    moxcms_frame,
+    width,
+    height,
+  )
+  assert_true(
+    score >= 90.0,
+    msg="SSIMULACRA2 score too low (score < 90.0), score = \{score}",
+  )
+}

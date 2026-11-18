@@ -1,4 +1,5 @@
 import {
+  "moonbitlang/core/json",
   "suica/jxl",
   "suica/jxl_tests/harness",
 }

@@ -1,14 +1,16 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "suica/jxl_tests/crop"
+package "suica/jxl_tests/tests/crop"
 
 import {
   "suica/jxl",
 }
 
 // Values
-pub fn run_crops(String, Array[@jxl.CropInfo]) -> Unit raise
+pub fn run_test(Bytes, String) -> Unit raise
 
-pub fn run_random_crops(String) -> Unit raise
+pub fn testcase(String) -> Unit raise
+
+pub fn testcase_with_crop(String, String, Array[@jxl.CropInfo]) -> Unit raise
 
 // Errors
 

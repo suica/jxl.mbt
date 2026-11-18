@@ -14,9 +14,7 @@
 #   TARGETS                      targets to run (default: "native wasm-gc")
 #   MOON_TEST_FLAGS              flags for `moon test` (default: "--release")
 #   TEST_TIMEOUT                 per-target timeout for `timeout(1)` (default: 6h)
-#   JXL_TESTS_REQUIRE_FIXTURES   default 1 here: missing fixtures fail instead of skip
-#                                (run scripts/fetch_fixtures.sh first)
-#   JXL_OXIDE_CONFORMANCE_TESTCASES, JXL_OXIDE_DECODE_TESTCASES, JXL_FIXTURES_CACHE:
+#   JXL_OXIDE_CONFORMANCE_TESTCASES, JXL_OXIDE_DECODE_TESTCASES, JXL_OXIDE_CACHE:
 #                                override fixture locations (see tests/harness/paths.mbt)
 set -uo pipefail
 
@@ -30,7 +28,6 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"
 
-export JXL_TESTS_REQUIRE_FIXTURES="${JXL_TESTS_REQUIRE_FIXTURES:-1}"
 TARGETS="${TARGETS:-native wasm-gc}"
 FLAGS="${MOON_TEST_FLAGS:---release}"
 TIMEOUT="${TEST_TIMEOUT:-6h}"

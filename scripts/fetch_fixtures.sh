@@ -1,101 +1,123 @@
 #!/usr/bin/env bash
-# Prepare test fixtures for the `suica/jxl_tests` module in fixtures/cache/
-# (gitignored), using only system tools (git, curl, zstd).
+# Prepare the test data of the `suica/jxl_tests` module (tests/) in the layout
+# of jxl-oxide-tests, using only system tools (git, curl, zstd):
 #
-#   fixtures/cache/conformance/<case>/{input.jxl,reference_image.npy,reference.icc,test.json}
-#       libjxl conformance testcases (incl. the *_5 level-5 variants)
-#   fixtures/cache/decode/<case>/{input.jxl,output.buf[,ref.jpg]}
-#       jxl-oxide decode test data; output.buf is the decompressed output.buf.zst
-#   fixtures/cache/cms/cmyk_layers.{lcms2,moxcms}.npy   (step `cms`, not in `all`)
-#       tests/data/cms/cmyk_layers.jxl rendered to linear sRGB by jxl-oxide with
-#       Little CMS 2 and with moxcms: the references of the cms test (upstream
-#       compares those two CMSs; here the MoonBit CMS is compared with both).
-#       Needs the jxl-oxide CLI: JXL_OXIDE_CLI=<path to the jxl-oxide binary>,
-#       or JXL_OXIDE_SRC=<jxl-oxide checkout> and cargo to build it.
-#   fixtures/cache/oxide/alpha_premultiplied.npy   (step `oxide-ref`, not in `all`)
-#       conformance case alpha_premultiplied decoded by jxl-oxide to its
-#       reference.icc (f32 npy, 1x1024x1024x4, 16 MB): reference of the
-#       render_conformance test "alpha_premultiplied vs jxl-oxide". Needs the
-#       conformance step and the jxl-oxide CLI (as for `cms`).
+#   tests/conformance/            the libjxl conformance repository (a git
+#                                 submodule of jxl-oxide-tests upstream)
+#   tests/decode/                 jxl-oxide-testdata (submodule upstream)
+#   tests/tests/cache/            the cache of `download_object_with_cache` /
+#                                 `download_url_with_cache` ($JXL_OXIDE_CACHE
+#                                 if set), with upstream's file names:
+#     {hash}.npy, {hash}.icc      conformance objects, from
+#                                 https://storage.googleapis.com/storage/v1/b/jxl-conformance/o/objects%2F{hash}?alt=media
+#                                 (every hash named in tests/tests/conformance
+#                                 and in the testcases' test.json)
+#     {name}.buf.zst              decode fixtures given by output.buf.zst.url
+#     {name}.buf                  every decode fixture decompressed (read by
+#                                 the interim decode test until src/zstd lands)
+#     cmyk_layers.{lcms2,moxcms}.npy   step `cms`: jxl-oxide's renders of
+#                                 tests/tests/cms/cmyk_layers.jxl to linear sRGB
+#                                 (interim cms test until src/moxcms lands)
+#     oxide/alpha_premultiplied.npy    step `oxide-ref`: jxl-oxide's render of
+#                                 that conformance case (render_conformance)
 #
-# The cache directory is $JXL_FIXTURES_CACHE if set (as for the tests).
+# The MoonBit tests have no HTTP client (jxl-oxide-tests without its `net`
+# feature): a file missing here fails the test with upstream's message.
 #
 # Sources (override with environment variables):
-#   CONFORMANCE_DIR   existing checkout of https://github.com/libjxl/conformance
-#                     whose reference objects are already downloaded and
-#                     symlinked (scripts/download_and_symlink*.sh). It is linked,
-#                     not copied. If unset, the repo is cloned into
-#                     fixtures/cache/conformance-repo and its download script runs.
-#   DECODE_DIR        existing checkout of https://github.com/tirr-c/jxl-oxide-testdata
-#                     (jxl-oxide's crates/jxl-oxide-tests/decode). If unset, it is
-#                     cloned into fixtures/cache/jxl-oxide-testdata.
+#   CONFORMANCE_DIR   existing checkout of https://github.com/libjxl/conformance;
+#                     linked, not copied. Its .objects/ (from its
+#                     scripts/download_and_symlink*.sh) is used instead of
+#                     downloading where present. If unset, the repository is
+#                     cloned into tests/conformance and its download script runs
+#                     (render_conformance reads the testcases' symlinked objects).
+#   DECODE_DIR        existing checkout of https://github.com/tirr-c/jxl-oxide-testdata;
+#                     if unset, it is cloned into tests/decode.
+#   JXL_OXIDE_CLI / JXL_OXIDE_SRC   the jxl-oxide CLI, or a checkout to build it
+#                     with cargo (steps `cms` and `oxide-ref`).
 #
-# Usage: scripts/fetch_fixtures.sh [conformance|decode|cms|oxide-ref|all]   (default: all)
+# Usage: scripts/fetch_fixtures.sh [conformance|decode|cms|oxide-ref|all]
+#   (default: all = conformance and decode)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CACHE="${JXL_FIXTURES_CACHE:-$ROOT/fixtures/cache}"
+TESTS="$ROOT/tests"
+CACHE="${JXL_OXIDE_CACHE:-$TESTS/tests/cache}"
 mkdir -p "$CACHE"
 what="${1:-all}"
 
 need() { command -v "$1" >/dev/null 2>&1 || { echo "error: $1 not found" >&2; exit 1; }; }
 
-fetch_conformance() {
-  local src
-  if [ -n "${CONFORMANCE_DIR:-}" ]; then
-    src="$(cd "$CONFORMANCE_DIR" && pwd)"
+object_url() {
+  echo "https://storage.googleapis.com/storage/v1/b/jxl-conformance/o/objects%2F$1?alt=media"
+}
+
+# cache_object <hash> <ext>
+cache_object() {
+  local hash="$1" ext="$2" out="$CACHE/$1.$2"
+  [ -s "$out" ] && return 0
+  local local_obj="$TESTS/conformance/.objects/$hash"
+  if [ -s "$local_obj" ]; then
+    cp "$local_obj" "$out.part"
   else
-    need git; need curl
-    src="$CACHE/conformance-repo"
-    if [ ! -d "$src/.git" ]; then
-      git clone --depth 1 https://github.com/libjxl/conformance.git "$src"
-    fi
-    (cd "$src" && bash scripts/download_and_symlink_using_curl.sh)
+    need curl
+    echo "downloading $hash.$ext"
+    curl -fsSL -o "$out.part" "$(object_url "$hash")"
   fi
-  [ -d "$src/testcases" ] || { echo "error: $src/testcases not found" >&2; exit 1; }
-  ln -sfn "$src/testcases" "$CACHE/conformance"
-  local missing=0
-  for d in "$CACHE"/conformance/*/; do
-    [ -f "$d/test.json" ] || continue
-    for f in input.jxl reference_image.npy reference.icc; do
-      if [ ! -e "$d/$f" ]; then
-        echo "warning: missing $(basename "$d")/$f" >&2
-        missing=1
-      fi
-    done
+  mv "$out.part" "$out"
+}
+
+fetch_conformance() {
+  if [ -n "${CONFORMANCE_DIR:-}" ]; then
+    ln -sfn "$(cd "$CONFORMANCE_DIR" && pwd)" "$TESTS/conformance"
+  elif [ ! -d "$TESTS/conformance/.git" ]; then
+    need git; need curl
+    rm -f "$TESTS/conformance"
+    git clone --depth 1 https://github.com/libjxl/conformance.git "$TESTS/conformance"
+    (cd "$TESTS/conformance" && bash scripts/download_and_symlink_using_curl.sh)
+  fi
+  [ -d "$TESTS/conformance/testcases" ] || { echo "error: no testcases in $TESTS/conformance" >&2; exit 1; }
+  # npy_hash= / icc_hash= of the conformance tests (pending files too)
+  local f
+  for f in "$TESTS"/tests/conformance/*.mbt*; do
+    { grep -oE 'npy_hash="[0-9a-f]{64}"' "$f" || true; } | cut -d'"' -f2 | while read -r h; do cache_object "$h" npy; done
+    { grep -oE 'icc_hash="[0-9a-f]{64}"' "$f" || true; } | cut -d'"' -f2 | while read -r h; do cache_object "$h" icc; done
   done
-  echo "conformance: $CACHE/conformance -> $src/testcases (missing files: $missing)"
+  # objects named in test.json (reference images and ICC profiles)
+  for f in "$TESTS"/conformance/testcases/*/test.json; do
+    python3 -I - "$f" <<'EOF' | while read -r h ext; do cache_object "$h" "$ext"; done
+import json, sys
+sums = json.load(open(sys.argv[1])).get("sha256sums", {})
+for name, h in sums.items():
+    if name == "reference_image.npy":
+        print(h, "npy")
+    elif name.endswith(".icc"):
+        print(h, "icc")
+EOF
+  done
+  echo "conformance: $TESTS/conformance, objects in $CACHE"
 }
 
 fetch_decode() {
   need zstd
-  local src
   if [ -n "${DECODE_DIR:-}" ]; then
-    src="$(cd "$DECODE_DIR" && pwd)"
-  else
+    ln -sfn "$(cd "$DECODE_DIR" && pwd)" "$TESTS/decode"
+  elif [ ! -d "$TESTS/decode/.git" ]; then
     need git
-    src="$CACHE/jxl-oxide-testdata"
-    if [ ! -d "$src/.git" ]; then
-      git clone --depth 1 https://github.com/tirr-c/jxl-oxide-testdata.git "$src"
-    fi
+    rm -f "$TESTS/decode"
+    git clone --depth 1 https://github.com/tirr-c/jxl-oxide-testdata.git "$TESTS/decode"
   fi
-  local out="$CACHE/decode"
-  mkdir -p "$out" "$CACHE/downloads"
-  for d in "$src"/*/; do
-    local name
+  local d name zst
+  for d in "$TESTS"/decode/*/; do
     name="$(basename "$d")"
     [ -f "$d/input.jxl" ] || continue
-    mkdir -p "$out/$name"
-    ln -sfn "$d/input.jxl" "$out/$name/input.jxl"
-    # jbrd test images also carry the original JPEG.
-    [ -f "$d/ref.jpg" ] && ln -sfn "$d/ref.jpg" "$out/$name/ref.jpg"
-    local zst=""
+    zst=""
     if [ -f "$d/output.buf.zst" ]; then
       zst="$d/output.buf.zst"
     elif [ -f "$d/output.buf.zst.url" ]; then
-      need curl
-      zst="$CACHE/downloads/$name.buf.zst"
+      zst="$CACHE/$name.buf.zst"
       if [ ! -s "$zst" ]; then
+        need curl
         local url
         url="$(tr -d '[:space:]' < "$d/output.buf.zst.url")"
         echo "downloading $url"
@@ -103,10 +125,10 @@ fetch_decode() {
         mv "$zst.part" "$zst"
       fi
     fi
-    if [ -n "$zst" ] && { [ ! -s "$out/$name/output.buf" ] || [ "$zst" -nt "$out/$name/output.buf" ]; }; then
-      zstd -q -d -f -o "$out/$name/output.buf" "$zst"
+    if [ -n "$zst" ] && { [ ! -s "$CACHE/$name.buf" ] || [ "$zst" -nt "$CACHE/$name.buf" ]; }; then
+      zstd -q -d -f -o "$CACHE/$name.buf" "$zst"
     fi
-    echo "decode: $name$([ -s "$out/$name/output.buf" ] && echo ' (output.buf)')"
+    echo "decode: $name"
   done
 }
 
@@ -121,27 +143,26 @@ oxide_cli() {
   echo "$cli"
 }
 
+fetch_cms() {
+  local cli cms
+  cli="$(oxide_cli)"
+  for cms in lcms2 moxcms; do
+    "$cli" "$TESTS/tests/cms/cmyk_layers.jxl" --cms "$cms" \
+      --target-colorspace "srgb,tf=linear" -f npy -o "$CACHE/cmyk_layers.$cms.npy"
+  done
+  echo "cms: $CACHE/cmyk_layers.{lcms2,moxcms}.npy"
+}
+
 fetch_oxide_ref() {
   local cli case_dir
   cli="$(oxide_cli)"
-  case_dir="$CACHE/conformance/alpha_premultiplied"
+  case_dir="$TESTS/conformance/testcases/alpha_premultiplied"
   [ -f "$case_dir/input.jxl" ] && [ -e "$case_dir/reference.icc" ] || {
     echo "error: $case_dir not found (run the conformance step first)" >&2; exit 1; }
   mkdir -p "$CACHE/oxide"
   "$cli" "$case_dir/input.jxl" --target-icc "$case_dir/reference.icc" \
     -f npy -o "$CACHE/oxide/alpha_premultiplied.npy"
   echo "oxide-ref: $CACHE/oxide/alpha_premultiplied.npy"
-}
-
-fetch_cms() {
-  local cli
-  cli="$(oxide_cli)"
-  mkdir -p "$CACHE/cms"
-  for cms in lcms2 moxcms; do
-    "$cli" "$ROOT/tests/data/cms/cmyk_layers.jxl" --cms "$cms" \
-      --target-colorspace "srgb,tf=linear" -f npy -o "$CACHE/cms/cmyk_layers.$cms.npy"
-  done
-  echo "cms: $CACHE/cms"
 }
 
 case "$what" in

@@ -190,7 +190,7 @@ test "mbui/decode_jxl/opsin_inverse" {
 
 ///|
 test "mbui/decode_jxl/gray spread to rgb" {
-  guard load_case("grayscale") is Some((input, npy)) else { return }
+  let (input, npy) = load_case("grayscale")
   guard @jxl.decode_jxl(input) is Some((w, h, rgba)) else {
     fail("decode_jxl returned None")
   }
@@ -205,7 +205,7 @@ test "mbui/decode_jxl/gray spread to rgb" {
 ///|
 test "mbui/decode_jxl/orientation and cmyk" {
   for name in ["bench_oriented_brg", "cmyk_layers", "lossless_pfm", "spot"] {
-    guard load_case(name) is Some((input, npy)) else { return }
+    let (input, npy) = load_case(name)
     guard @jxl.decode_jxl(input) is Some((w, h, rgba)) else {
       fail("\{name}: decode_jxl returned None")
     }
@@ -226,7 +226,7 @@ test "mbui/decode_jxl/not jxl" {
 
 ///|
 test "mbui/decode_jxl/truncated" {
-  guard load_case("sunset_logo") is Some((input, _)) else { return }
+  let (input, _) = load_case("sunset_logo")
   for len in [12, 40, 200, input.length() / 2] {
     // must not crash; a cut image fails (or decodes what it can)
     @jxl.decode_jxl(input[0:len].to_owned()) |> ignore
@@ -242,7 +242,7 @@ test "mbui/decode_jxl/fuzz findings do not crash" {
       "large_output_size", "icc_parse_oob", "container_small_jxlp", "timeout_dim_shift",
     ] {
     let data = @harness.read_file(
-      @harness.data_dir() + "/fuzz_findings/" + name + ".fuzz",
+      @harness.manifest_dir() + "/tests/fuzz_findings/" + name + ".fuzz",
     )
     @jxl.decode_jxl(data) |> ignore
   }

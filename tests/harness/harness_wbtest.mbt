@@ -121,24 +121,21 @@ test "fixture_buf/synthetic" {
 test "io/committed data readable" {
   // works on both native and wasm-gc (moonrun): cwd is the module root
   let fuzz = read_file(
-    data_dir() + "/fuzz_findings/bitstream_u32_overflow.fuzz",
+    manifest_dir() + "/tests/fuzz_findings/bitstream_u32_overflow.fuzz",
   )
   assert_true(fuzz.length() > 0)
-  let jxl = read_file(data_dir() + "/cms/cmyk_layers.jxl")
+  let jxl = read_file(manifest_dir() + "/tests/cms/cmyk_layers.jxl")
   // container signature
   assert_eq(jxl[0:12].to_owned(), b"\x00\x00\x00\x0cJXL \x0d\x0a\x87\x0a")
-  let icc = read_file(data_dir() + "/image/grayscale.icc")
+  let icc = read_file(manifest_dir() + "/tests/image/grayscale.icc")
   assert_eq(icc[36:40].to_owned(), b"acsp")
 }
 
 ///|
 test "io/conformance fixture npy" {
-  guard read_fixture(
-      conformance_case_dir("mul_no_extra_channels") + "/reference_image.npy",
-    )
-    is Some(buf) else {
-    return
-  }
+  let buf = read_fixture(
+    conformance_case_dir("mul_no_extra_channels") + "/reference_image.npy",
+  )
   let npy = read_npy(buf)
   assert_eq(npy.shape.length(), 4)
   assert_eq(npy.data.length(), npy.shape[0] * npy.frame_len())
@@ -150,10 +147,9 @@ test "io/conformance fixture npy" {
 
 ///|
 test "io/decode fixture buf" {
-  guard read_fixture(decode_testcases_dir() + "/grayalpha/output.buf")
-    is Some(buf) else {
-    return
-  }
+  let buf = download_url_with_cache(
+    "(decompressed by scripts/fetch_fixtures.sh)", "grayalpha.buf",
+  )
   let r = FixtureReader::new(buf)
   let h = r.header()
   assert_eq(h.channels, 2)
@@ -220,9 +216,12 @@ test "ssimulacra2/matches the Rust crate" {
 ///|
 test "ssimulacra2/lcms2 vs moxcms fixture" {
   // the cms fixtures: `ssimulacra2` 0.5.1 gives 92.8602575593
-  let dir = cache_dir() + "/cms"
-  guard read_fixture(dir + "/cmyk_layers.lcms2.npy") is Some(a) else { return }
-  guard read_fixture(dir + "/cmyk_layers.moxcms.npy") is Some(b) else { return }
+  let a = download_url_with_cache(
+    "(scripts/fetch_fixtures.sh cms)", "cmyk_layers.lcms2.npy",
+  )
+  let b = download_url_with_cache(
+    "(scripts/fetch_fixtures.sh cms)", "cmyk_layers.moxcms.npy",
+  )
   let a = read_npy(a)
   let b = read_npy(b)
   let rgb = fn(n : Npy) {

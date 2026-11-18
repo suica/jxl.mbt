@@ -14,19 +14,19 @@ priv type FileHandle
 extern "C" fn fopen_ffi(path : Bytes) -> FileHandle = "suica_jxl_fopen"
 
 ///|
-extern "C" fn is_null_ffi(ptr : FileHandle) -> Int = "suica_jxl_is_null"
+extern "C" fn is_null_ffi(ptr : FileHandle) -> Int32 = "suica_jxl_is_null"
 
 ///|
 #borrow(buf)
 extern "C" fn fread_ffi(
   buf : FixedArray[Byte],
-  start : Int,
-  len : Int,
+  start : Int32,
+  len : Int32,
   file : FileHandle,
-) -> Int = "suica_jxl_fread"
+) -> Int32 = "suica_jxl_fread"
 
 ///|
-extern "C" fn fclose_ffi(file : FileHandle) -> Int = "suica_jxl_fclose"
+extern "C" fn fclose_ffi(file : FileHandle) -> Int32 = "suica_jxl_fclose"
 
 ///|
 extern "C" fn last_error_ffi() -> Bytes = "suica_jxl_last_error"
@@ -58,7 +58,7 @@ pub fn File::open(path : String) -> File raise @bitstream.JxlError {
   if is_null_ffi(handle) != 0 {
     raise @bitstream.Io("\{last_error()}: \{path}")
   }
-  { handle, closed: false }
+  { handle, closed: false, }
 }
 
 ///|
@@ -71,7 +71,7 @@ pub fn File::close(self : File) -> Unit {
 }
 
 ///|
-pub impl Read for File with read(self, buf, start, end) {
+pub impl Read for File with fn read(self, buf, start, end) {
   if self.closed || end <= start {
     return 0
   }

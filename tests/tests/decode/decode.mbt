@@ -4,15 +4,14 @@
 // is the version that decompresses output.buf.zst itself).
 
 ///|
-#derive(Debug)
 priv struct FixtureHeader {
-  width : Int
-  height : Int
-  channels : Int
+  width : Int32
+  height : Int32
+  channels : Int32
 }
 
 ///|
-fn u32_le(b : Bytes, at : Int) -> Int {
+fn u32_le(b : Bytes, at : Int32) -> Int32 {
   b[at].to_int() |
   (b[at + 1].to_int() << 8) |
   (b[at + 2].to_int() << 16) |
@@ -23,13 +22,15 @@ fn u32_le(b : Bytes, at : Int) -> Int {
 /// A `Read` over the decompressed fixture, with `read_exact`.
 priv struct Expected {
   buf : Bytes
-  mut pos : Int
+  mut pos : Int32
 }
 
 ///|
-fn Expected::read_exact(self : Expected, len : Int) -> BytesView {
+fn Expected::read_exact(self : Expected, len : Int32) -> BytesView {
   if self.pos + len > self.buf.length() {
-    abort("called `Result::unwrap()` on an `Err` value: failed to fill whole buffer")
+    abort(
+      "called `Result::unwrap()` on an `Err` value: failed to fill whole buffer",
+    )
   }
   let v = self.buf[self.pos:self.pos + len]
   self.pos += len
@@ -39,12 +40,12 @@ fn Expected::read_exact(self : Expected, len : Int) -> BytesView {
 ///|
 fn FixtureHeader::from_bytes(buf : BytesView) -> FixtureHeader {
   let b = buf.to_owned()
-  { width: u32_le(b, 0), height: u32_le(b, 4), channels: u32_le(b, 8) }
+  { width: u32_le(b, 0), height: u32_le(b, 4), channels: u32_le(b, 8), }
 }
 
 ///|
 /// `(f * 65535.0 + 0.5) as u16`, a saturating cast.
-fn to_u16(f : Float) -> Int {
+fn to_u16(f : Float) -> Int32 {
   let v = f * 65535.0 + 0.5
   if v.is_nan() || v <= 0.0 {
     0
@@ -57,7 +58,7 @@ fn to_u16(f : Float) -> Int {
 
 ///|
 /// `1u16 << 14u32.saturating_sub(bits)`
-fn modular_threshold(bits : Int) -> Int {
+fn modular_threshold(bits : Int32) -> Int32 {
   let shift = 14 - bits
   1 << (if shift < 0 { 0 } else { shift })
 }
@@ -113,12 +114,12 @@ fn decode(data : Bytes, expected : Expected) -> Unit raise Error {
 
 ///|
 /// The body of a `test!` test (interim, see above).
-fn run(name : String) -> Unit raise Error {
+pub fn run(name : String) -> Unit raise Error {
   let path = @harness.decode_testcases_dir() + "/" + name
   let input = @harness.read_file(path + "/input.jxl")
   let expected = @harness.download_url_with_cache(
     "(decompressed by scripts/fetch_fixtures.sh)",
     name + ".buf",
   )
-  decode(input, { buf: expected, pos: 0 })
+  decode(input, { buf: expected, pos: 0, })
 }

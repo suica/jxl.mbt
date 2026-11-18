@@ -26,7 +26,7 @@ pub(all) enum ColorType {
 
 ///|
 /// Bytes per pixel (`ColorType::bytes_per_pixel`).
-pub fn ColorType::bytes_per_pixel(self : ColorType) -> Int {
+pub fn ColorType::bytes_per_pixel(self : ColorType) -> Int32 {
   match self {
     L8 => 1
     La8 => 2
@@ -45,8 +45,8 @@ pub fn ColorType::bytes_per_pixel(self : ColorType) -> Int {
 /// `image::Limits`: `None` means no limit.
 #derive(Debug, Default)
 pub(all) struct Limits {
-  max_image_width : Int?
-  max_image_height : Int?
+  max_image_width : Int32?
+  max_image_height : Int32?
   max_alloc : Int64?
 }
 
@@ -73,7 +73,7 @@ pub struct JxlDecoder {
   priv mut current_crop : CropInfo
   priv mut current_memory_limit : Int64
   priv buf : FixedArray[Byte]
-  priv mut buf_valid : Int
+  priv mut buf_valid : Int32
 }
 
 ///|
@@ -110,7 +110,7 @@ fn JxlDecoder::init(
 ) -> JxlDecoder raise @bitstream.JxlError {
   let buf = FixedArray::make(4096, b'\x00')
   let (image, buf_valid) = JxlDecoder::init_image(builder, reader, buf)
-  let crop = { width: image.width(), height: image.height(), left: 0, top: 0 }
+  let crop = { width: image.width(), height: image.height(), left: 0, top: 0, }
   let decoder = {
     reader,
     image,
@@ -133,7 +133,7 @@ fn JxlDecoder::init_image(
   builder : JxlImageBuilder,
   reader : &Read,
   buf : FixedArray[Byte],
-) -> (JxlImage, Int) raise @bitstream.JxlError {
+) -> (JxlImage, Int32) raise @bitstream.JxlError {
   let mut uninit = builder.build_uninit()
   let mut buf_valid = 0
   while true {
@@ -187,7 +187,9 @@ fn JxlDecoder::load_until_first_keyframe(
 }
 
 ///|
-fn JxlDecoder::load_until_exif(self : JxlDecoder) -> Unit raise @bitstream.JxlError {
+fn JxlDecoder::load_until_exif(
+  self : JxlDecoder,
+) -> Unit raise @bitstream.JxlError {
   self.load_until_condition(fn(image) raise @bitstream.JxlError {
     !image.aux_boxes().first_exif().is_decoding()
   })
@@ -211,7 +213,7 @@ fn JxlDecoder::read_image_inner(
   self : JxlDecoder,
   crop : CropInfo,
   buf : FixedArray[Byte],
-  buf_stride : Int?,
+  buf_stride : Int32?,
 ) -> Unit raise @bitstream.JxlError {
   if self.current_crop != crop {
     self.image.set_image_region(crop) |> ignore
@@ -239,7 +241,7 @@ fn JxlDecoder::read_image_inner(
 
 ///|
 /// `image::ImageDecoder::dimensions`.
-pub fn JxlDecoder::dimensions(self : JxlDecoder) -> (Int, Int) {
+pub fn JxlDecoder::dimensions(self : JxlDecoder) -> (Int32, Int32) {
   (self.image.width(), self.image.height())
 }
 
@@ -340,31 +342,31 @@ pub fn JxlDecoder::set_limits(
 /// `image::ImageDecoderRect::read_rect`.
 pub fn JxlDecoder::read_rect(
   self : JxlDecoder,
-  x : Int,
-  y : Int,
-  width : Int,
-  height : Int,
+  x : Int32,
+  y : Int32,
+  width : Int32,
+  height : Int32,
   buf : FixedArray[Byte],
-  row_pitch : Int,
+  row_pitch : Int32,
 ) -> Unit raise @bitstream.JxlError {
-  let crop = { width, height, left: x, top: y }
+  let crop = { width, height, left: x, top: y, }
   self.read_image_inner(crop, buf, Some(row_pitch))
 }
 
 ///|
 /// Stores samples as their native bytes (`bytemuck::cast_slice`).
 priv trait SampleBytes: FrameBufferSample {
-  size() -> Int
-  put(Self, FixedArray[Byte], Int) -> Unit
+  fn size() -> Int32
+  fn put(Self, FixedArray[Byte], Int32) -> Unit
 }
 
 ///|
-impl SampleBytes for Float with size() {
+impl SampleBytes for Float with fn size() {
   4
 }
 
 ///|
-impl SampleBytes for Float with put(self, buf, at) {
+impl SampleBytes for Float with fn put(self, buf, at) {
   let u = self.reinterpret_as_uint()
   buf[at] = u.to_byte()
   buf[at + 1] = (u >> 8).to_byte()
@@ -373,23 +375,23 @@ impl SampleBytes for Float with put(self, buf, at) {
 }
 
 ///|
-impl SampleBytes for UInt16 with size() {
+impl SampleBytes for UInt16 with fn size() {
   2
 }
 
 ///|
-impl SampleBytes for UInt16 with put(self, buf, at) {
+impl SampleBytes for UInt16 with fn put(self, buf, at) {
   buf[at] = self.to_byte()
   buf[at + 1] = (self >> 8).to_byte()
 }
 
 ///|
-impl SampleBytes for Byte with size() {
+impl SampleBytes for Byte with fn size() {
   1
 }
 
 ///|
-impl SampleBytes for Byte with put(self, buf, at) {
+impl SampleBytes for Byte with fn put(self, buf, at) {
   buf[at] = self
 }
 
@@ -397,7 +399,7 @@ impl SampleBytes for Byte with put(self, buf, at) {
 fn[S : SampleBytes] stream_to_buf(
   stream : ImageStream,
   buf : FixedArray[Byte],
-  buf_stride : Int,
+  buf_stride : Int32,
   zero : S,
 ) -> Unit {
   let size = S::size()

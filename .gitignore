@@ -1,5 +1,9 @@
 _build/
 target/
 .mooncakes/
-fixtures/cache/
 *.log
+# test data (scripts/fetch_fixtures.sh), as jxl-oxide-tests' submodules and cache
+/tests/conformance
+/tests/decode
+/tests/tests/cache/
+/tests/tests/.artifact/

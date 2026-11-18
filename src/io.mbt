@@ -6,29 +6,29 @@
 pub(open) trait Read {
   /// Reads into `buf[start:end]`, returning how many bytes were read; 0 means
   /// the end of the stream (or an empty `buf[start:end]`).
-  read(Self, buf : FixedArray[Byte], start : Int, end : Int) -> Int raise @bitstream.JxlError
+  fn read(Self, buf : FixedArray[Byte], start : Int32, end : Int32) -> Int32 raise @bitstream.JxlError
 }
 
 ///|
 /// `std::io::Cursor<&[u8]>`: a reader over bytes in memory.
 pub struct Cursor {
   priv data : Bytes
-  priv mut pos : Int
+  priv mut pos : Int32
 }
 
 ///|
 pub fn Cursor::new(data : Bytes) -> Cursor {
-  { data, pos: 0 }
+  { data, pos: 0, }
 }
 
 ///|
 /// Current position in the data.
-pub fn Cursor::position(self : Cursor) -> Int {
+pub fn Cursor::position(self : Cursor) -> Int32 {
   self.pos
 }
 
 ///|
-pub impl Read for Cursor with read(self, buf, start, end) {
+pub impl Read for Cursor with fn read(self, buf, start, end) {
   let n = @cmp.minimum(end - start, self.data.length() - self.pos)
   if n <= 0 {
     return 0
@@ -43,11 +43,11 @@ pub impl Read for Cursor with read(self, buf, start, end) {
 ///|
 /// `std::io::Write` as used by jxl-oxide (`JxlImage::reconstruct_jpeg`).
 pub(open) trait Write {
-  write_all(Self, BytesView) -> Unit raise @bitstream.JxlError
+  fn write_all(Self, BytesView) -> Unit raise @bitstream.JxlError
 }
 
 ///|
 /// `Vec<u8>` as a writer.
-pub impl Write for Buffer with write_all(self, data) {
+pub impl Write for Buffer with fn write_all(self, data) {
   self.write_bytesview(data)
 }

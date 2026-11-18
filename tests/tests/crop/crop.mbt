@@ -32,7 +32,7 @@ fn Rng::new(name : String) -> Rng {
       }
   }
   println("\{name}: crop RNG seed \{seed} (JXL_CROP_SEED=\{seed} repeats it)")
-  { state: if seed == 0UL { 1UL } else { seed } }
+  { state: if seed == 0UL { 1UL } else { seed }, }
 }
 
 ///|

@@ -9,8 +9,8 @@ pub(all) struct Lcms2 {}
 ///|
 priv struct Lcms2PreparedTransform {
   transform : @cms.Transform
-  from_channels : Int
-  to_channels : Int
+  from_channels : Int32
+  to_channels : Int32
 }
 
 ///|
@@ -40,7 +40,8 @@ pub impl @color.ColorManagementSystem for Lcms2 with fn prepare_transform(
     to_profile,
     lcms2_intent(intent),
   )
-  ({ transform, from_channels, to_channels } : Lcms2PreparedTransform) as &@color.PreparedTransform
+  ({ transform, from_channels, to_channels, } : Lcms2PreparedTransform)
+  as &@color.PreparedTransform
 }
 
 ///|
@@ -64,7 +65,7 @@ impl @color.PreparedTransform for Lcms2PreparedTransform with fn transform(
   start,
   len,
 ) {
-  let { transform, from_channels, to_channels } = self
+  let { transform, from_channels, to_channels, } = self
   let buf_in = FixedArray::make(1024 * from_channels, (0.0 : Float))
   let buf_out = FixedArray::make(1024 * to_channels, (0.0 : Float))
   let mut idx = 0

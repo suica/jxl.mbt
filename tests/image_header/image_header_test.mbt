@@ -119,10 +119,7 @@ fn json_num(j : Json) -> Double {
 
 ///|
 test "conformance image headers" {
-  guard @harness.fixture_dir(@harness.conformance_testcases_dir(), "cafe")
-    is Some(root) else {
-    return
-  }
+  let root = @harness.fixture_dir(@harness.conformance_testcases_dir(), "cafe")
   let names = @fs.read_dir(root).iter().collect()
   names.sort()
   let mut checked = 0
@@ -202,10 +199,7 @@ test "conformance image headers" {
 
 ///|
 test "conformance embedded ICC profiles" {
-  guard @harness.fixture_dir(@harness.conformance_testcases_dir(), "cafe")
-    is Some(root) else {
-    return
-  }
+  let root = @harness.fixture_dir(@harness.conformance_testcases_dir(), "cafe")
   let names : Array[String] = @fs.read_dir(root).iter().collect()
   names.sort()
   let mut checked = 0

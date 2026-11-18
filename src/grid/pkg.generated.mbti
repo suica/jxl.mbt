@@ -14,7 +14,9 @@ pub struct AllocTracker {
   mut bytes_left : Int64
 }
 pub fn AllocTracker::alloc(Self, Int32, Int32) -> Unit raise @bitstream.JxlError
+pub fn AllocTracker::expand_limit(Self, Int64) -> Unit
 pub fn AllocTracker::free(Self, Int32, Int32) -> Unit
+pub fn AllocTracker::shrink_limit(Self, Int64) -> Unit raise @bitstream.JxlError
 pub fn AllocTracker::with_limit(Int64) -> Self
 
 pub struct Grid[T] {

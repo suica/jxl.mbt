@@ -4,7 +4,11 @@
 ///|
 /// `read_numpy`: checks the magic, skips the header, reads little-endian
 /// f32 samples `channels` at a time and splits them into `frames` chunks.
-fn read_numpy(buf : Bytes, frames : Int, channels : Int) -> Array[Array[Float]] {
+fn read_numpy(
+  buf : Bytes,
+  frames : Int32,
+  channels : Int32,
+) -> Array[Array[Float]] {
   guard buf.length() >= 10 else { abort("failed to fill whole buffer") }
   let magic = buf[0:6]
   let meta_len = buf[8].to_int() | (buf[9].to_int() << 8)
@@ -26,7 +30,7 @@ fn read_numpy(buf : Bytes, frames : Int, channels : Int) -> Array[Array[Float]] 
   let chunk_size = fb.length() / frames
   let out = []
   for f in 0..<frames {
-    out.push(fb[f * chunk_size:(f + 1) * chunk_size].to_array())
+    out.push(fb[f * chunk_size:(f + 1) * chunk_size].to_owned())
   }
   out
 }
@@ -109,13 +113,13 @@ fn run_test(
 
 ///|
 /// The body of a `conformance_test!` test.
-fn conformance_test(
+pub fn conformance_test(
   cms : &@jxl.ColorManagementSystem,
   name : String,
   npy_hash~ : String,
   icc_hash~ : String,
-  frames~ : Int,
-  channels~ : Int,
+  frames~ : Int32,
+  channels~ : Int32,
   error_list : Array[(Float, Float)],
 ) -> Unit raise Error {
   let perform_ct = icc_hash != "skip"

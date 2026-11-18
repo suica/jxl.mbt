@@ -24,7 +24,7 @@ fn fuzz_decode(data : Bytes) -> Unit {
 ///|
 /// `test_by_include!`: the file `tests/fuzz_findings/<name>.fuzz`
 /// (`include_bytes!` upstream).
-fn test_by_include(name : String) -> Unit raise Error {
+pub fn test_by_include(name : String) -> Unit raise Error {
   let data = @harness.read_file(
     @harness.manifest_dir() + "/tests/fuzz_findings/" + name + ".fuzz",
   )

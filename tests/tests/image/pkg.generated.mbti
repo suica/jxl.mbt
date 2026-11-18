@@ -1,14 +1,14 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "suica/jxl_tests/image"
+package "suica/jxl_tests/tests/image"
 
 import {
   "suica/jxl",
 }
 
 // Values
-pub fn check_decode(String, @jxl.ColorType, Int32, Int32) -> Unit raise
+pub fn decoder_for(String) -> @jxl.JxlDecoder raise
 
-pub fn open_decoder(String) -> @jxl.JxlDecoder? raise
+pub fn from_decoder(@jxl.JxlDecoder) -> (@jxl.ColorType, Int32, Int32) raise
 
 // Errors
 

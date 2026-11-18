@@ -9,7 +9,6 @@ fn zstd_decode(buf : Bytes) -> Bytes raise Error {
 }
 
 ///|
-#derive(Debug)
 priv struct FixtureHeader {
   width : Int
   height : Int
@@ -118,7 +117,7 @@ fn decode(data : Bytes, expected : Expected) -> Unit raise Error {
 
 ///|
 /// The body of a `test!` test.
-fn run(name : String) -> Unit raise Error {
+pub fn run(name : String) -> Unit raise Error {
   let path = @harness.decode_testcases_dir() + "/" + name
   let input = @harness.read_file(path + "/input.jxl")
   let output_buf = path + "/output.buf.zst"
@@ -129,7 +128,7 @@ fn run(name : String) -> Unit raise Error {
     let output_url = @harness.read_text(path + "/output.buf.zst.url")
     let filename = name + ".buf.zst"
     let resp = @harness.download_url_with_cache(
-      output_url.trim().to_owned(),
+      output_url.trim().to_string(),
       filename,
     )
     let expected = zstd_decode(resp)

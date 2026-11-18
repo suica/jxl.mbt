@@ -1,7 +1,17 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "suica/jxl_tests/cms"
+package "suica/jxl_tests/tests/cms"
+
+import {
+  "suica/jxl",
+  "suica/jxl/image",
+}
 
 // Values
+pub fn linear_srgb() -> @image.EnumColourEncoding
+
+pub fn open_cmyk_layers() -> @jxl.JxlImage raise
+
+pub fn render_frame_rgb(@jxl.JxlImage) -> FixedArray[Float] raise
 
 // Errors
 

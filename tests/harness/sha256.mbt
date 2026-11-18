@@ -123,7 +123,7 @@ pub fn sha256_hex(data : BytesView) -> String {
 /// `ring::test::from_hex`.
 pub fn from_hex(hex : String) -> Bytes raise Failure {
   guard hex.length() % 2 == 0 else { fail("odd hex length") }
-  let digit = fn(c : Int) raise Failure {
+  let digit = fn(c : Int32) raise Failure {
     if c >= '0'.to_int() && c <= '9'.to_int() {
       c - '0'.to_int()
     } else if c >= 'a'.to_int() && c <= 'f'.to_int() {

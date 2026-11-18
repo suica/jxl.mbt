@@ -295,53 +295,68 @@ pub fn ImageStream::channels(self : ImageStream) -> Int32 {
 /// `[0, 1]`), `UInt16` (16-bit unsigned integer samples) and `Byte` (8-bit
 /// unsigned integer samples).
 pub trait FrameBufferSample {
-  default_sample() -> Self
-  copy_from_grid(@render.ImageBuffer, Int, Int, @image.BitDepth) -> Self
-  copy_from_f32(Float) -> Self
+  fn default_sample() -> Self
+  fn copy_from_grid(@render.ImageBuffer, Int32, Int32, @image.BitDepth) -> Self
+  fn copy_from_f32(Float) -> Self
 }
 
 ///|
-pub impl FrameBufferSample for Float with default_sample() {
+pub impl FrameBufferSample for Float with fn default_sample() {
   0.0
 }
 
 ///|
-pub impl FrameBufferSample for Float with copy_from_grid(grid, x, y, bit_depth) {
+pub impl FrameBufferSample for Float with fn copy_from_grid(
+  grid,
+  x,
+  y,
+  bit_depth,
+) {
   sample_f32(grid, x, y, bit_depth)
 }
 
 ///|
-pub impl FrameBufferSample for Float with copy_from_f32(val) {
+pub impl FrameBufferSample for Float with fn copy_from_f32(val) {
   val
 }
 
 ///|
-pub impl FrameBufferSample for UInt16 with default_sample() {
+pub impl FrameBufferSample for UInt16 with fn default_sample() {
   0
 }
 
 ///|
-pub impl FrameBufferSample for UInt16 with copy_from_grid(grid, x, y, bit_depth) {
+pub impl FrameBufferSample for UInt16 with fn copy_from_grid(
+  grid,
+  x,
+  y,
+  bit_depth,
+) {
   copy_u16_from_grid(grid, x, y, bit_depth).to_uint16()
 }
 
 ///|
-pub impl FrameBufferSample for UInt16 with copy_from_f32(val) {
+pub impl FrameBufferSample for UInt16 with fn copy_from_f32(val) {
   sample_f32_to_u16(val).to_uint16()
 }
 
 ///|
-pub impl FrameBufferSample for Byte with default_sample() {
+pub impl FrameBufferSample for Byte with fn default_sample() {
   b'\x00'
 }
 
 ///|
-pub impl FrameBufferSample for Byte with copy_from_grid(grid, x, y, bit_depth) {
+pub impl FrameBufferSample for Byte with fn copy_from_grid(
+  grid,
+  x,
+  y,
+  bit_depth,
+) {
   copy_u8_from_grid(grid, x, y, bit_depth).to_byte()
 }
 
 ///|
-pub impl FrameBufferSample for Byte with copy_from_f32(val) {
+pub impl FrameBufferSample for Byte with fn copy_from_f32(val) {
   sample_f32_to_u8(val).to_byte()
 }
 
@@ -436,7 +451,7 @@ fn copy_u8_from_grid(
 pub fn[Sample : FrameBufferSample] ImageStream::write_to_buffer(
   self : ImageStream,
   buf : FixedArray[Sample],
-) -> Int {
+) -> Int32 {
   let channels = self.grids.length()
   let capacity = buf.length()
   let mut count = 0

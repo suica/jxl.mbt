@@ -1,11 +1,7 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "suica/jxl_tests/jbrd"
+package "suica/jxl_tests/tests/jbrd"
 
 // Values
-pub fn conformance(String) -> String
-
-pub fn decode_case(String) -> String
-
 pub fn run_jbrd(String, String) -> Unit raise
 
 // Errors

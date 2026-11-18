@@ -159,7 +159,7 @@ pub fn create_dir_all(path : String) -> Unit raise Failure {
   let parts = path.split("/").collect()
   let mut cur = ""
   for i, p in parts {
-    cur = if i == 0 { p.to_string() } else { cur + "/" + p.to_string() }
+    cur = if i == 0 { p.to_owned() } else { cur + "/" + p.to_owned() }
     if cur != "" && cur != "." && !@fs.path_exists(cur) {
       @fs.create_dir(cur) catch {
         IOError(msg) => fail("Failed to create \{cur}: \{msg}")

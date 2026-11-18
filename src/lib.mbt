@@ -61,6 +61,22 @@ pub using @image {
 pub using @threadpool {type JxlThreadPool}
 
 ///|
+/// The CMS set on every new image: upstream sets `Lcms2` when the `lcms2`
+/// feature is enabled (else `Moxcms` with the `moxcms` feature), and none
+/// (`NullCms`) without either, the default. MoonBit has no Cargo features;
+/// `enable_default_cms` plays the role of enabling one.
+let default_cms : Ref[&@color.ColorManagementSystem?] = Ref(None)
+
+///|
+/// What enabling jxl-oxide's `lcms2` (or `moxcms`) Cargo feature does: images
+/// initialized afterwards get `cms` set by default (`ctx.set_cms(Lcms2)`).
+/// Without a call, the default CMS is `NullCms`, as upstream's default
+/// features. Pass `None` to go back to that.
+pub fn enable_default_cms(cms : &@color.ColorManagementSystem?) -> Unit {
+  default_cms.val = cms
+}
+
+///|
 /// Upstream's default pool: `JxlThreadPool::none()` without `rayon`.
 fn default_pool() -> @threadpool.JxlThreadPool {
   @threadpool.JxlThreadPool::none()
@@ -76,7 +92,7 @@ pub struct JxlImageBuilder {
 
 ///|
 pub fn JxlImageBuilder::default() -> JxlImageBuilder {
-  { pool: None, tracker: None, force_wide_buffers: false }
+  { pool: None, tracker: None, force_wide_buffers: false, }
 }
 
 ///|
@@ -130,7 +146,7 @@ pub fn JxlImageBuilder::build_uninit(
 
 ///|
 /// `buf.copy_within(from..to, 0)`.
-fn copy_to_front(buf : FixedArray[Byte], from : Int, to : Int) -> Unit {
+fn copy_to_front(buf : FixedArray[Byte], from : Int32, to : Int32) -> Unit {
   for i in 0..<(to - from) {
     buf[i] = buf[from + i]
   }
@@ -294,6 +310,9 @@ pub fn UninitializedJxlImage::try_init(
   }
   builder = builder.force_wide_buffers(self.force_wide_buffers)
   let ctx = builder.build(image_header)
+  if default_cms.val is Some(cms) {
+    ctx.set_cms(cms)
+  }
   let image : JxlImage = {
     pool: self.pool,
     reader: self.reader,
