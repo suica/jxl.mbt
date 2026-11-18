@@ -3,7 +3,7 @@
 ///|
 /// Parameters of a dequantization matrix, as encoded in the bitstream.
 /// All arrays are indexed by channel first (X, Y, B).
-enum DequantMatrixParamsEncoding {
+priv enum DequantMatrixParamsEncoding {
   Hornuss(FixedArray[FixedArray[Float]])
   Dct2(FixedArray[FixedArray[Float]])
   Dct4(
@@ -26,7 +26,7 @@ enum DequantMatrixParamsEncoding {
 }
 
 ///|
-struct DequantMatrixParams {
+priv struct DequantMatrixParams {
   dct_select : TransformType
   encoding : DequantMatrixParamsEncoding
 }

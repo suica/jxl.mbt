@@ -1,5 +1,14 @@
 import {
   "suica/jxl/bitstream",
   "suica/jxl/grid",
-  "moonbitlang/core/math",
+  "suica/jxl/coding",
+  "suica/jxl/modular",
 }
+
+import {
+  "moonbitlang/core/math",
+} for "wbtest"
+
+import {
+  "suica/jxl/bitstream",
+} for "test"

@@ -252,7 +252,10 @@ test "transform matches jxl-oxide bit-exactly" {
 ///|
 test "default dequant matrices match jxl-oxide" {
   let bs = @bitstream.Bitstream::new(b"\x01\x00\x00\x00\x00\x00\x00\x00")
-  let set = DequantMatrixSet::parse(bs, DequantMatrixSetParams::new(8, 1, None))
+  let set = DequantMatrixSet::parse(
+    bs,
+    DequantMatrixSetParams::new(8, 1, None, None),
+  )
   for entry in ref_dequant {
     let (i, c, h, h_tr) = entry
     let ty = dct_select_list[i]
@@ -320,7 +323,10 @@ test "parametrised dequant matrices match jxl-oxide" {
     (16, 2, 835906433U, 935104179U),
   ]
   let bs = @bitstream.Bitstream::new(data)
-  let set = DequantMatrixSet::parse(bs, DequantMatrixSetParams::new(8, 1, None))
+  let set = DequantMatrixSet::parse(
+    bs,
+    DequantMatrixSetParams::new(8, 1, None, None),
+  )
   assert_eq(bs.num_read_bits(), 3008)
   for entry in expected {
     let (i, c, h, h_tr) = entry
