@@ -308,7 +308,7 @@ fn render_vardct(
       e => abort("prepare_subimage: \{@debug.to_string(e)}")
     }
     ignore(subimage.finish())
-    fb.extend_from_gmodular(gmodular)
+    fb.extend_from_gmodular(gmodular, narrow=cache.narrow)
   }
   fb
 }
