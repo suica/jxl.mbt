@@ -26,15 +26,14 @@ pub fn apply_gabor_like(
     views.push(
       g
       .as_subgrid()
-      .subgrid(
-        left,
-        top,
-        color_padded_region.width,
-        color_padded_region.height,
-      ),
+      .subgrid(left, top, color_padded_region.width, color_padded_region.height),
     )
   }
-  apply_gabor_like_grids(views, [fb_scratch[0], fb_scratch[1], fb_scratch[2]], weights)
+  apply_gabor_like_grids(
+    views,
+    [fb_scratch[0], fb_scratch[1], fb_scratch[2]],
+    weights,
+  )
   let left = color_padded_region.left
   let top = color_padded_region.top
   for idx in 0..<3 {
@@ -55,7 +54,7 @@ pub fn apply_epf(
   fb_image : ImageWithRegion,
   fb_scratch_arr : FixedArray[@grid.Grid[Float]],
   color_padded_region : Region,
-  lf_groups : Map[Int, @frame.LfGroup],
+  lf_groups : Map[Int32, @frame.LfGroup],
   frame_header : @frame.FrameHeader,
   epf_params : @frame.EpfParams,
 ) -> Unit {
@@ -70,12 +69,7 @@ pub fn apply_epf(
     fb.push(
       g
       .as_subgrid()
-      .subgrid(
-        left,
-        top,
-        color_padded_region.width,
-        color_padded_region.height,
-      ),
+      .subgrid(left, top, color_padded_region.width, color_padded_region.height),
     )
   }
   let num_lf_groups = frame_header.num_lf_groups()
@@ -149,7 +143,7 @@ pub fn upsample(
   grid : @grid.SubGrid[Float],
   out_region : Ref[Region],
   image_header : @image.ImageHeader,
-  factor : Int,
+  factor : Int32,
   tracker : @grid.AllocTracker?,
 ) -> @grid.Grid[Float]? raise @bitstream.JxlError {
   let metadata = image_header.metadata
@@ -196,8 +190,8 @@ pub fn render_spline(
 /// Renders noise onto the color channels of `grid`.
 pub fn render_noise(
   header : @frame.FrameHeader,
-  visible_frames_num : Int,
-  invisible_frames_num : Int,
+  visible_frames_num : Int32,
+  invisible_frames_num : Int32,
   base_correlations_xb : (Float, Float)?,
   grid : ImageWithRegion,
   params : @frame.NoiseParameters,

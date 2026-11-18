@@ -5,10 +5,10 @@
 /// upstream and are kept non-negative here.
 #derive(Eq, Debug, Default, Hash)
 pub(all) struct Region {
-  left : Int
-  top : Int
-  width : Int
-  height : Int
+  left : Int32
+  top : Int32
+  width : Int32
+  height : Int32
 }
 
 ///|
@@ -19,8 +19,9 @@ const I32_MIN : Int64 = -0x80000000L
 
 ///|
 /// `i32::saturating_add_unsigned`.
-fn sat_add_unsigned(a : Int, b : Int) -> Int {
-  let r = a.to_int64() + b.reinterpret_as_uint().to_uint64().reinterpret_as_int64()
+fn sat_add_unsigned(a : Int32, b : Int32) -> Int32 {
+  let r = a.to_int64() +
+    b.reinterpret_as_uint().to_uint64().reinterpret_as_int64()
   if r > I32_MAX {
     I32_MAX.to_int()
   } else {
@@ -30,8 +31,9 @@ fn sat_add_unsigned(a : Int, b : Int) -> Int {
 
 ///|
 /// `i32::saturating_sub_unsigned`.
-fn sat_sub_unsigned(a : Int, b : Int) -> Int {
-  let r = a.to_int64() - b.reinterpret_as_uint().to_uint64().reinterpret_as_int64()
+fn sat_sub_unsigned(a : Int32, b : Int32) -> Int32 {
+  let r = a.to_int64() -
+    b.reinterpret_as_uint().to_uint64().reinterpret_as_int64()
   if r < I32_MIN {
     I32_MIN.to_int()
   } else {
@@ -41,19 +43,19 @@ fn sat_sub_unsigned(a : Int, b : Int) -> Int {
 
 ///|
 /// `i32::abs_diff` (result fits in `u32`, returned as `Int`).
-fn abs_diff(a : Int, b : Int) -> Int {
+fn abs_diff(a : Int32, b : Int32) -> Int32 {
   let d = a.to_int64() - b.to_int64()
   (if d < 0L { -d } else { d }).to_int()
 }
 
 ///|
 pub fn Region::empty() -> Region {
-  { left: 0, top: 0, width: 0, height: 0 }
+  { left: 0, top: 0, width: 0, height: 0, }
 }
 
 ///|
-pub fn Region::with_size(width : Int, height : Int) -> Region {
-  { left: 0, top: 0, width, height }
+pub fn Region::with_size(width : Int32, height : Int32) -> Region {
+  { left: 0, top: 0, width, height, }
 }
 
 ///|
@@ -62,12 +64,12 @@ pub fn Region::is_empty(self : Region) -> Bool {
 }
 
 ///|
-pub fn Region::right(self : Region) -> Int {
+pub fn Region::right(self : Region) -> Int32 {
   sat_add_unsigned(self.left, self.width)
 }
 
 ///|
-pub fn Region::bottom(self : Region) -> Int {
+pub fn Region::bottom(self : Region) -> Int32 {
   sat_add_unsigned(self.top, self.height)
 }
 
@@ -83,8 +85,8 @@ pub fn Region::contains(self : Region, target : Region) -> Bool {
 }
 
 ///|
-pub fn Region::translate(self : Region, x : Int, y : Int) -> Region {
-  { ..self, left: self.left + x, top: self.top + y }
+pub fn Region::translate(self : Region, x : Int32, y : Int32) -> Region {
+  { ..self, left: self.left + x, top: self.top + y, }
 }
 
 ///|
@@ -119,7 +121,7 @@ pub fn Region::intersection(self : Region, rhs : Region) -> Region {
 }
 
 ///|
-fn min_int(a : Int, b : Int) -> Int {
+fn min_int(a : Int32, b : Int32) -> Int32 {
   if a < b {
     a
   } else {
@@ -128,7 +130,7 @@ fn min_int(a : Int, b : Int) -> Int {
 }
 
 ///|
-fn max_int(a : Int, b : Int) -> Int {
+fn max_int(a : Int32, b : Int32) -> Int32 {
   if a > b {
     a
   } else {
@@ -149,16 +151,11 @@ pub fn Region::merge(self : Region, other : Region) -> Region {
   // wrapping_add_unsigned
   let right = max_int(self.left + self.width, other.left + other.width)
   let bottom = max_int(self.top + self.height, other.top + other.height)
-  {
-    left,
-    top,
-    width: abs_diff(right, left),
-    height: abs_diff(bottom, top),
-  }
+  { left, top, width: abs_diff(right, left), height: abs_diff(bottom, top), }
 }
 
 ///|
-pub fn Region::pad(self : Region, size : Int) -> Region {
+pub fn Region::pad(self : Region, size : Int32) -> Region {
   {
     left: sat_sub_unsigned(self.left, size),
     top: sat_sub_unsigned(self.top, size),
@@ -168,7 +165,7 @@ pub fn Region::pad(self : Region, size : Int) -> Region {
 }
 
 ///|
-pub fn Region::downsample(self : Region, factor : Int) -> Region {
+pub fn Region::downsample(self : Region, factor : Int32) -> Region {
   if factor == 0 {
     return self
   }
@@ -188,8 +185,8 @@ pub fn Region::downsample(self : Region, factor : Int) -> Region {
 ///|
 pub fn Region::downsample_separate(
   self : Region,
-  factor_x : Int,
-  factor_y : Int,
+  factor_x : Int32,
+  factor_y : Int32,
 ) -> Region {
   if factor_x == 0 && factor_y == 0 {
     return self
@@ -218,19 +215,19 @@ pub fn Region::downsample_with_shift(
   let left = self.left >> factor_x
   let top = self.top >> factor_y
   let (width, height) = shift.shift_size((self.width, self.height))
-  { left, top, width, height }
+  { left, top, width, height, }
 }
 
 ///|
-pub fn Region::upsample(self : Region, factor : Int) -> Region {
+pub fn Region::upsample(self : Region, factor : Int32) -> Region {
   self.upsample_separate(factor, factor)
 }
 
 ///|
 pub fn Region::upsample_separate(
   self : Region,
-  factor_x : Int,
-  factor_y : Int,
+  factor_x : Int32,
+  factor_y : Int32,
 ) -> Region {
   {
     left: self.left << factor_x,
@@ -242,7 +239,7 @@ pub fn Region::upsample_separate(
 
 ///|
 /// Aligns the region to a multiple of `grid_dim` (a power of two).
-pub fn Region::container_aligned(self : Region, grid_dim : Int) -> Region {
+pub fn Region::container_aligned(self : Region, grid_dim : Int32) -> Region {
   let add = grid_dim - 1
   let mask = add.lnot()
   let new_left = self.left & mask

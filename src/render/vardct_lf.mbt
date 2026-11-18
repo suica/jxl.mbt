@@ -34,8 +34,8 @@ fn maxf(a : Float, b : Float) -> Float {
 
 ///|
 fn adaptive_lf_smoothing_impl(
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
   shifts : FixedArray[@modular.ChannelShift],
   in_xyb : FixedArray[FixedArray[Float]],
   lf_xyb : FixedArray[Float],
@@ -113,8 +113,8 @@ fn adaptive_lf_smoothing_impl(
 
 ///|
 fn adaptive_lf_smoothing_subsampled_impl(
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
   shifts : FixedArray[@modular.ChannelShift],
   in_xyb : FixedArray[FixedArray[Float]],
   lf_xyb : FixedArray[Float],
@@ -141,7 +141,10 @@ fn adaptive_lf_smoothing_subsampled_impl(
       let down = (y + 2) * w
       for x in 0..<(w - 2) {
         let me = g[center + x + 1]
-        let side = g[up + x + 1] + g[center + x] + g[center + x + 2] + g[down + x + 1]
+        let side = g[up + x + 1] +
+          g[center + x] +
+          g[center + x + 2] +
+          g[down + x + 1]
         let diag = g[up + x] + g[up + x + 2] + g[down + x] + g[down + x + 2]
         out[y * (w - 2) + x] = me * SCALE_SELF +
           side * SCALE_SIDE +

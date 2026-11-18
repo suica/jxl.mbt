@@ -17,7 +17,7 @@ fn conformance_dir() -> String {
 }
 
 ///|
-fn be32(b : Bytes, i : Int) -> Int {
+fn be32(b : Bytes, i : Int32) -> Int32 {
   (b[i].to_int() << 24) |
   (b[i + 1].to_int() << 16) |
   (b[i + 2].to_int() << 8) |
@@ -59,10 +59,12 @@ fn extract_codestream(data : Bytes) -> Bytes {
 
 ///|
 /// Reference image: (frames, height, width, channels, samples).
-fn read_npy(path : String) -> (Int, Int, Int, Int, FixedArray[Float]) raise {
+fn read_npy(
+  path : String,
+) -> (Int32, Int32, Int32, Int32, FixedArray[Float]) raise {
   let b = @fs.read_file_to_bytes(path)
   let header_len = b[8].to_int() | (b[9].to_int() << 8)
-  let dims : Array[Int] = []
+  let dims : Array[Int32] = []
   let mut i = 10
   let end = 10 + header_len
   while i + 10 < end && b[i:i + 10].to_owned() != b"'shape': (" {
@@ -101,11 +103,12 @@ fn read_npy(path : String) -> (Int, Int, Int, Int, FixedArray[Float]) raise {
 /// loaded.
 fn load_image(
   codestream : Bytes,
+  target_icc? : Bytes,
 ) -> (@render.RenderContext, @image.ImageHeader) raise {
   let bs = @bitstream.Bitstream::new(codestream)
   let image_header = @image.ImageHeader::parse(bs)
   let embedded_icc = if image_header.metadata.colour_encoding.want_icc() {
-    @color.read_icc(bs)
+    @color.decode_icc(@color.read_icc(bs))
   } else {
     b""
   }
@@ -113,6 +116,12 @@ fn load_image(
   let ctx = @render.RenderContext::builder()
     .embedded_icc(embedded_icc)
     .build(image_header)
+  // As jxl-oxide's conformance tests: an ICC-capable CMS, and the
+  // reference colour space requested as the output encoding.
+  ctx.set_cms(@cms.MoonCms::{ })
+  if target_icc is Some(icc) {
+    ctx.request_color_encoding(@color.ColorEncodingWithProfile::with_icc(icc))
+  }
   if image_header.metadata.have_preview {
     // Skip the preview frame.
     fail("preview frames are not supported by this test")
@@ -142,23 +151,42 @@ fn load_image(
 }
 
 ///|
-/// Compares rendered keyframe `idx` against the reference; returns
+fn read_target_icc(dir : String) -> Bytes? raise {
+  let path = dir + "/reference.icc"
+  if @fs.path_exists(path) {
+    Some(@fs.read_file_to_bytes(path))
+  } else {
+    None
+  }
+}
+
+///|
+/// Compares a rendered keyframe with frame `frame_idx` of the reference
+/// (oriented, `height` x `width` x `channels`); returns per-channel
 /// (peak error, rms error).
 fn compare_frame(
   image : @render.ImageWithRegion,
   ref_ : FixedArray[Float],
-  frame_idx : Int,
-  height : Int,
-  width : Int,
-  channels : Int,
-  bit_depth : Array[@image.BitDepth],
-  frame_x0 : Int,
-  frame_y0 : Int,
-) -> (Double, Double) {
-  let mut peak = 0.0
-  let mut sum_sq = 0.0
+  frame_idx : Int32,
+  height : Int32,
+  width : Int32,
+  channels : Int32,
+  header : @image.ImageHeader,
+  frame_x0 : Int32,
+  frame_y0 : Int32,
+) -> Array[(Double, Double)] {
+  let bit_depth = []
+  for _ in 0..<image.color_channels() {
+    bit_depth.push(header.metadata.bit_depth)
+  }
+  for ec in header.metadata.ec_info {
+    bit_depth.push(ec.bit_depth)
+  }
   let regions = image.regions_and_shifts()
   let buffers = image.buffer()
+  let iw = header.size.width
+  let ih = header.size.height
+  let out = []
   for c in 0..<channels {
     // Integer (modular) buffers are scaled with the channel bit depth, as
     // the public API does.
@@ -173,8 +201,10 @@ fn compare_frame(
       }
     }
     let (region, _) = regions[c]
-    for y in 0..<height {
-      for x in 0..<width {
+    let mut peak = 0.0
+    let mut sum_sq = 0.0
+    for y in 0..<ih {
+      for x in 0..<iw {
         // Regions are in frame coordinates.
         let gx = x - frame_x0 - region.left
         let gy = y - frame_y0 - region.top
@@ -183,7 +213,11 @@ fn compare_frame(
         } else {
           0.0
         }
-        let r = ref_[((frame_idx * height + y) * width + x) * channels + c].to_double()
+        // Image coordinates to oriented (reference) coordinates.
+        let (_, _, ox, oy) = header.metadata.apply_orientation(
+          iw, ih, x, y, false,
+        )
+        let r = ref_[((frame_idx * height + oy) * width + ox) * channels + c].to_double()
         let d = (v - r).abs()
         if d > peak {
           peak = d
@@ -191,58 +225,9 @@ fn compare_frame(
         sum_sq += d * d
       }
     }
+    out.push((peak, (sum_sq / (iw * ih).to_double()).sqrt()))
   }
-  (peak, (sum_sq / (width * height * channels).to_double()).sqrt())
-}
-
-///|
-fn run_case(name : String) -> Unit raise {
-  let dir = conformance_dir() + "/" + name
-  let npy = dir + "/reference_image.npy"
-  if !@fs.path_exists(npy) {
-    println("\{name}: reference not found; skipped")
-    return
-  }
-  let data = @fs.read_file_to_bytes(dir + "/input.jxl")
-  let (ctx, header) = load_image(extract_codestream(data))
-  let (frames, height, width, channels, ref_) = read_npy(npy)
-  assert_eq(ctx.loaded_keyframes(), frames)
-  for k in 0..<frames {
-    let image = ctx.render_keyframe(k)
-    let fh = ctx.keyframe(k).unwrap().header()
-    let bit_depth = []
-    for c in 0..<image.color_channels() {
-      bit_depth.push(header.metadata.bit_depth)
-    }
-    for ec in header.metadata.ec_info {
-      bit_depth.push(ec.bit_depth)
-    }
-    let (peak, rms) = compare_frame(
-      image, ref_, k, height, width, channels, bit_depth, fh.x0, fh.y0,
-    )
-    println("\{name} frame \{k}: peak \{peak} rms \{rms}")
-    // Tolerances of test.json for these cases.
-    assert_true(peak <= 0.000976562 + 1.0e-6, msg="\{name}: peak error \{peak}")
-    assert_true(rms <= 0.000976562 + 1.0e-6, msg="\{name}: rms error \{rms}")
-  }
-}
-
-///|
-test "render modular conformance: delta_palette" {
-  if !@fs.path_exists(conformance_dir()) {
-    println("conformance testcases not found; skipped")
-    return
-  }
-  run_case("delta_palette")
-}
-
-///|
-test "render modular conformance: lz77_flower" {
-  if !@fs.path_exists(conformance_dir()) {
-    println("conformance testcases not found; skipped")
-    return
-  }
-  run_case("lz77_flower")
+  out
 }
 
 ///|
@@ -259,50 +244,112 @@ fn tolerances(dir : String) -> Array[(Double, Double)] raise {
 }
 
 ///|
-/// Renders every conformance test case and reports the result (set
-/// `JXL_RENDER_SWEEP=1`); does not fail on mismatches.
-test "render conformance sweep" {
-  guard @env.get_env_var("JXL_RENDER_SWEEP") is Some("1") else { return }
-  let root = conformance_dir()
-  let names = @fs.read_dir(root).iter().collect()
-  names.sort()
-  for name in names {
-    let dir = root + "/" + name
-    if !@fs.path_exists(dir + "/reference_image.npy") {
+/// Decodes and renders test case `name`, comparing every keyframe with the
+/// reference. Returns whether all channels are within tolerance, and a
+/// report line.
+fn check_case(name : String) -> (Bool, String) raise {
+  let dir = conformance_dir() + "/" + name
+  let tol = tolerances(dir)
+  let data = @fs.read_file_to_bytes(dir + "/input.jxl")
+  let (ctx, header) = load_image(
+    extract_codestream(data),
+    target_icc?=read_target_icc(dir),
+  )
+  let (frames, height, width, channels, ref_) = read_npy(
+    dir + "/reference_image.npy",
+  )
+  let mut all_ok = ctx.loaded_keyframes() == frames
+  let mut msg = "frames \{ctx.loaded_keyframes()}/\{frames}"
+  for k in 0..<frames {
+    let image = ctx.render_keyframe(k)
+    let fh = ctx.keyframe(k).unwrap().header()
+    if image.channels() < channels {
+      all_ok = false
+      msg += " | f\{k}: \{image.channels()} channels < \{channels}"
       continue
     }
-    try {
-      let tol = tolerances(dir)
-      let data = @fs.read_file_to_bytes(dir + "/input.jxl")
-      let (ctx, header) = load_image(extract_codestream(data))
-      let (frames, height, width, channels, ref_) = read_npy(
-        dir + "/reference_image.npy",
-      )
-      let mut msg = "frames \{ctx.loaded_keyframes()}/\{frames}"
-      for k in 0..<frames {
-        let image = ctx.render_keyframe(k)
-    let fh = ctx.keyframe(k).unwrap().header()
-        let bit_depth = []
-        for _ in 0..<image.color_channels() {
-          bit_depth.push(header.metadata.bit_depth)
-        }
-        for ec in header.metadata.ec_info {
-          bit_depth.push(ec.bit_depth)
-        }
-        if image.channels() < channels {
-          msg += " | frame \{k}: \{image.channels()} channels < \{channels}"
-          continue
-        }
-        let (peak, rms) = compare_frame(
-          image, ref_, k, height, width, channels, bit_depth, fh.x0, fh.y0,
-        )
-        let (tp, tr) = tol[k]
-        let ok = peak <= tp && rms <= tr
-        msg += " | \{if ok { "OK" } else { "FAIL" }} f\{k} peak \{peak} rms \{rms}"
-      }
-      println("\{name}: \{msg}")
-    } catch {
-      e => println("\{name}: ERROR \{e}")
+    let errors = compare_frame(
+      image,
+      ref_,
+      k,
+      height,
+      width,
+      channels,
+      header,
+      fh.x0,
+      fh.y0,
+    )
+    // As libjxl's conformance script: peak and RMS error over all samples
+    // of the frame, against the frame's tolerances in test.json.
+    let mut peak = 0.0
+    let mut sum_sq = 0.0
+    for e in errors {
+      peak = if e.0 > peak { e.0 } else { peak }
+      sum_sq += e.1 * e.1
+    }
+    let rms = (sum_sq / errors.length().to_double()).sqrt()
+    let (tp, tr) = tol[k]
+    let ok = peak <= tp && rms <= tr
+    if !ok {
+      all_ok = false
+    }
+    if !ok || k == 0 || (frames > 1 && k == frames - 1) {
+      msg += " | \{if ok { "ok" } else { "FAIL" }} f\{k} peak \{fmt(peak)} (max \{fmt(tp)}) rms \{fmt(rms)} (max \{fmt(tr)})"
     }
   }
+  (all_ok, msg)
+}
+
+///|
+fn fmt(x : Double) -> String {
+  if x == 0.0 {
+    return "0"
+  }
+  // 3 significant digits in scientific notation
+  let mut e = 0
+  let mut m = x
+  while m >= 10.0 {
+    m /= 10.0
+    e += 1
+  }
+  while m < 1.0 {
+    m *= 10.0
+    e -= 1
+  }
+  let r = (m * 100.0).round() / 100.0
+  "\{r}e\{e}"
+}
+
+///|
+/// Renders every conformance test case with a reference image, printing one
+/// line per case; fails if any case fails.
+test "render conformance: all cases" {
+  let root = conformance_dir()
+  if !@fs.path_exists(root) {
+    println("conformance testcases not found at \{root}; skipped")
+    return
+  }
+  let names = @fs.read_dir(root).iter().collect()
+  names.sort()
+  let failed = []
+  for name in names {
+    if !@fs.path_exists(root + "/" + name + "/reference_image.npy") {
+      continue
+    }
+    try check_case(name) catch {
+      e => {
+        failed.push(name)
+        println("\{name}: ERROR \{@debug.to_string(e)}")
+      }
+    } noraise {
+      (ok, msg) => {
+        if !ok {
+          failed.push(name)
+        }
+        println("\{if ok { "PASS" } else { "FAIL" }} \{name}: \{msg}")
+      }
+    }
+  }
+  println("failed (\{failed.length()}): \{@debug.to_string(failed)}")
+  assert_true(failed.is_empty())
 }

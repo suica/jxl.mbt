@@ -30,17 +30,15 @@ pub fn render_modular(
   let pass_group_image = groups.pass_groups
   let mut result : @bitstream.JxlError? = None
   // Decode
-  try {
-    ignore(
-      load_lf_groups(
-        frame,
-        lf_global,
-        cache.lf_groups,
-        lf_group_image,
-        modular_region.downsample(3),
-      ),
-    )
-  } catch {
+  ignore(
+    load_lf_groups(
+      frame,
+      lf_global,
+      cache.lf_groups,
+      lf_group_image,
+      modular_region.downsample(3),
+    ),
+  ) catch {
     e => result = Some(e)
   }
   let group_dim = frame_header.group_dim()

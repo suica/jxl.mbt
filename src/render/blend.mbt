@@ -21,16 +21,16 @@ priv struct BlendAlpha {
 ///|
 priv struct BlendParams {
   mode : BlendMode
-  mut base_topleft : (Int, Int)
-  mut new_topleft : (Int, Int)
-  mut width : Int
-  mut height : Int
+  mut base_topleft : (Int32, Int32)
+  mut new_topleft : (Int32, Int32)
+  mut width : Int32
+  mut height : Int32
 }
 
 ///|
 fn BlendParams::from_blending_info(
-  channel_idx : Int,
-  color_channels : Int,
+  channel_idx : Int32,
+  color_channels : Int32,
   blending_info : @frame.BlendingInfo,
   base_alpha : @grid.SubGrid[Float]?,
   new_alpha : @grid.SubGrid[Float]?,
@@ -66,13 +66,13 @@ fn BlendParams::from_blending_info(
       }
     Mul => Mul(blending_info.clamp)
   }
-  { mode, base_topleft: (0, 0), new_topleft: (0, 0), width: 0, height: 0 }
+  { mode, base_topleft: (0, 0), new_topleft: (0, 0), width: 0, height: 0, }
 }
 
 ///|
 fn BlendParams::from_patch_blending_info(
-  channel_idx : Int,
-  color_channels : Int,
+  channel_idx : Int32,
+  color_channels : Int32,
   blending_info : @frame.BlendingModeInformation,
   base_alpha : @grid.SubGrid[Float]?,
   new_alpha : @grid.SubGrid[Float]?,
@@ -117,14 +117,14 @@ fn BlendParams::from_patch_blending_info(
       }
     }
   }
-  Some({ mode, base_topleft: (0, 0), new_topleft: (0, 0), width: 0, height: 0 })
+  Some({ mode, base_topleft: (0, 0), new_topleft: (0, 0), width: 0, height: 0, })
 }
 
 ///|
 fn source_and_alpha_from_blending_info(
   blending_info : @frame.BlendingInfo,
   has_extra : Bool,
-) -> (Int, Int?) {
+) -> (Int32, Int32?) {
   let source = blending_info.source
   let alpha = if (blending_info.mode is Blend || blending_info.mode is MulAdd) &&
     has_extra {
@@ -271,7 +271,10 @@ fn blend(
     if alpha_idx is Some(aidx) {
       let bit_depth = image_header.metadata.ec_info[aidx].bit_depth
       ignore(
-        new_grid.convert_channel_to_float_modular(aidx + color_channels, bit_depth),
+        new_grid.convert_channel_to_float_modular(
+          aidx + color_channels,
+          bit_depth,
+        ),
       )
     }
     ignore(new_grid.convert_channel_to_float_modular(idx, bit_depth))
@@ -374,7 +377,8 @@ pub fn patch(
         @frame.PatchBlendMode::BlendAbove
         | @frame.PatchBlendMode::BlendBelow
         | @frame.PatchBlendMode::MulAddAbove
-        | @frame.PatchBlendMode::MulAddBelow => Some(blending_info.alpha_channel)
+        | @frame.PatchBlendMode::MulAddBelow =>
+          Some(blending_info.alpha_channel)
         _ => None
       }
       let mut base_alpha = None
@@ -472,13 +476,7 @@ fn blend_single(
         }
       }
     Blend(
-      {
-        base: base_alpha,
-        new: Some(new_alpha),
-        clamp,
-        swapped,
-        premultiplied,
-      }
+      { base: base_alpha, new: Some(new_alpha), clamp, swapped, premultiplied, },
     ) =>
       for dy in 0..<height {
         let base_buf_y = base_y + dy

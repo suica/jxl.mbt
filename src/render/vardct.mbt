@@ -8,9 +8,9 @@
 
 ///|
 priv struct VardctGroupJob {
-  group_idx : Int
+  group_idx : Int32
   grid_xyb : FixedArray[@grid.SubGrid[Float]]
-  coeff_xyb : FixedArray[@grid.SubGrid[Int]]
+  coeff_xyb : FixedArray[@grid.SubGrid[Int32]]
   lf_group : @frame.LfGroup
 }
 
@@ -124,7 +124,11 @@ fn render_vardct(
   }
   // Load LF groups
   let lf_xyb = load_lf_groups(
-    frame, lf_global, cache.lf_groups, lf_group_image, modular_lf_region,
+    frame,
+    lf_global,
+    cache.lf_groups,
+    lf_group_image,
+    modular_lf_region,
   )
   let lf_xyb = match lf_frame {
     Some(x) => {
@@ -186,7 +190,7 @@ fn render_vardct(
       let g = grid_xyb[c]
       @grid.Grid::new(g.width, g.height, 0).as_subgrid()
     })
-    it.push({ group_idx, grid_xyb, coeff_xyb, lf_group })
+    it.push({ group_idx, grid_xyb, coeff_xyb, lf_group, })
   }
   // Decode PassGroup
   if hf_global is Some(hf_global) {
@@ -301,8 +305,8 @@ pub fn copy_lf_dequant(
   grid : @grid.SubGrid[Float],
   quantizer : @vardct.Quantizer,
   m_lf : Float,
-  channel_data : @grid.Grid[Int],
-  extra_precision : Int,
+  channel_data : @grid.Grid[Int32],
+  extra_precision : Int32,
 ) -> Unit {
   guard grid.width >= channel_data.width() &&
     grid.height >= channel_data.height() else {
@@ -336,10 +340,16 @@ pub fn adaptive_lf_smoothing(
   tracker : @grid.AllocTracker?,
 ) -> Unit raise @bitstream.JxlError {
   let scale_inv = (quantizer.global_scale.to_uint64() *
-    quantizer.quant_lf.to_uint64()).to_double()
-  let lf_x = Float::from_double(512.0 * lf_dequant.m_x_lf.to_double() / scale_inv)
-  let lf_y = Float::from_double(512.0 * lf_dequant.m_y_lf.to_double() / scale_inv)
-  let lf_b = Float::from_double(512.0 * lf_dequant.m_b_lf.to_double() / scale_inv)
+  quantizer.quant_lf.to_uint64()).to_double()
+  let lf_x = Float::from_double(
+    512.0 * lf_dequant.m_x_lf.to_double() / scale_inv,
+  )
+  let lf_y = Float::from_double(
+    512.0 * lf_dequant.m_y_lf.to_double() / scale_inv,
+  )
+  let lf_b = Float::from_double(
+    512.0 * lf_dequant.m_b_lf.to_double() / scale_inv,
+  )
   let in_x = lf_image[0]
   let in_y = lf_image[1]
   let in_b = lf_image[2]
@@ -358,16 +368,19 @@ pub fn adaptive_lf_smoothing(
 ///|
 fn dequant_hf_varblock_grouped(
   out : FixedArray[@grid.SubGrid[Float]],
-  coeff_in : FixedArray[@grid.SubGrid[Int]],
-  group_idx : Int,
+  coeff_in : FixedArray[@grid.SubGrid[Int32]],
+  group_idx : Int32,
   image_header : @image.ImageHeader,
   frame_header : @frame.FrameHeader,
   lf_global : @frame.LfGlobal,
-  lf_groups : Map[Int, @frame.LfGroup],
+  lf_groups : Map[Int32, @frame.LfGroup],
   hf_global : @frame.HfGlobal,
 ) -> Unit {
   let shifts_cbycr = FixedArray::makei(3, idx => {
-    @modular.ChannelShift::from_jpeg_upsampling(frame_header.jpeg_upsampling, idx)
+    @modular.ChannelShift::from_jpeg_upsampling(
+      frame_header.jpeg_upsampling,
+      idx,
+    )
   })
   let oim = image_header.metadata.opsin_inverse_matrix
   let quantizer = lf_global.vardct.unwrap().quantizer
@@ -438,7 +451,7 @@ fn dequant_hf_varblock_grouped(
 
 ///|
 /// `f32::powi`.
-fn powi_f32(base : Float, exp : Int) -> Float {
+fn powi_f32(base : Float, exp : Int32) -> Float {
   // Rust's powi is implemented with repeated multiplication (llvm.powi).
   let mut result : Float = 1.0
   let mut b = base
@@ -489,8 +502,8 @@ fn chroma_from_luma_lf(
 ///|
 fn chroma_from_luma_hf_grouped(
   coeff_xyb : FixedArray[@grid.SubGrid[Float]],
-  x_from_y : @grid.SubGrid[Int],
-  b_from_y : @grid.SubGrid[Int],
+  x_from_y : @grid.SubGrid[Int32],
+  b_from_y : @grid.SubGrid[Int32],
   lf_chan_corr : @vardct.LfChannelCorrelation,
 ) -> Unit {
   let coeff_x = coeff_xyb[0]
@@ -526,14 +539,17 @@ fn chroma_from_luma_hf_grouped(
 fn transform_with_lf_grouped(
   lf : ImageWithRegion,
   coeff_out : FixedArray[@grid.SubGrid[Float]],
-  group_idx : Int,
+  group_idx : Int32,
   frame_header : @frame.FrameHeader,
-  lf_groups : Map[Int, @frame.LfGroup],
+  lf_groups : Map[Int32, @frame.LfGroup],
 ) -> Unit {
   let lf_regions = lf.regions_and_shifts()
   let lf_grids = lf.as_color_floats()
   let shifts_cbycr = FixedArray::makei(3, idx => {
-    @modular.ChannelShift::from_jpeg_upsampling(frame_header.jpeg_upsampling, idx)
+    @modular.ChannelShift::from_jpeg_upsampling(
+      frame_header.jpeg_upsampling,
+      idx,
+    )
   })
   let group_dim = frame_header.group_dim()
   let groups_per_row = frame_header.groups_per_row()
@@ -549,7 +565,10 @@ fn transform_with_lf_grouped(
     guard lf_base_left >= 0 && lf_base_top >= 0 else {
       abort("transform_with_lf_grouped: LF region does not cover group")
     }
-    let lf_width = min_int(lf_region.width - lf_base_left, (group_width + 7) / 8)
+    let lf_width = min_int(
+      lf_region.width - lf_base_left,
+      (group_width + 7) / 8,
+    )
     let lf_height = min_int(
       lf_region.height - lf_base_top,
       (group_height + 7) / 8,
@@ -583,7 +602,10 @@ fn transform_with_lf_grouped(
     let lf_region = lf_regions[0].0
     let lf_base_left = lf_base_left - lf_region.left
     let lf_base_top = lf_base_top - lf_region.top
-    let lf_width = min_int(lf_region.width - lf_base_left, (group_width + 7) / 8)
+    let lf_width = min_int(
+      lf_region.width - lf_base_left,
+      (group_width + 7) / 8,
+    )
     let lf_height = min_int(
       lf_region.height - lf_base_top,
       (group_height + 7) / 8,
@@ -607,7 +629,7 @@ fn transform_with_lf_grouped(
 fn for_each_varblocks(
   block_info : @grid.SubGrid[@vardct.BlockInfo],
   shift : @modular.ChannelShift,
-  f : ((Int, Int, @vardct.TransformType, Int)) -> Unit,
+  f : ((Int32, Int32, @vardct.TransformType, Int32)) -> Unit,
 ) -> Unit {
   let w8 = block_info.width
   let h8 = block_info.height

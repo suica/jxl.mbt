@@ -15,12 +15,12 @@ pub fn failed_reference() -> @bitstream.JxlError {
 }
 
 ///|
-pub fn uninitialized_lf_frame(lf_level : Int) -> @bitstream.JxlError {
+pub fn uninitialized_lf_frame(lf_level : Int32) -> @bitstream.JxlError {
   @bitstream.Render("UninitializedLfFrame(\{lf_level})")
 }
 
 ///|
-pub fn invalid_reference(idx : Int) -> @bitstream.JxlError {
+pub fn invalid_reference(idx : Int32) -> @bitstream.JxlError {
   @bitstream.Render("InvalidReference(\{idx})")
 }
 

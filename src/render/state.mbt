@@ -5,13 +5,13 @@
 pub struct RenderCache {
   mut lf_global : @frame.LfGlobal?
   mut hf_global : @frame.HfGlobal?
-  lf_groups : Map[Int, @frame.LfGroup]
+  lf_groups : Map[Int32, @frame.LfGroup]
 }
 
 ///|
 pub fn RenderCache::new(_frame : IndexedFrame) -> RenderCache {
   // Upstream also computes (and discards) the LF channel sizes here.
-  { lf_global: None, hf_global: None, lf_groups: {} }
+  { lf_global: None, hf_global: None, lf_groups: {}, }
 }
 
 ///|
@@ -53,7 +53,7 @@ pub fn FrameRenderHandle::new(
   render_op : RenderOp,
   refs : FixedArray[Reference?],
 ) -> FrameRenderHandle {
-  { frame, image_region, render: Empty, render_op, refs }
+  { frame, image_region, render: Empty, render_op, refs, }
 }
 
 ///|
@@ -64,7 +64,7 @@ pub fn FrameRenderHandle::from_cache(
   render_op : RenderOp,
   refs : FixedArray[Reference?],
 ) -> FrameRenderHandle {
-  { frame, image_region, render: InProgress(cache), render_op, refs }
+  { frame, image_region, render: InProgress(cache), render_op, refs, }
 }
 
 ///|

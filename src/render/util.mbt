@@ -49,7 +49,7 @@ pub fn pad_lf_region(
 
 ///|
 /// `u32::ilog2` for a positive value.
-fn ilog2(x : Int) -> Int {
+fn ilog2(x : Int32) -> Int32 {
   31 - x.clz()
 }
 
@@ -126,10 +126,10 @@ pub fn pad_color_region(
 /// jxl-grid `MutableSubgrid::into_groups_with_fixed_count`.
 fn[T] into_groups_with_fixed_count(
   grid : @grid.SubGrid[T],
-  group_width : Int,
-  group_height : Int,
-  num_cols : Int,
-  num_rows : Int,
+  group_width : Int32,
+  group_height : Int32,
+  num_cols : Int32,
+  num_rows : Int32,
 ) -> Array[@grid.SubGrid[T]] {
   let width = grid.width
   let height = grid.height
@@ -157,7 +157,7 @@ fn[T] into_groups_with_fixed_count(
 
 ///|
 priv struct LfGroupJob {
-  idx : Int
+  idx : Int32
   mut lf_group : @frame.LfGroup?
   mut modular : @modular.TransformedModularSubimage?
   lf_xyb : FixedArray[@grid.SubGrid[Float]]?
@@ -169,7 +169,7 @@ priv struct LfGroupJob {
 pub fn load_lf_groups(
   frame : IndexedFrame,
   lf_global : @frame.LfGlobal,
-  lf_groups : Map[Int, @frame.LfGroup],
+  lf_groups : Map[Int32, @frame.LfGroup],
   mlf_groups : Array[@modular.TransformedModularSubimage],
   lf_region : Region,
 ) -> ImageWithRegion? raise @bitstream.JxlError {
@@ -257,7 +257,7 @@ pub fn load_lf_groups(
         )
       None => None
     }
-    jobs.push({ idx, lf_group: None, modular, lf_xyb })
+    jobs.push({ idx, lf_group: None, modular, lf_xyb, })
   }
   let mut result : @bitstream.JxlError? = None
   for job in jobs {
@@ -369,9 +369,13 @@ pub fn convert_color_for_record(
       @color.ColorEncodingWithProfile::new(encoding),
       metadata.opsin_inverse_matrix,
       metadata.tone_mapping,
-      (@color.NullCms::{} : &@color.ColorManagementSystem),
+      (@color.NullCms::{ } : &@color.ColorManagementSystem),
     )
-    let output_channels = transform.run([xyb[0].buf(), xyb[1].buf(), xyb[2].buf()])
+    let output_channels = transform.run([
+      xyb[0].buf(),
+      xyb[1].buf(),
+      xyb[2].buf(),
+    ])
     fb.remove_color_channels(output_channels)
     fb.set_ct_done(true)
   }
@@ -379,7 +383,7 @@ pub fn convert_color_for_record(
 
 ///|
 /// Mirrors `offset` into `0..len`.
-pub fn mirror(offset : Int, len : Int) -> Int {
+pub fn mirror(offset : Int32, len : Int32) -> Int32 {
   let mut offset = offset
   while true {
     if offset < 0 {
@@ -397,14 +401,14 @@ pub fn mirror(offset : Int, len : Int) -> Int {
 /// A grid with `padding` samples of padding on each side.
 pub struct PaddedGrid[S] {
   grid : @grid.Grid[S]
-  padding : Int
+  padding : Int32
 }
 
 ///|
 pub fn[S] PaddedGrid::with_alloc_tracker(
-  width : Int,
-  height : Int,
-  padding : Int,
+  width : Int32,
+  height : Int32,
+  padding : Int32,
   init : S,
   tracker : @grid.AllocTracker?,
 ) -> PaddedGrid[S] raise @bitstream.JxlError {

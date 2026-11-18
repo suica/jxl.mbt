@@ -3,10 +3,10 @@ import {
   "suica/jxl/image",
   "suica/jxl/color",
   "suica/jxl/render",
+  "suica/jxl/cms",
   "suica/jxl/grid",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
-  "moonbitlang/core/cmp",
   "moonbitlang/core/debug",
   "moonbitlang/x/fs",
 } for "test"

@@ -1,6 +1,6 @@
 ///|
 /// Index value meaning "no frame" (`usize::MAX` upstream).
-const NO_FRAME : Int = -1
+const NO_FRAME : Int32 = -1
 
 ///|
 /// Frame with its index in the image (jxl-render `IndexedFrame`).
@@ -9,17 +9,17 @@ const NO_FRAME : Int = -1
 /// commonly used `Frame` methods are forwarded.
 pub struct IndexedFrame {
   f : @frame.Frame
-  idx : Int
+  idx : Int32
 }
 
 ///|
-fn IndexedFrame::new(frame : @frame.Frame, index : Int) -> IndexedFrame {
-  { f: frame, idx: index }
+fn IndexedFrame::new(frame : @frame.Frame, index : Int32) -> IndexedFrame {
+  { f: frame, idx: index, }
 }
 
 ///|
 /// Returns the frame index.
-pub fn IndexedFrame::index(self : IndexedFrame) -> Int {
+pub fn IndexedFrame::index(self : IndexedFrame) -> Int32 {
   self.idx
 }
 
@@ -60,7 +60,7 @@ pub fn IndexedFrame::feed_bytes(
 ///|
 pub fn IndexedFrame::pass_shifts(
   self : IndexedFrame,
-) -> @sorted_map.SortedMap[Int, (Int, Int)] {
+) -> @sorted_map.SortedMap[Int32, (Int32, Int32)] {
   self.f.pass_shifts()
 }
 
@@ -77,7 +77,7 @@ pub fn IndexedFrame::try_parse_lf_group(
   lf_global_vardct : @frame.LfGlobalVarDct?,
   global_ma_config : @modular.MaConfig?,
   mlf_group : @modular.TransformedModularSubimage?,
-  lf_group_idx : Int,
+  lf_group_idx : Int32,
 ) -> @frame.LfGroup? raise @bitstream.JxlError {
   unwrap_opt_result(
     self.f.try_parse_lf_group(
@@ -109,16 +109,16 @@ pub fn IndexedFrame::try_parse_hf_global(
 ///|
 pub fn IndexedFrame::pass_group_bitstream(
   self : IndexedFrame,
-  pass_idx : Int,
-  group_idx : Int,
+  pass_idx : Int32,
+  group_idx : Int32,
 ) -> @frame.PassGroupBitstream? raise @bitstream.JxlError {
   unwrap_opt_result(self.f.pass_group_bitstream(pass_idx, group_idx))
 }
 
 ///|
 struct FrameDependence {
-  lf : Int
-  ref_slots : FixedArray[Int]
+  lf : Int32
+  ref_slots : FixedArray[Int32]
 }
 
 ///|
@@ -141,12 +141,12 @@ pub struct RenderContext {
   tracker : @grid.AllocTracker?
   frames : Array[IndexedFrame]
   renders_wide : Array[FrameRenderHandle]
-  keyframes : Array[Int]
-  mut keyframe_in_progress : Int?
-  refcounts : Array[Int]
+  keyframes : Array[Int32]
+  mut keyframe_in_progress : Int32?
+  refcounts : Array[Int32]
   frame_deps : Array[FrameDependence]
-  lf_frame : FixedArray[Int]
-  reference : FixedArray[Int]
+  lf_frame : FixedArray[Int32]
+  reference : FixedArray[Int32]
   mut loading_frame : IndexedFrame?
   mut loading_render_cache_wide : RenderCache?
   mut loading_region : Region?
@@ -172,7 +172,7 @@ pub struct RenderContextBuilder {
 
 ///|
 pub fn RenderContextBuilder::default() -> RenderContextBuilder {
-  { embedded_icc: b"", tracker: None, force_wide_buffers: false }
+  { embedded_icc: b"", tracker: None, force_wide_buffers: false, }
 }
 
 ///|
@@ -208,8 +208,7 @@ pub fn RenderContextBuilder::build(
   self : RenderContextBuilder,
   image_header : @image.ImageHeader,
 ) -> RenderContext raise @bitstream.JxlError {
-  let requested_color_encoding = match
-    image_header.metadata.colour_encoding {
+  let requested_color_encoding = match image_header.metadata.colour_encoding {
     Enum(encoding) => @color.ColorEncodingWithProfile::new(encoding)
     IccProfile(color_space) => {
       let header_is_gray = color_space is Grey
@@ -273,7 +272,7 @@ pub fn RenderContextBuilder::build(
     requested_image_region: full_image_region,
     embedded_icc: self.embedded_icc,
     requested_color_encoding,
-    cms: (@color.NullCms::{} : &@color.ColorManagementSystem),
+    cms: (@color.NullCms::{ } : &@color.ColorManagementSystem),
     cached_transform: None,
     force_wide_buffers: self.force_wide_buffers,
   }
@@ -347,13 +346,13 @@ pub fn RenderContext::image_region(self : RenderContext) -> Region {
 
 ///|
 /// Returns the image width.
-pub fn RenderContext::width(self : RenderContext) -> Int {
+pub fn RenderContext::width(self : RenderContext) -> Int32 {
   self.image_header.size.width
 }
 
 ///|
 /// Returns the image height.
-pub fn RenderContext::height(self : RenderContext) -> Int {
+pub fn RenderContext::height(self : RenderContext) -> Int32 {
   self.image_header.size.height
 }
 
@@ -368,33 +367,33 @@ pub fn RenderContext::embedded_icc(self : RenderContext) -> Bytes? {
 
 ///|
 /// Returns the number of loaded keyframes in the context.
-pub fn RenderContext::loaded_keyframes(self : RenderContext) -> Int {
+pub fn RenderContext::loaded_keyframes(self : RenderContext) -> Int32 {
   self.keyframes.length()
 }
 
 ///|
 /// Returns the number of loaded frames in the context, including frames that
 /// are not shown directly.
-pub fn RenderContext::loaded_frames(self : RenderContext) -> Int {
+pub fn RenderContext::loaded_frames(self : RenderContext) -> Int32 {
   self.frames.length()
 }
 
 ///|
 fn RenderContext::reference_frames(
   self : RenderContext,
-  lf : Int,
-  ref_slots : FixedArray[Int],
+  lf : Int32,
+  ref_slots : FixedArray[Int32],
 ) -> ReferenceFrames {
   {
     lf: if lf != NO_FRAME {
-      Some({ frame: self.frames[lf], image: self.renders_wide[lf] })
+      Some({ frame: self.frames[lf], image: self.renders_wide[lf], })
     } else {
       None
     },
     refs: FixedArray::makei(4, i => {
       let r = ref_slots[i]
       if r != NO_FRAME {
-        Some({ frame: self.frames[r], image: self.renders_wide[r] })
+        Some({ frame: self.frames[r], image: self.renders_wide[r], })
       } else {
         None
       }
@@ -421,7 +420,7 @@ fn RenderContext::preserve_current_frame(self : RenderContext) -> Unit {
       self.refcounts[ref_idx] += 1
     }
   }
-  let deps : FrameDependence = { lf, ref_slots: self.reference.copy() }
+  let deps : FrameDependence = { lf, ref_slots: self.reference.copy(), }
   if header.can_reference() {
     let ref_idx = header.save_as_reference
     self.reference[ref_idx] = idx
@@ -463,7 +462,8 @@ fn RenderContext::loading_frame_(self : RenderContext) -> IndexedFrame? {
         None => 0
       }
   }
-  if self.loading_frame is Some(f) && f.header().frame_type.is_progressive_frame() {
+  if self.loading_frame is Some(f) &&
+    f.header().frame_type.is_progressive_frame() {
     return Some(f)
   }
   let mut i = self.frames.length() - 1
@@ -532,7 +532,7 @@ fn RenderContext::try_finalize_current_frame(self : RenderContext) -> Bool {
 /// not exist.
 pub fn RenderContext::keyframe(
   self : RenderContext,
-  keyframe_idx : Int,
+  keyframe_idx : Int32,
 ) -> IndexedFrame? {
   if keyframe_idx == self.keyframes.length() {
     self.loading_frame_()
@@ -546,7 +546,7 @@ pub fn RenderContext::keyframe(
 ///|
 pub fn RenderContext::frame(
   self : RenderContext,
-  frame_idx : Int,
+  frame_idx : Int32,
 ) -> IndexedFrame? {
   if self.frames.length() == frame_idx {
     self.loading_frame
@@ -563,7 +563,7 @@ fn do_render(
   reference_frames : ReferenceFrames,
   state : FrameRender,
   image_region : Region,
-  prev_frame_visibility : (Int, Int),
+  prev_frame_visibility : (Int32, Int32),
 ) -> FrameRender {
   // Upstream spawns these on the thread pool; without threads the pool runs
   // them immediately.
@@ -617,7 +617,7 @@ fn RenderContext::render_op(
 fn RenderContext::get_previous_frames_visibility(
   self : RenderContext,
   frame : IndexedFrame,
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   let frame_idx = frame.index()
   let (is_keyframe, keyframe_idx) = match
     self.keyframes.binary_search(frame_idx) {
@@ -641,7 +641,7 @@ fn RenderContext::get_previous_frames_visibility(
 ///|
 fn RenderContext::render_by_index(
   self : RenderContext,
-  index : Int,
+  index : Int32,
 ) -> ImageWithRegion raise @bitstream.JxlError {
   self.renders_wide[index].run_with_image().blend(None)
 }
@@ -664,7 +664,7 @@ pub fn RenderContext::render(
 /// loading methods.
 pub fn RenderContext::render_keyframe(
   self : RenderContext,
-  keyframe_idx : Int,
+  keyframe_idx : Int32,
 ) -> ImageWithRegion raise @bitstream.JxlError {
   guard keyframe_idx >= 0 && keyframe_idx < self.keyframes.length() else {
     raise incomplete_frame()
@@ -808,12 +808,12 @@ fn RenderContext::cache_color_transform(
     .set_srgb_icc(!self.cms.supports_linear_tf())
     .from_pq(self.suggested_hdr_tf() is Some(Pq))
     .build(
-    frame_color_encoding,
-    self.requested_color_encoding,
-    metadata.opsin_inverse_matrix,
-    metadata.tone_mapping,
-    self.cms,
-  )
+      frame_color_encoding,
+      self.requested_color_encoding,
+      metadata.opsin_inverse_matrix,
+      metadata.tone_mapping,
+      self.cms,
+    )
   self.cached_transform = Some(transform)
 }
 

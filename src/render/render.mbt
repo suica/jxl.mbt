@@ -6,7 +6,7 @@ fn render_frame(
   reference_frames : ReferenceFrames,
   cache : RenderCache,
   image_region : Region,
-  frame_visibility : (Int, Int),
+  frame_visibility : (Int32, Int32),
 ) -> ImageWithRegion raise @bitstream.JxlError {
   let frame_region = image_region_to_frame(frame, image_region, false)
   let image_header = frame.image_header()
@@ -29,9 +29,7 @@ fn render_frame(
   let fb = match frame_header.encoding {
     Modular => render_modular(frame, cache, color_padded_region)
     VarDct =>
-      try
-        render_vardct(frame, reference_frames.lf, cache, color_padded_region)
-      catch {
+      render_vardct(frame, reference_frames.lf, cache, color_padded_region) catch {
         e =>
           match reference_frames.lf {
             Some(lf) if is_incomplete_frame(e) || e.unexpected_eof() => {
@@ -122,8 +120,8 @@ fn render_features(
   upsampling_valid_region : Region,
   reference_grids : FixedArray[Reference?],
   cache : RenderCache,
-  visible_frames_num : Int,
-  invisible_frames_num : Int,
+  visible_frames_num : Int32,
+  invisible_frames_num : Int32,
 ) -> Unit raise @bitstream.JxlError {
   let image_header = frame.image_header()
   let frame_header = frame.header()
@@ -133,7 +131,9 @@ fn render_features(
   }
   let base_correlations_xb = match lf_global.vardct {
     Some(x) =>
-      Some((x.lf_chan_corr.base_correlation_x, x.lf_chan_corr.base_correlation_b))
+      Some(
+        (x.lf_chan_corr.base_correlation_x, x.lf_chan_corr.base_correlation_b),
+      )
     None => None
   }
   if lf_global.patches is Some(patches) {

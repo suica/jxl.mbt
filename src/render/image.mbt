@@ -6,18 +6,18 @@
 /// exist.
 pub(all) enum ImageBuffer {
   F32(@grid.Grid[Float])
-  I32(@grid.Grid[Int])
+  I32(@grid.Grid[Int32])
 }
 
 ///|
-pub fn ImageBuffer::from_modular_channel(g : @grid.Grid[Int]) -> ImageBuffer {
+pub fn ImageBuffer::from_modular_channel(g : @grid.Grid[Int32]) -> ImageBuffer {
   I32(g)
 }
 
 ///|
 pub fn ImageBuffer::zeroed_f32(
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
   tracker : @grid.AllocTracker?,
 ) -> ImageBuffer raise @bitstream.JxlError {
   F32(@grid.Grid::with_alloc_tracker(width, height, (0.0 : Float), tracker))
@@ -34,7 +34,7 @@ pub fn ImageBuffer::try_clone(
 }
 
 ///|
-pub fn ImageBuffer::width(self : ImageBuffer) -> Int {
+pub fn ImageBuffer::width(self : ImageBuffer) -> Int32 {
   match self {
     F32(g) => g.width()
     I32(g) => g.width()
@@ -42,7 +42,7 @@ pub fn ImageBuffer::width(self : ImageBuffer) -> Int {
 }
 
 ///|
-pub fn ImageBuffer::height(self : ImageBuffer) -> Int {
+pub fn ImageBuffer::height(self : ImageBuffer) -> Int32 {
   match self {
     F32(g) => g.height()
     I32(g) => g.height()
@@ -114,7 +114,7 @@ pub fn ImageBuffer::cast_to_float(
 }
 
 ///|
-fn saturating_add_i32(a : Int, b : Int) -> Int {
+fn saturating_add_i32(a : Int32, b : Int32) -> Int32 {
   let r = a.to_int64() + b.to_int64()
   if r > 0x7fffffffL {
     0x7fffffff
@@ -169,9 +169,9 @@ pub fn ImageBuffer::convert_to_float_modular_xyb(
 fn[S] upsample_nn_inner(
   original : FixedArray[S],
   target : FixedArray[S],
-  width : Int,
-  height : Int,
-  factor : Int,
+  width : Int32,
+  height : Int32,
+  factor : Int32,
 ) -> Unit {
   let step = 1 << factor
   let stride = width << factor
@@ -199,7 +199,7 @@ fn[S] upsample_nn_inner(
 ///|
 pub fn ImageBuffer::upsample_nn(
   self : ImageBuffer,
-  factor : Int,
+  factor : Int32,
   tracker : @grid.AllocTracker?,
 ) -> ImageBuffer raise @bitstream.JxlError {
   if factor == 0 {
@@ -235,7 +235,7 @@ pub fn ImageBuffer::upsample_nn(
 pub struct ImageWithRegion {
   buffer : Array[ImageBuffer]
   regions : Array[(Region, @modular.ChannelShift)]
-  mut color_channels : Int
+  mut color_channels : Int32
   mut ct_done : Bool
   mut blend_done : Bool
   tracker : @grid.AllocTracker?
@@ -243,7 +243,7 @@ pub struct ImageWithRegion {
 
 ///|
 pub fn ImageWithRegion::new(
-  color_channels : Int,
+  color_channels : Int32,
   tracker : @grid.AllocTracker?,
 ) -> ImageWithRegion {
   {
@@ -282,7 +282,7 @@ pub fn ImageWithRegion::alloc_tracker(
 }
 
 ///|
-pub fn ImageWithRegion::channels(self : ImageWithRegion) -> Int {
+pub fn ImageWithRegion::channels(self : ImageWithRegion) -> Int32 {
   self.buffer.length()
 }
 
@@ -336,10 +336,9 @@ pub fn ImageWithRegion::append_channel_shifted(
   original_region : Region,
   shift : @modular.ChannelShift,
 ) -> Unit {
-  let (width, height) = shift.shift_size((
-    original_region.width,
-    original_region.height,
-  ))
+  let (width, height) = shift.shift_size(
+    (original_region.width, original_region.height),
+  )
   guard buffer.width() == width && buffer.height() == height else {
     abort("append_channel_shifted: buffer size mismatch")
   }
@@ -350,7 +349,7 @@ pub fn ImageWithRegion::append_channel_shifted(
 ///|
 pub fn ImageWithRegion::replace_channel(
   self : ImageWithRegion,
-  index : Int,
+  index : Int32,
   buffer : ImageBuffer,
   region : Region,
 ) -> Unit {
@@ -364,15 +363,14 @@ pub fn ImageWithRegion::replace_channel(
 ///|
 pub fn ImageWithRegion::replace_channel_shifted(
   self : ImageWithRegion,
-  index : Int,
+  index : Int32,
   buffer : ImageBuffer,
   original_region : Region,
   shift : @modular.ChannelShift,
 ) -> Unit {
-  let (width, height) = shift.shift_size((
-    original_region.width,
-    original_region.height,
-  ))
+  let (width, height) = shift.shift_size(
+    (original_region.width, original_region.height),
+  )
   guard buffer.width() == width && buffer.height() == height else {
     abort("replace_channel_shifted: buffer size mismatch")
   }
@@ -385,7 +383,7 @@ pub fn ImageWithRegion::replace_channel_shifted(
 /// buffer (upstream swaps through `&mut`).
 pub fn ImageWithRegion::swap_channel_f32(
   self : ImageWithRegion,
-  index : Int,
+  index : Int32,
   buffer : @grid.Grid[Float],
   region : Region,
 ) -> @grid.Grid[Float] {
@@ -406,7 +404,7 @@ pub fn ImageWithRegion::swap_channel_f32(
 /// .convert_to_float_modular(bit_depth)`).
 pub fn ImageWithRegion::convert_channel_to_float_modular(
   self : ImageWithRegion,
-  index : Int,
+  index : Int32,
   bit_depth : @image.BitDepth,
 ) -> @grid.Grid[Float] raise @bitstream.JxlError {
   let g = self.buffer[index].convert_to_float_modular(bit_depth)
@@ -478,7 +476,7 @@ pub fn ImageWithRegion::convert_modular_xyb(
 ///|
 pub fn ImageWithRegion::upsample_lf(
   self : ImageWithRegion,
-  lf_level : Int,
+  lf_level : Int32,
 ) -> ImageWithRegion raise @bitstream.JxlError {
   let factor = lf_level * 3
   let out = ImageWithRegion::new(self.color_channels, self.tracker)
@@ -507,7 +505,10 @@ pub fn ImageWithRegion::upsample_jpeg(
       downsampled_valid_region.left,
       downsampled_image_region.left,
     )
-    let top = abs_diff(downsampled_valid_region.top, downsampled_image_region.top)
+    let top = abs_diff(
+      downsampled_valid_region.top,
+      downsampled_image_region.top,
+    )
     let width = downsampled_valid_region.width
     let height = downsampled_valid_region.height
     let subgrid = self.buffer[idx]
@@ -559,7 +560,10 @@ pub fn ImageWithRegion::upsample_nonseparable(
       downsampled_valid_region.left,
       downsampled_image_region.left,
     )
-    let top = abs_diff(downsampled_valid_region.top, downsampled_image_region.top)
+    let top = abs_diff(
+      downsampled_valid_region.top,
+      downsampled_image_region.top,
+    )
     let width = downsampled_valid_region.width
     let height = downsampled_valid_region.height
     let subgrid = grid.as_subgrid().subgrid(left, top, width, height)
@@ -601,7 +605,7 @@ pub fn ImageWithRegion::prepare_color_upsampling(
         has_h_subsample=false,
         h_subsample=false,
         has_v_subsample=false,
-        v_subsample=false
+        v_subsample=false,
       ) => Shifts(upsampling_factor)
       JpegUpsampling(..) => abort("unexpected chroma subsampling")
     }
@@ -612,7 +616,7 @@ pub fn ImageWithRegion::prepare_color_upsampling(
 ///|
 pub fn ImageWithRegion::remove_color_channels(
   self : ImageWithRegion,
-  count : Int,
+  count : Int32,
 ) -> Unit {
   guard self.color_channels >= count else {
     abort("remove_color_channels: too many")
@@ -632,7 +636,7 @@ pub fn ImageWithRegion::fill_opaque_alpha(
 ) -> Unit {
   for ec_idx, info in ec_info {
     guard info.ty is Alpha(..) else { continue }
-    let opaque_int : Int = match info.bit_depth {
+    let opaque_int : Int32 = match info.bit_depth {
       IntegerSample(bits_per_sample~) =>
         ((1U << bits_per_sample) - 1).reinterpret_as_int()
       FloatSample(bits_per_sample~, exp_bits~) => {
@@ -648,7 +652,7 @@ pub fn ImageWithRegion::fill_opaque_alpha(
 }
 
 ///|
-pub fn ImageWithRegion::color_channels(self : ImageWithRegion) -> Int {
+pub fn ImageWithRegion::color_channels(self : ImageWithRegion) -> Int32 {
   self.color_channels
 }
 
@@ -700,7 +704,7 @@ pub fn ImageWithRegion::as_color_floats_mut(
 pub fn ImageWithRegion::color_groups_with_group_id(
   self : ImageWithRegion,
   frame_header : @frame.FrameHeader,
-) -> Array[(Int, FixedArray[@grid.SubGrid[Float]])] {
+) -> Array[(Int32, FixedArray[@grid.SubGrid[Float]])] {
   guard self.color_channels == 3 else {
     abort("color_groups_with_group_id: not 3 ch")
   }
@@ -725,10 +729,12 @@ pub fn ImageWithRegion::color_groups_with_group_id(
     let group_x = base_group_x + idx % groups_per_row
     let group_y = base_group_y + idx / groups_per_row
     let group_idx = group_y * frame_groups_per_row + group_x
-    out.push((
-      group_idx,
-      ([groups[0][idx], groups[1][idx], groups[2][idx]] : FixedArray[_]),
-    ))
+    out.push(
+      (
+        group_idx,
+        ([groups[0][idx], groups[1][idx], groups[2][idx]] : FixedArray[_]),
+      ),
+    )
   }
   out
 }
@@ -815,11 +821,9 @@ fn composite_preprocess(
   }
   let skip_blending = !frame_header.frame_type.is_normal_frame() ||
     frame_header.resets_canvas
-  if !(
-      grid.ct_done() ||
-      frame_header.save_before_ct ||
-      (skip_blending && frame_header.is_last)
-    ) {
+  if !(grid.ct_done() ||
+    frame_header.save_before_ct ||
+    (skip_blending && frame_header.is_last)) {
     convert_color_for_record(image_header, frame_header.do_ycbcr, grid)
   }
   if skip_blending {
