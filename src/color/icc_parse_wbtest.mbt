@@ -123,7 +123,7 @@ test "synthesize then parse round trip" {
   for enc in encodings {
     let icc = colour_encoding_to_icc(enc)
     // header and size field
-    assert_eq(icc[36:40].to_bytes(), b"acsp")
+    assert_eq(icc[36:40].to_owned(), b"acsp")
     let size = (icc[0].to_int() << 24) |
       (icc[1].to_int() << 16) |
       (icc[2].to_int() << 8) |

@@ -4,7 +4,3 @@ import {
   "suica/jxl/image",
   "moonbitlang/core/math",
 }
-
-import {
-  "suica/jxl/color",
-} for "test"

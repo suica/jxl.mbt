@@ -203,9 +203,9 @@ fn KnownIccTrc::from_gamma(g_s15fixed16 : Int32) -> KnownIccTrc? {
 }
 
 ///|
-struct IccProfile {
+priv struct IccProfile {
   header : IccHeader
-  priv tags : Array[RawTag]
+  tags : Array[RawTag]
 }
 
 ///|
@@ -254,7 +254,7 @@ fn parse_icc_raw(profile : Bytes) -> IccProfile raise @bitstream.JxlError {
   if profile.length().to_uint64() != size {
     raise icc_parse_failure("profile size mismatch")
   }
-  let color_space = profile[0x10:0x14].to_bytes()
+  let color_space = profile[0x10:0x14].to_owned()
   let rendering_intent : RenderingIntent = match profile[0x43] {
     0 => Perceptual
     1 => Relative
@@ -273,7 +273,7 @@ fn parse_icc_raw(profile : Bytes) -> IccProfile raise @bitstream.JxlError {
   let tags = []
   for i in 0..<tag_count.to_int() {
     let base = 0x84 + 12 * i
-    let tag = profile[base:base + 4].to_bytes()
+    let tag = profile[base:base + 4].to_owned()
     let offset = read_be32_u(p, base + 4).to_uint64()
     let tag_size = read_be32_u(p, base + 8).to_uint64()
     let tag_end = offset + tag_size
@@ -448,7 +448,7 @@ pub fn detect_profile_info(
       raise @bitstream.Color("UnsupportedIccProfile")
     } else if tag == b"cicp" {
       // Note: upstream takes the first 4 bytes of the tag data (the `cicp` type signature).
-      cicp = Some(data[0:4].to_bytes())
+      cicp = Some(data[0:4].to_owned())
     }
   }
   let override_trc : KnownIccTrc? = match cicp {

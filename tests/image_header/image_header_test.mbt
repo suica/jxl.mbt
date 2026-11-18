@@ -28,11 +28,11 @@ fn extract_codestream(data : Bytes) -> Bytes {
   if data.length() >= 2 && data[0] == b'\xff' && data[1] == b'\x0a' {
     return data
   }
-  let out = Array::new()
+  let out = Array()
   let mut pos = 0
   while pos + 8 <= data.length() {
     let mut size = be32(data, pos).reinterpret_as_uint().to_int64()
-    let ty = data[pos + 4:pos + 8].to_bytes()
+    let ty = data[pos + 4:pos + 8].to_owned()
     let mut header = 8
     if size == 1L {
       size = (be32(data, pos + 8).to_int64() << 32) |
@@ -64,7 +64,7 @@ fn reference_size(dir : String) -> (Int32, Int32)? raise {
     if @fs.path_exists(path) {
       let b = @fs.read_file_to_bytes(path)
       // 8-byte signature, IHDR chunk: length, "IHDR", width, height
-      assert_eq(b[12:16].to_bytes(), b"IHDR")
+      assert_eq(b[12:16].to_owned(), b"IHDR")
       return Some((be32(b, 16), be32(b, 20)))
     }
   }
@@ -87,7 +87,7 @@ fn reference_size(dir : String) -> (Int32, Int32)? raise {
     let dims : Array[Int32] = []
     let mut i = 10
     let end = 10 + header_len
-    while i + 9 < end && b[i:i + 9].to_bytes() != b"'shape':" + b" (" {
+    while i + 9 < end && b[i:i + 9].to_owned() != b"'shape':" + b" (" {
       i += 1
     }
     i += 9

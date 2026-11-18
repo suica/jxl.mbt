@@ -56,8 +56,6 @@ pub(all) struct IccHeader {
   rendering_intent : @image.RenderingIntent
 }
 
-type IccProfile
-
 #derive(@debug.Debug)
 pub struct IccProfileInfo {
   // private fields

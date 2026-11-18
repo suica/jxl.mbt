@@ -79,7 +79,7 @@ fn predict_header(
 ///|
 fn shuffle2(bytes : BytesView) -> Array[Byte] {
   let len = bytes.length()
-  let out = Array::new(capacity=len)
+  let out = Array(capacity=len)
   let height = len / 2
   let odd = len % 2
   for idx in 0..<height {
@@ -95,7 +95,7 @@ fn shuffle2(bytes : BytesView) -> Array[Byte] {
 ///|
 fn shuffle4(bytes : BytesView) -> Array[Byte] {
   let len = bytes.length()
-  let out = Array::new(capacity=len)
+  let out = Array(capacity=len)
   let step = len / 4
   let wide_count = len % 4
   for idx in 0..<step {
@@ -161,7 +161,7 @@ pub fn decode_icc(stream : Bytes) -> Bytes raise @bitstream.JxlError {
   let header_data = data[:header_size]
   let mut data = data[header_size:]
   let commands_stream = Cursor::new(commands)
-  let out : Array[Byte] = Array::new(capacity=output_size.to_int())
+  let out : Array[Byte] = Array(capacity=output_size.to_int())
 
   // Header
   for idx in 0..<header_data.length() {
