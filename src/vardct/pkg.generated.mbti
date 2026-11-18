@@ -39,6 +39,23 @@ pub(all) enum DctDirection {
   Inverse
 }
 
+type DequantMatrixParams
+
+type DequantMatrixParamsEncoding
+
+pub struct DequantMatrixSet {
+  // private fields
+}
+pub fn DequantMatrixSet::get(Self, Int32, TransformType) -> FixedArray[Float]
+pub fn DequantMatrixSet::get_transposed(Self, Int32, TransformType) -> FixedArray[Float]
+pub fn DequantMatrixSet::jpeg_quant_values(Self, Int32) -> FixedArray[Int32]?
+pub fn DequantMatrixSet::parse(@bitstream.Bitstream, DequantMatrixSetParams) -> Self raise @bitstream.JxlError
+
+pub struct DequantMatrixSetParams {
+  // private fields
+}
+pub fn DequantMatrixSetParams::new(Int32, Int32, @grid.AllocTracker?) -> Self
+
 #derive(Eq, Hash, @debug.Debug)
 pub(all) enum TransformType {
   Dct8

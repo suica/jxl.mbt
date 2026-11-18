@@ -7,9 +7,14 @@ struct Lcg {
 }
 
 ///|
-fn Lcg::next(self : Lcg) -> Float {
+fn Lcg::next_raw(self : Lcg) -> UInt {
   self.state = self.state * 1664525U + 1013904223U
-  Float::from_uint(self.state >> 8) / 16777216.0 * 2.0 - 1.0
+  self.state
+}
+
+///|
+fn Lcg::next(self : Lcg) -> Float {
+  Float::from_uint(self.next_raw() >> 8) / 16777216.0 * 2.0 - 1.0
 }
 
 ///|
@@ -241,5 +246,17 @@ test "transform matches jxl-oxide bit-exactly" {
       ty,
     )
     assert_eq(hash_floats(buf), h2, msg="transform_varblock \{t}")
+  }
+}
+
+///|
+test "default dequant matrices match jxl-oxide" {
+  let bs = @bitstream.Bitstream::new(b"\x01\x00\x00\x00\x00\x00\x00\x00")
+  let set = DequantMatrixSet::parse(bs, DequantMatrixSetParams::new(8, 1, None))
+  for entry in ref_dequant {
+    let (i, c, h, h_tr) = entry
+    let ty = dct_select_list[i]
+    assert_eq(hash_floats(set.get(c, ty)), h, msg="\{i} \{c}")
+    assert_eq(hash_floats(set.get_transposed(c, ty)), h_tr, msg="tr \{i} \{c}")
   }
 }
