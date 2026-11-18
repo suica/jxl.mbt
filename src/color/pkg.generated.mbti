@@ -5,6 +5,7 @@ import {
   "moonbitlang/core/debug",
   "suica/jxl/bitstream",
   "suica/jxl/image",
+  "suica/jxl/threadpool",
 }
 
 // Values
@@ -88,7 +89,9 @@ pub fn ColorEncodingWithProfile::is_cmyk(Self) -> Bool
 pub fn ColorEncodingWithProfile::is_grayscale(Self) -> Bool
 pub fn ColorEncodingWithProfile::new(@image.EnumColourEncoding) -> Self
 pub fn ColorEncodingWithProfile::with_icc(Bytes) -> Self raise @bitstream.JxlError
+pub impl @debug.Debug for ColorEncodingWithProfile
 
+#derive(@debug.Debug)
 pub struct ColorTransform {
   // private fields
 }
@@ -98,9 +101,10 @@ pub fn ColorTransform::is_noop(Self) -> Bool
 pub fn ColorTransform::new(ColorEncodingWithProfile, ColorEncodingWithProfile, @image.OpsinInverseMatrix, @image.ToneMapping, &ColorManagementSystem) -> Self raise @bitstream.JxlError
 pub fn ColorTransform::output_channels(Self) -> Int32
 pub fn ColorTransform::run(Self, Array[FixedArray[Float]], start? : Int32, len? : Int32) -> Int32 raise @bitstream.JxlError
-pub fn ColorTransform::run_with_threads(Self, Array[FixedArray[Float]]) -> Int32 raise @bitstream.JxlError
+pub fn ColorTransform::run_with_threads(Self, Array[FixedArray[Float]], @threadpool.JxlThreadPool) -> Int32 raise @bitstream.JxlError
 pub fn ColorTransform::xyb_to_enum(@image.RenderingIntent, @image.EnumColourEncoding, @image.OpsinInverseMatrix, @image.ToneMapping) -> Self raise @bitstream.JxlError
 
+#derive(@debug.Debug)
 pub struct ColorTransformBuilder {
   // private fields
 }

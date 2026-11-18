@@ -1,5 +1,5 @@
 // Port of jxl-color `tf/pq.rs`: approximation of perceptual quantizer transfer
-// functions, ported from libjxl (generic implementation).
+// functions, ported from libjxl.
 
 ///|
 let pq_eotf_p : FixedArray[Float] = [
@@ -40,9 +40,36 @@ pub fn linear_to_pq(
   start~ : Int32 = 0,
   len~ : Int32 = samples.length() - start,
 ) -> Unit {
-  for i in start..<(start + len) {
+  // x86_64 AVX2 + FMA path: 8-wide AVX2 chunks, 4-wide FMA chunks, then the
+  // generic code for the remainder.
+  let end = start + len
+  let avx2_end = start + len / 8 * 8
+  let fma_end = avx2_end + (end - avx2_end) / 4 * 4
+  for i in start..<avx2_end {
+    samples[i] = linear_to_pq_simd(samples[i], intensity_target, true)
+  }
+  for i in avx2_end..<fma_end {
+    samples[i] = linear_to_pq_simd(samples[i], intensity_target, false)
+  }
+  for i in fma_end..<end {
     samples[i] = linear_to_pq_generic(samples[i], intensity_target)
   }
+}
+
+///|
+/// One lane of `linear_to_pq_x86_64_avx2` (`avx2 = true`, small-value test
+/// `a <= 1e-4`) or `linear_to_pq_x86_64_fma` (`a < 1e-4`).
+fn linear_to_pq_simd(v : Float, intensity_target : Float, avx2 : Bool) -> Float {
+  let y_mult = intensity_target / 10000.0
+  let a = v.abs()
+  let a_scaled = a * y_mult
+  let a_1_4 = a_scaled.sqrt().sqrt()
+  let v_small = rational_poly_eval_fma(
+    a_1_4, pq_inv_eotf_p_small, pq_inv_eotf_q_small,
+  )
+  let v_large = rational_poly_eval_fma(a_1_4, pq_inv_eotf_p, pq_inv_eotf_q)
+  let is_small = if avx2 { a <= 1.0e-4 } else { a < 1.0e-4 }
+  or_sign(if is_small { v_small } else { v_large }, v)
 }
 
 ///|
@@ -68,9 +95,26 @@ pub fn pq_to_linear(
   start~ : Int32 = 0,
   len~ : Int32 = samples.length() - start,
 ) -> Unit {
-  for i in start..<(start + len) {
+  // x86_64 AVX2 + FMA path: 8-wide AVX2 chunks, 4-wide FMA chunks, then the
+  // generic code for the remainder.
+  let end = start + len
+  let simd_end = start + len / 4 * 4
+  for i in start..<simd_end {
+    samples[i] = pq_to_linear_simd(samples[i], intensity_target)
+  }
+  for i in simd_end..<end {
     samples[i] = pq_to_linear_generic(samples[i], intensity_target)
   }
+}
+
+///|
+/// One lane of `pq_to_linear_x86_64_avx2` / `pq_to_linear_x86_64_fma`.
+fn pq_to_linear_simd(v : Float, intensity_target : Float) -> Float {
+  let y_mult = (10000.0 : Float) / intensity_target
+  let a = v.abs()
+  let x = mul_add_f32(a, a, a)
+  let y = rational_poly_eval_fma(x, pq_eotf_p, pq_eotf_q)
+  or_sign(y * y_mult, v)
 }
 
 ///|

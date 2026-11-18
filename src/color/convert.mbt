@@ -9,6 +9,25 @@ pub struct ColorEncodingWithProfile {
 }
 
 ///|
+/// Mirror of `ColorEncodingWithProfile` for its `Debug` output (upstream
+/// prints the ICC profile as its length).
+#derive(Debug)
+priv struct ColorEncodingWithProfileRepr {
+  encoding : ColourEncoding
+  icc_profile : String
+  is_cmyk : Bool
+}
+
+///|
+pub impl @debug.Debug for ColorEncodingWithProfile with fn to_repr(self) {
+  @debug.Repr(ColorEncodingWithProfileRepr::{
+    encoding: self.encoding,
+    icc_profile: "(\{self.icc_profile.length()} byte(s))",
+    is_cmyk: self.is_cmyk,
+  })
+}
+
+///|
 /// Creates a color encoding from enum values.
 pub fn ColorEncodingWithProfile::new(
   encoding : EnumColourEncoding,
@@ -108,6 +127,7 @@ fn ColorEncodingWithProfile::is_equivalent(
 }
 
 ///|
+#derive(Debug)
 pub struct ColorTransformBuilder {
   priv mut detect_peak : Bool
   priv mut srgb_icc : Bool
@@ -166,6 +186,7 @@ pub fn ColorTransformBuilder::build(
 
 ///|
 /// Color transformation from a color encoding to another.
+#derive(Debug)
 pub struct ColorTransform {
   priv begin_channels : Int32
   priv ops : Array[ColorTransformOp]
@@ -246,7 +267,8 @@ fn ColorTransform::with_builder(
       let rendering_intent = parse_icc_raw(from.icc_profile).header.rendering_intent
       match to.encoding {
         IccProfile(_) => {
-          let transform = cms.prepare_transform(
+          let transform = prepare_transform_cms(
+            cms,
             from.icc_profile,
             to.icc_profile,
             rendering_intent,
@@ -256,7 +278,8 @@ fn ColorTransform::with_builder(
         Enum(encoding) => {
           let target_encoding = { ..encoding, tf: connecting_tf, }
           let to_icc = colour_encoding_to_icc(target_encoding)
-          let transform = cms.prepare_transform(
+          let transform = prepare_transform_cms(
+            cms,
             from.icc_profile,
             to_icc,
             rendering_intent,
@@ -315,7 +338,8 @@ fn ColorTransform::with_builder(
     Enum(encoding) => encoding
     IccProfile(_) => {
       let from_icc = colour_encoding_to_icc(current_encoding)
-      let transform = cms.prepare_transform(
+      let transform = prepare_transform_cms(
+        cms,
         from_icc,
         to.icc_profile,
         current_encoding.rendering_intent,
@@ -531,30 +555,92 @@ pub fn ColorTransform::run(
 }
 
 ///|
-/// Performs the prepared color transformation on the samples, in chunks of
-/// 65536 samples (jxl-oxide runs the chunks on a thread pool; here they run
-/// sequentially). Peak detection of tone mapping operates per chunk.
+/// Performs the prepared color transformation on the samples with the thread pool.
 ///
 /// Returns the number of final channels after transformation.
+///
+/// `channels` are planar sample data, all having the same length. Samples are
+/// processed in chunks of 65536 (as upstream; peak detection of tone mapping
+/// works per chunk). As upstream, the returned value is the result of the
+/// chunk that finished last: with the sequential pool an error in an earlier
+/// chunk is overwritten by the result of the later chunks.
+///
+/// Raises an error if it encountered ICC to ICC operation and the provided
+/// CMS cannot handle it.
 pub fn ColorTransform::run_with_threads(
   self : ColorTransform,
   channels : Array[FixedArray[Float]],
+  pool : @threadpool.JxlThreadPool,
 ) -> Int32 raise @bitstream.JxlError {
-  let total = channels.fold(init=-1, (acc, ch) => {
-    if acc < 0 || ch.length() < acc {
-      ch.length()
-    } else {
-      acc
-    }
-  })
-  let mut ret = self.begin_channels
+  if channels.is_empty() {
+    // Upstream transposes the chunk iterators with
+    // `while let Some(chunk) = it.iter_mut().map(next).collect()`, which never
+    // ends for zero channels (it pushes empty chunks until memory runs out).
+    abort(
+      "ColorTransform::run_with_threads: no channels (upstream never terminates)",
+    )
+  }
+  // Iteration stops when the shortest channel runs out of chunks.
+  let mut total = channels[0].length()
+  for ch in channels {
+    total = total.min(ch.length())
+  }
+  let chunks : Array[(Int32, Int32)] = []
   let mut start = 0
   while start < total {
     let len = (total - start).min(65536)
-    ret = self.run(channels, start~, len~)
+    chunks.push((start, len))
     start += len
   }
-  ret
+  let mut ret : Result[Int32, @bitstream.JxlError] = Ok(self.begin_channels)
+  pool.for_each_vec(chunks, chunk => {
+    let (start, len) = chunk
+    let mut num_channels = self.begin_channels
+    for op in self.ops {
+      let r : Result[Int32, @bitstream.JxlError] = Ok(
+        op.run(channels, num_channels, start, len),
+      ) catch {
+        e => Err(e)
+      }
+      match r {
+        Ok(x) => num_channels = x
+        err => {
+          ret = err
+          return
+        }
+      }
+    }
+    ret = Ok(num_channels)
+  })
+  match ret {
+    Ok(x) => x
+    Err(e) => raise e
+  }
+}
+
+///|
+/// `cms.prepare_transform(..).map_err(Error::CmsFailure)`.
+fn prepare_transform_cms(
+  cms : &ColorManagementSystem,
+  from_icc : Bytes,
+  to_icc : Bytes,
+  intent : RenderingIntent,
+) -> &PreparedTransform raise @bitstream.JxlError {
+  cms.prepare_transform(from_icc, to_icc, intent) catch {
+    e => raise cms_failure(e)
+  }
+}
+
+///|
+/// Wraps an error of the color management system as `CmsFailure`
+/// (`Color("CmsFailure: <inner>")`). Errors already reported as
+/// `CmsFailure` by the CMS are passed through unchanged.
+fn cms_failure(e : @bitstream.JxlError) -> @bitstream.JxlError {
+  match e {
+    Color(s) if s.has_prefix("CmsFailure") => e
+    Color(s) => Color("CmsFailure: " + s)
+    e => Color("CmsFailure: " + @debug.to_string(e))
+  }
 }
 
 ///|
@@ -581,6 +667,7 @@ fn ColorTransform::optimize(self : ColorTransform) -> ColorTransform {
 }
 
 ///|
+#derive(Debug)
 priv struct HdrParams {
   luminances : FixedArray[Float]
   intensity_target : Float
@@ -596,22 +683,75 @@ enum ColorTransformOp {
   TransferFunction(
     tf~ : TransferFunction,
     hdr_params~ : HdrParams,
-    inverse~ : Bool
+    inverse~ : Bool,
   )
   HlgInverseOotf(HdrParams)
   ToneMapRec2408(
     hdr_params~ : HdrParams,
     target_display_luminance~ : Float,
-    detect_peak~ : Bool
+    detect_peak~ : Bool,
   )
   ToneMapLumaRec2408(
     hdr_params~ : HdrParams,
     target_display_luminance~ : Float,
-    detect_peak~ : Bool
+    detect_peak~ : Bool,
   )
   GamutMap(luminances~ : FixedArray[Float], saturation_factor~ : Float)
   Clip
   IccToIcc(&PreparedTransform)
+}
+
+///|
+/// Mirror of `ColorTransformOp` for its `Debug` output (upstream's manual
+/// `Debug` impl prints `IccToIcc(..)` for the trait object).
+#derive(Debug)
+priv enum ColorTransformOpRepr {
+  XybToMixedLms(opsin_bias~ : FixedArray[Float], intensity_target~ : Float)
+  LumaToXyz(illuminant~ : FixedArray[Float])
+  XyzToLuma
+  Matrix(FixedArray[Float])
+  TransferFunction(
+    tf~ : TransferFunction,
+    hdr_params~ : HdrParams,
+    inverse~ : Bool,
+  )
+  HlgInverseOotf(HdrParams)
+  ToneMapRec2408(
+    hdr_params~ : HdrParams,
+    target_display_luminance~ : Float,
+    detect_peak~ : Bool,
+  )
+  ToneMapLumaRec2408(
+    hdr_params~ : HdrParams,
+    target_display_luminance~ : Float,
+    detect_peak~ : Bool,
+  )
+  GamutMap(luminances~ : FixedArray[Float], saturation_factor~ : Float)
+  Clip
+  IccToIcc
+}
+
+///|
+impl @debug.Debug for ColorTransformOp with fn to_repr(self) {
+  let r : ColorTransformOpRepr = match self {
+    XybToMixedLms(opsin_bias~, intensity_target~) =>
+      XybToMixedLms(opsin_bias~, intensity_target~)
+    LumaToXyz(illuminant~) => LumaToXyz(illuminant~)
+    XyzToLuma => XyzToLuma
+    Matrix(m) => Matrix(m)
+    TransferFunction(tf~, hdr_params~, inverse~) =>
+      TransferFunction(tf~, hdr_params~, inverse~)
+    HlgInverseOotf(p) => HlgInverseOotf(p)
+    ToneMapRec2408(hdr_params~, target_display_luminance~, detect_peak~) =>
+      ToneMapRec2408(hdr_params~, target_display_luminance~, detect_peak~)
+    ToneMapLumaRec2408(hdr_params~, target_display_luminance~, detect_peak~) =>
+      ToneMapLumaRec2408(hdr_params~, target_display_luminance~, detect_peak~)
+    GamutMap(luminances~, saturation_factor~) =>
+      GamutMap(luminances~, saturation_factor~)
+    Clip => Clip
+    IccToIcc(_) => IccToIcc
+  }
+  @debug.Repr(r)
 }
 
 ///|
@@ -785,7 +925,9 @@ fn ColorTransformOp::run(
       num_input_channels
     }
     IccToIcc(transform) => {
-      transform.transform(channels, start, len)
+      transform.transform(channels, start, len) catch {
+        e => raise cms_failure(e)
+      }
       transform.num_output_channels()
     }
   }

@@ -4,4 +4,6 @@ import {
   "suica/jxl/grid",
   "suica/jxl/image",
   "moonbitlang/core/math",
+  "moonbitlang/core/debug",
+  "suica/jxl/threadpool",
 }

@@ -1,4 +1,26 @@
 ///|
+/// The generic (non-SIMD) loop body of `linear_to_srgb`, used by upstream on
+/// targets without SIMD support (kept here as a test reference).
+fn linear_to_srgb_generic(s : Float) -> Float {
+  let v = s.reinterpret_as_uint() & 0x7fff_ffffU
+  let v_adj = Float::reinterpret_from_uint((v | 0x3e80_0000U) & 0x3eff_ffffU)
+  let pow : Float = 0.059914046
+  let pow = pow * v_adj - 0.10889456
+  let pow = pow * v_adj + 0.107963754
+  let pow = pow * v_adj + 0.018092343
+
+  // `mul` won't be used when `v` is small.
+  let idx = ((v >> 23) - 118U).reinterpret_as_int() & 0xf
+  let mul = 0x4000_0000U |
+    (srgb_powtable_upper[idx] << 18) |
+    (srgb_powtable_lower[idx] << 10)
+  let v = Float::reinterpret_from_uint(v)
+  let small = v * 12.92
+  let acc = pow * Float::reinterpret_from_uint(mul) - 0.055
+  copysign_f32(if v <= 0.0031308 { small } else { acc }, s)
+}
+
+///|
 fn ref_inputs() -> FixedArray[Float] {
   FixedArray::makei(inputs_bits.length(), i => {
     Float::reinterpret_from_uint(inputs_bits[i])
@@ -69,10 +91,8 @@ test "fast_powf accuracy" {
 }
 
 ///|
-test "srgb matches reference" {
-  let a = ref_inputs()
-  linear_to_srgb(a)
-  assert_bits("l2srgb", a, l2srgb_bits)
+test "generic srgb matches reference" {
+  assert_bits("l2srgb", ref_inputs().map(linear_to_srgb_generic), l2srgb_bits)
   let a = ref_inputs()
   srgb_to_linear(a)
   assert_bits("srgb2l", a, srgb2l_bits)
@@ -94,23 +114,29 @@ test "srgb roundtrip" {
 }
 
 ///|
-test "bt709 matches reference" {
-  let a = ref_inputs()
-  linear_to_bt709(a)
-  assert_bits("l2bt709", a, l2bt709_bits)
+test "generic bt709 matches reference" {
+  assert_bits(
+    "l2bt709",
+    ref_inputs().map(linear_to_bt709_generic),
+    l2bt709_bits,
+  )
   let a = ref_inputs()
   bt709_to_linear(a)
   assert_bits("bt7092l", a, bt7092l_bits)
 }
 
 ///|
-test "pq matches reference" {
-  let a = ref_inputs()
-  linear_to_pq(a, 1000.0)
-  assert_bits("l2pq", a, l2pq_bits)
-  let a = ref_inputs()
-  pq_to_linear(a, 1000.0)
-  assert_bits("pq2l", a, pq2l_bits)
+test "generic pq matches reference" {
+  assert_bits(
+    "l2pq",
+    ref_inputs().map(x => linear_to_pq_generic(x, 1000.0)),
+    l2pq_bits,
+  )
+  assert_bits(
+    "pq2l",
+    ref_inputs().map(x => pq_to_linear_generic(x, 1000.0)),
+    pq2l_bits,
+  )
 }
 
 ///|

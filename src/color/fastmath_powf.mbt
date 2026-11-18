@@ -53,3 +53,39 @@ fn fast_log2f_generic(x : Float) -> Float {
 pub fn fast_powf_generic(base : Float, exp : Float) -> Float {
   fast_pow2f_generic(fast_log2f_generic(base) * exp)
 }
+
+///|
+/// One lane of `fast_pow2f_x86_64_fma` / `fast_pow2f_x86_64_avx2`.
+fn fast_pow2f_fma(x : Float) -> Float {
+  let x_floor = x.floor()
+  let exp = Float::reinterpret_from_uint(
+    (cvtps_epi32_integral(x_floor) + 127).reinterpret_as_uint() << 23,
+  )
+  let frac = x - x_floor
+  let num = pow2f_numer_coeffs[0] + frac
+  let num = mul_add_f32(frac, num, pow2f_numer_coeffs[1])
+  let num = mul_add_f32(frac, num, pow2f_numer_coeffs[2])
+  let num = exp * num
+  let den = mul_add_f32(frac, pow2f_denom_coeffs[0], pow2f_denom_coeffs[1])
+  let den = mul_add_f32(frac, den, pow2f_denom_coeffs[2])
+  let den = mul_add_f32(frac, den, pow2f_denom_coeffs[3])
+  num / den
+}
+
+///|
+/// One lane of `fast_log2f_x86_64_fma` / `fast_log2f_x86_64_avx2`.
+fn fast_log2f_fma(x : Float) -> Float {
+  let x_bits = x.reinterpret_as_int()
+  let exp_bits = x_bits - 0x3f2aaaab
+  let exp_shifted = exp_bits >> 23
+  let mantissa = Float::reinterpret_from_int(x_bits - (exp_shifted << 23))
+  let exp_val = Float::from_int(exp_shifted)
+  let x = mantissa - 1.0
+  rational_poly_eval_fma(x, log2f_p, log2f_q) + exp_val
+}
+
+///|
+/// One lane of `fast_powf_x86_64_fma` / `fast_powf_x86_64_avx2`.
+fn fast_powf_fma(base : Float, exp : Float) -> Float {
+  fast_pow2f_fma(fast_log2f_fma(base) * exp)
+}

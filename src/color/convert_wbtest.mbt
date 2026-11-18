@@ -71,7 +71,7 @@ test "xyb to linear srgb is matrix only" {
   assert_eq(op_names(t), ["XybToMixedLms", "Matrix"])
   let y = xyb_gray(0.5)
   let channels : Array[FixedArray[Float]] = [[0.0], [y], [y]]
-  let _ = t.run_with_threads(channels)
+  let _ = t.run_with_threads(channels, @threadpool.JxlThreadPool::none())
   for c in 0..<3 {
     assert_true((channels[c][0] - 0.5).abs() < 1.0e-4)
   }
@@ -236,7 +236,7 @@ test "icc target requires cms" {
   ) catch {
     e => Err(e)
   }
-  guard result is Err(@bitstream.Color("CmsNotAvailable")) else {
+  guard result is Err(@bitstream.Color("CmsFailure: CmsNotAvailable")) else {
     fail("expected CmsNotAvailable")
   }
 }
@@ -296,4 +296,59 @@ test "icc to icc uses cms" {
   assert_eq(channels[0][1], 4.0)
   assert_eq(channels[2][1], 2.0)
   assert_true(ColorManagementSystem::supports_linear_tf(TestCms::{ }))
+}
+
+///|
+test "debug output" {
+  let t = ColorTransform::xyb_to_enum(
+    Relative,
+    EnumColourEncoding::srgb(Relative),
+    default_oim(),
+    default_tone_mapping(255.0),
+  )
+  let s = @debug.to_string(t)
+  assert_true(s.contains("XybToMixedLms"))
+  let e = ColorEncodingWithProfile::with_icc(fake_rgb_icc(b'\x00'))
+  assert_true(@debug.to_string(e).contains("(128 byte(s))"))
+}
+
+///|
+test "run_with_threads works per 65536-sample chunk" {
+  let source = { ..EnumColourEncoding::bt2100_pq(Relative), }
+  let t = ColorTransform::builder()
+    .set_detect_peak(true)
+    .build(
+      ColorEncodingWithProfile::new(source),
+      ColorEncodingWithProfile::new(EnumColourEncoding::srgb(Relative)),
+      default_oim(),
+      default_tone_mapping(4000.0),
+      NullCms::{ },
+    )
+  let n = 70000
+  let make = () => {
+    let a : Array[FixedArray[Float]] = []
+    for c in 0..<3 {
+      a.push(
+        FixedArray::makei(n, i => {
+          let v = Float::from_int((i * 7 + c * 13) % 1000) / 1000.0
+          if i < 65536 {
+            v * 0.5
+          } else {
+            v * 0.9
+          }
+        }),
+      )
+    }
+    a
+  }
+  let a = make()
+  let _ = t.run_with_threads(a, @threadpool.JxlThreadPool::none())
+  let b = make()
+  let _ = t.run(b, start=0, len=65536)
+  let _ = t.run(b, start=65536, len=n - 65536)
+  for c in 0..<3 {
+    for i in 0..<n {
+      assert_eq(a[c][i].reinterpret_as_uint(), b[c][i].reinterpret_as_uint())
+    }
+  }
 }
