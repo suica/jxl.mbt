@@ -1,0 +1,6 @@
+import {
+  "suica/jxl/bitstream",
+  "suica/jxl/color",
+  "suica/jxl/image",
+  "suica/jxl/moxcms/pxfm",
+}

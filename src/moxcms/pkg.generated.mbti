@@ -1,0 +1,488 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/moxcms"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+#derive(Eq)
+pub(all) suberror CmsError {
+  LaneSizeMismatch
+  LaneMultipleOfChannels
+  InvalidProfile
+  InvalidTrcCurve
+  InvalidCicp
+  CurveLutIsTooLarge
+  ParametricCurveZeroDivision
+  InvalidRenderingIntent
+  DivisionByZero
+  UnsupportedColorPrimaries(Int32)
+  UnsupportedTrc(Int32)
+  InvalidLayout
+  UnsupportedProfileConnection
+  BuildTransferFunction
+  UnsupportedChannelConfiguration
+  UnknownTag(UInt32)
+  UnknownTagTypeDefinition(UInt32)
+  UnsupportedLutRenderingIntent(RenderingIntent)
+  InvalidAtoBLut
+  OverflowingError
+  LUTTablesInvalidKind
+  MalformedClut(MalformedSize)
+  MalformedCurveLutTable(MalformedSize)
+  InvalidInksCountForProfile
+  MalformedTrcCurve(String)
+  OutOfMemory(Int32)
+  IncorrectlyFormedLut(String)
+}
+pub fn CmsError::message(Self) -> String
+pub impl Show for CmsError
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum BarycentricWeightScale {
+  Low
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum CicpColorPrimaries {
+  Reserved
+  Bt709
+  Unspecified
+  Bt470M
+  Bt470Bg
+  Bt601
+  Smpte240
+  GenericFilm
+  Bt2020
+  Xyz
+  Smpte431
+  Smpte432
+  Ebu3213
+}
+pub fn CicpColorPrimaries::try_from(Int32) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) struct CicpProfile {
+  color_primaries : CicpColorPrimaries
+  transfer_characteristics : TransferCharacteristics
+  matrix_coefficients : MatrixCoefficients
+  full_range : Bool
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct ColorDateTime {
+  year : Int32
+  month : Int32
+  day_of_the_month : Int32
+  hours : Int32
+  minutes : Int32
+  seconds : Int32
+}
+
+pub(all) struct ColorProfile {
+  mut pcs : DataColorSpace
+  mut color_space : DataColorSpace
+  mut profile_class : ProfileClass
+  mut rendering_intent : RenderingIntent
+  mut red_colorant : Xyzd
+  mut green_colorant : Xyzd
+  mut blue_colorant : Xyzd
+  mut white_point : Xyzd
+  mut black_point : Xyzd?
+  mut media_white_point : Xyzd?
+  mut luminance : Xyzd?
+  mut measurement : Measurement?
+  mut red_trc : ToneReprCurve?
+  mut green_trc : ToneReprCurve?
+  mut blue_trc : ToneReprCurve?
+  mut gray_trc : ToneReprCurve?
+  mut cicp : CicpProfile?
+  mut chromatic_adaptation : Matrix3d?
+  mut lut_a_to_b_perceptual : LutWarehouse?
+  mut lut_a_to_b_colorimetric : LutWarehouse?
+  mut lut_a_to_b_saturation : LutWarehouse?
+  mut lut_b_to_a_perceptual : LutWarehouse?
+  mut lut_b_to_a_colorimetric : LutWarehouse?
+  mut lut_b_to_a_saturation : LutWarehouse?
+  mut gamut : LutWarehouse?
+  mut copyright : ProfileText?
+  mut description : ProfileText?
+  mut device_manufacturer : ProfileText?
+  mut device_model : ProfileText?
+  mut char_target : ProfileText?
+  mut viewing_conditions : ViewingConditions?
+  mut viewing_conditions_description : ProfileText?
+  mut technology : TechnologySignatures?
+  mut calibration_date : ColorDateTime?
+  mut creation_date_time : ColorDateTime
+  mut version_internal : ProfileVersion
+}
+pub fn ColorProfile::colorant_matrix(Self) -> Matrix3d
+pub fn ColorProfile::create_transform_f32(Self, Layout, Self, Layout, TransformOptions) -> TransformF32Executor raise CmsError
+pub fn ColorProfile::is_matrix_shaper(Self) -> Bool
+pub fn ColorProfile::new_from_slice(Bytes) -> Self raise CmsError
+pub fn ColorProfile::new_from_slice_with_options(Bytes, ParsingOptions) -> Self raise CmsError
+pub fn ColorProfile::rgb_to_xyz_matrix(Self) -> Matrix3d
+pub fn ColorProfile::transform_matrix(Self, Self) -> Matrix3d
+pub fn ColorProfile::version(Self) -> ProfileVersion
+
+#derive(Eq, @debug.Debug)
+pub(all) enum DataColorSpace {
+  Xyz
+  Lab
+  Luv
+  YCbr
+  Yxy
+  Rgb
+  Gray
+  Hsv
+  Hls
+  Cmyk
+  Cmy
+  Color2
+  Color3
+  Color4
+  Color5
+  Color6
+  Color7
+  Color8
+  Color9
+  Color10
+  Color11
+  Color12
+  Color13
+  Color14
+  Color15
+}
+pub fn DataColorSpace::check_layout(Self, Layout) -> Unit raise CmsError
+
+#derive(@debug.Debug)
+pub(all) struct DescriptionString {
+  ascii_string : String
+  unicode_language_code : UInt32
+  unicode_string : String
+  script_code_code : Int32
+  mac_string : String
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum InterpolationMethod {
+  Linear
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Layout {
+  Rgb
+  Rgba
+  Cmyka
+  Gray
+  GrayAlpha
+  Inks5
+  Inks6
+  Inks7
+  Inks8
+  Inks9
+  Inks10
+  Inks11
+  Inks12
+  Inks13
+  Inks14
+  Inks15
+}
+pub fn Layout::channels(Self) -> Int32
+pub fn Layout::has_alpha(Self) -> Bool
+
+#derive(@debug.Debug)
+pub(all) struct LocalizableString {
+  language : String
+  country : String
+  value : String
+}
+
+pub(all) struct LutDataType {
+  num_input_channels : Int32
+  num_output_channels : Int32
+  num_clut_grid_points : Int32
+  matrix : Matrix3d
+  num_input_table_entries : Int32
+  num_output_table_entries : Int32
+  input_table : LutStore
+  clut_table : LutStore
+  output_table : LutStore
+  lut_type : LutType
+}
+
+pub(all) struct LutMultidimensionalType {
+  num_input_channels : Int32
+  num_output_channels : Int32
+  grid_points : FixedArray[Int32]
+  clut : LutStore?
+  a_curves : Array[ToneReprCurve]
+  b_curves : Array[ToneReprCurve]
+  m_curves : Array[ToneReprCurve]
+  matrix : Matrix3d
+  bias : Vector3d
+}
+
+pub(all) enum LutStore {
+  Store8(FixedArray[Int32])
+  Store16(FixedArray[Int32])
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum LutType {
+  Lut8
+  Lut16
+  LutMab
+  LutMba
+}
+
+pub(all) enum LutWarehouse {
+  Lut(LutDataType)
+  Multidimensional(LutMultidimensionalType)
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct MalformedSize {
+  size : Int32
+  expected : Int32
+}
+
+pub(all) struct Matrix3d {
+  v : FixedArray[FixedArray[Double]]
+}
+pub fn Matrix3d::determinant(Self) -> Double?
+pub fn Matrix3d::eq(Self, Self) -> Bool
+pub fn Matrix3d::identity() -> Self
+pub fn Matrix3d::inverse(Self) -> Self
+pub fn Matrix3d::mat_mul(Self, Self) -> Self
+pub fn Matrix3d::mul_vector(Self, Vector3d) -> Vector3d
+pub fn Matrix3d::to_f32(Self) -> Matrix3f
+pub fn Matrix3d::transpose(Self) -> Self
+pub fn Matrix3d::zero() -> Self
+
+pub(all) struct Matrix3f {
+  v : FixedArray[FixedArray[Float]]
+}
+pub fn Matrix3f::determinant(Self) -> Float?
+pub fn Matrix3f::identity() -> Self
+pub fn Matrix3f::inverse(Self) -> Self
+pub fn Matrix3f::mat_mul(Self, Self) -> Self
+pub fn Matrix3f::mul_vector(Self, Vector3f) -> Vector3f
+pub fn Matrix3f::new(FixedArray[FixedArray[Float]]) -> Self
+pub fn Matrix3f::to_f64(Self) -> Matrix3d
+pub fn Matrix3f::transpose(Self) -> Self
+pub fn Matrix3f::zero() -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) enum MatrixCoefficients {
+  Identity
+  Bt709
+  Unspecified
+  Reserved
+  Fcc
+  Bt470Bg
+  Smpte170m
+  Smpte240m
+  YCgCo
+  Bt2020Ncl
+  Bt2020Cl
+  Smpte2085
+  ChromaticityDerivedNCL
+  ChromaticityDerivedCL
+  ICtCp
+  IPtC2
+  YCgCoRe
+  YCgCoRo
+}
+pub fn MatrixCoefficients::try_from(Int32) -> Self raise CmsError
+
+#derive(@debug.Debug)
+pub(all) struct Measurement {
+  observer : StandardObserver
+  backing : Xyz
+  geometry : MeasurementGeometry
+  flare : Float
+  illuminant : StandardIlluminant
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum MeasurementGeometry {
+  Unknown
+  D45to45
+  D0to0
+}
+
+#derive(@debug.Debug)
+pub(all) struct ParametricCurve {
+  g : Float
+  a : Float
+  b : Float
+  c : Float
+  d : Float
+  e : Float
+  f : Float
+}
+pub fn ParametricCurve::eval(Self, Float) -> Float
+pub fn ParametricCurve::invert(Self) -> Self?
+pub fn ParametricCurve::new(FixedArray[Float]) -> Self?
+
+pub(all) struct ParsingOptions {
+  max_profile_size : Int32
+  max_allowed_clut_size : Int32
+  max_allowed_trc_size : Int32
+}
+pub fn ParsingOptions::default() -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ProfileClass {
+  InputDevice
+  DisplayDevice
+  OutputDevice
+  DeviceLink
+  ColorSpace
+  Abstract
+  Named
+}
+
+#derive(@debug.Debug)
+pub(all) enum ProfileText {
+  PlainString(String)
+  Localizable(Array[LocalizableString])
+  Description(DescriptionString)
+}
+
+#derive(Compare, Eq, @debug.Debug)
+pub(all) enum ProfileVersion {
+  V2_0
+  V2_1
+  V2_2
+  V2_3
+  V2_4
+  V4_0
+  V4_1
+  V4_2
+  V4_3
+  V4_4
+  Unknown
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum RenderingIntent {
+  AbsoluteColorimetric
+  Saturation
+  RelativeColorimetric
+  Perceptual
+}
+pub fn RenderingIntent::name(Self) -> String
+
+#derive(Eq, @debug.Debug)
+pub(all) enum StandardIlluminant {
+  Unknown
+  D50
+  D65
+  D93
+  F2
+  D55
+  A
+  EquiPower
+  F8
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum StandardObserver {
+  D50
+  D65
+  Unknown
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct TechnologySignatures {
+  signature : UInt32
+}
+
+pub(all) enum ToneReprCurve {
+  Lut(FixedArray[Int32])
+  Parametric(FixedArray[Float])
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum TransferCharacteristics {
+  Reserved
+  Bt709
+  Unspecified
+  Bt470M
+  Bt470Bg
+  Bt601
+  Smpte240
+  Linear
+  Log100
+  Log100sqrt10
+  Iec61966
+  Bt1361
+  Srgb
+  Bt202010bit
+  Bt202012bit
+  Smpte2084
+  Smpte428
+  Hlg
+}
+pub fn TransferCharacteristics::gamma(Self, Double) -> Double
+pub fn TransferCharacteristics::has_transfer_curve(Self) -> Bool
+pub fn TransferCharacteristics::linearize(Self, Double) -> Double
+pub fn TransferCharacteristics::try_from(Int32) -> Self
+
+pub(all) struct TransformF32Executor {
+  // private fields
+}
+pub fn TransformF32Executor::transform(Self, FixedArray[Float], Int32, FixedArray[Float], Int32) -> Unit raise CmsError
+
+#derive(@debug.Debug)
+pub(all) struct TransformOptions {
+  rendering_intent : RenderingIntent
+  allow_use_cicp_transfer : Bool
+  prefer_fixed_point : Bool
+  interpolation_method : InterpolationMethod
+  barycentric_weight_scale : BarycentricWeightScale
+}
+pub fn TransformOptions::default() -> Self
+
+pub(all) struct Vector3d {
+  v : FixedArray[Double]
+}
+
+pub(all) struct Vector3f {
+  v : FixedArray[Float]
+}
+
+#derive(@debug.Debug)
+pub(all) struct ViewingConditions {
+  illuminant : Xyz
+  surround : Xyz
+  observer : StandardObserver
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Xyz {
+  x : Float
+  y : Float
+  z : Float
+}
+pub fn Xyz::to_xyzd(Self) -> Xyzd
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Xyzd {
+  x : Double
+  y : Double
+  z : Double
+}
+pub fn Xyzd::default() -> Self
+pub fn Xyzd::to_vector_d(Self) -> Vector3d
+
+// Type aliases
+
+// Traits
