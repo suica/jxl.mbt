@@ -1,0 +1,391 @@
+diff -ruN ../../../jxl-oxide/crates/jxl-coding/src/lib.rs jxl-coding/src/lib.rs
+--- ../../../jxl-oxide/crates/jxl-coding/src/lib.rs	2026-11-18 04:13:19.333513588 -0500
++++ jxl-coding/src/lib.rs	2026-11-18 04:33:24.335692358 -0500
+@@ -9,6 +9,7 @@
+ use jxl_bitstream::{Bitstream, U};
+ 
+ mod ans;
++pub mod recorder;
+ mod error;
+ mod permutation;
+ mod prefix;
+@@ -31,6 +32,16 @@
+     /// Create a decoder by reading symbol distribution, integer configurations and LZ77
+     /// configuration from the bitstream.
+     pub fn parse(bitstream: &mut Bitstream, num_dist: u32) -> CodingResult<Self> {
++        let pos = recorder::parse_before(bitstream);
++        recorder::DEPTH.with(|d| d.set(d.get() + 1));
++        let r = Self::parse_impl(bitstream, num_dist);
++        recorder::DEPTH.with(|d| d.set(d.get() - 1));
++        let mut r = r?;
++        r.inner.rec_id = recorder::parse_after(pos, bitstream, num_dist);
++        Ok(r)
++    }
++
++    fn parse_impl(bitstream: &mut Bitstream, num_dist: u32) -> CodingResult<Self> {
+         let lz77 = Lz77::parse(bitstream)?;
+         let num_dist = if let Lz77::Disabled = &lz77 {
+             num_dist
+@@ -165,7 +176,12 @@
+     /// as the state will be initialized on the first read.
+     #[inline]
+     pub fn begin(&mut self, bitstream: &mut Bitstream) -> CodingResult<()> {
+-        self.inner.code.begin(bitstream)
++        let id = self.inner.rec_id;
++        let pos = recorder::before(id, bitstream);
++        let res = self.inner.code.begin(bitstream);
++        let ok = res.is_ok() as u32;
++        recorder::after(pos, bitstream, |sid, rel, ra| format!("B {id} {sid} {rel} {ok} {ra}"));
++        res
+     }
+ 
+     /// Finalizes the stream, and check whether the stream was valid.
+@@ -174,7 +190,9 @@
+     /// checks if the final state matches expected state, which is specified in the specification.
+     #[inline]
+     pub fn finalize(&self) -> CodingResult<()> {
+-        self.inner.code.finalize()
++        let res = self.inner.code.finalize();
++        recorder::finalize(self.inner.rec_id, res.is_ok());
++        res
+     }
+ 
+     /// Returns the cluster mapping of distributions.
+@@ -212,6 +230,23 @@
+         bitstream: &mut Bitstream,
+         cluster: u8,
+     ) -> CodingResult<RleToken> {
++        let id = self.inner.rec_id;
++        let pos = recorder::before(id, bitstream);
++        let res = self.read_varint_clustered_impl(bitstream, cluster);
++        let enc = match &res {
++            Ok(RleToken::Value(v)) => format!("{v}"),
++            Ok(RleToken::Repeat(v)) => format!("r{v}"),
++            Err(_) => "E".to_string(),
++        };
++        recorder::after(pos, bitstream, |sid, rel, ra| format!("R {id} {sid} {rel} 2 {cluster} 0 {enc} {ra}"));
++        res
++    }
++
++    fn read_varint_clustered_impl(
++        &mut self,
++        bitstream: &mut Bitstream,
++        cluster: u8,
++    ) -> CodingResult<RleToken> {
+         self.inner
+             .code
+             .read_symbol(bitstream, cluster)
+@@ -411,11 +446,23 @@
+     }
+ }
+ 
+-#[derive(Debug, Clone)]
++#[derive(Debug)]
+ struct DecoderInner {
+     clusters: Vec<u8>,           // num_dist, [0, num_clusters)
+     configs: Vec<IntegerConfig>, // num_clusters
+     code: Coder,
++    rec_id: u32,
++}
++
++impl Clone for DecoderInner {
++    fn clone(&self) -> Self {
++        Self {
++            clusters: self.clusters.clone(),
++            configs: self.configs.clone(),
++            code: self.code.clone(),
++            rec_id: recorder::clone_id(self.rec_id),
++        }
++    }
+ }
+ 
+ impl DecoderInner {
+@@ -464,6 +511,7 @@
+             clusters,
+             configs,
+             code,
++            rec_id: 0,
+         })
+     }
+ 
+@@ -480,14 +528,38 @@
+         bitstream: &mut Bitstream,
+         cluster: u8,
+     ) -> CodingResult<u32> {
+-        let token = self.code.read_symbol(bitstream, cluster)?;
+-        Ok(self.read_uint_prefilled(bitstream, &self.configs[cluster as usize], token))
++        let id = self.rec_id;
++        let pos = recorder::before(id, bitstream);
++        let res = (|| -> CodingResult<u32> {
++            let token = self.code.read_symbol(bitstream, cluster)?;
++            Ok(self.read_uint_prefilled(bitstream, &self.configs[cluster as usize], token))
++        })();
++        let enc = match &res { Ok(v) => format!("{v}"), Err(_) => "E".to_string() };
++        recorder::after(pos, bitstream, |sid, rel, ra| format!("R {id} {sid} {rel} 0 {cluster} 0 {enc} {ra}"));
++        res
+     }
+ 
+     fn read_varint_with_multiplier_clustered_lz77(
+         &mut self,
+         bitstream: &mut Bitstream,
+         cluster: u8,
++        dist_multiplier: u32,
++        state: &mut Lz77State,
++        min_symbol: u32,
++        min_length: u32,
++    ) -> CodingResult<u32> {
++        let id = self.rec_id;
++        let pos = recorder::before(id, bitstream);
++        let res = self.read_lz77_impl(bitstream, cluster, dist_multiplier, state, min_symbol, min_length);
++        let enc = match &res { Ok(v) => format!("{v}"), Err(_) => "E".to_string() };
++        recorder::after(pos, bitstream, |sid, rel, ra| format!("R {id} {sid} {rel} 1 {cluster} {dist_multiplier} {enc} {ra}"));
++        res
++    }
++
++    fn read_lz77_impl(
++        &mut self,
++        bitstream: &mut Bitstream,
++        cluster: u8,
+         dist_multiplier: u32,
+         state: &mut Lz77State,
+         min_symbol: u32,
+diff -ruN ../../../jxl-oxide/crates/jxl-coding/src/recorder.rs jxl-coding/src/recorder.rs
+--- ../../../jxl-oxide/crates/jxl-coding/src/recorder.rs	1969-12-31 19:00:00.000000000 -0500
++++ jxl-coding/src/recorder.rs	2026-11-18 04:34:05.505691842 -0500
+@@ -0,0 +1,221 @@
++//! RECORDER PATCH: records entropy decoder operations for differential replay.
++use std::cell::Cell;
++use std::sync::Mutex;
++
++use jxl_bitstream::Bitstream;
++
++struct Snap {
++    end: usize,
++    abs_start: u128,
++    pad: usize,
++    data: Vec<u8>,
++    max_rel: usize,
++}
++
++struct Rec {
++    enabled: bool,
++    snaps: Vec<Snap>,
++    events: Vec<String>,
++    next_id: u32,
++    counts: Vec<u32>,
++    dead: Vec<bool>,
++    total: usize,
++}
++
++static REC: Mutex<Rec> = Mutex::new(Rec {
++    enabled: false,
++    snaps: Vec::new(),
++    events: Vec::new(),
++    next_id: 1,
++    counts: Vec::new(),
++    dead: Vec::new(),
++    total: 0,
++});
++
++#[allow(non_snake_case)]
++fn PER_DECODER_CAP() -> u32 { std::env::var("REC_CAP").ok().and_then(|v| v.parse().ok()).unwrap_or(1500) }
++#[allow(non_snake_case)]
++fn TOTAL_CAP() -> usize { std::env::var("REC_TOTAL").ok().and_then(|v| v.parse().ok()).unwrap_or(6000) }
++
++thread_local! {
++    pub static DEPTH: Cell<u32> = const { Cell::new(0) };
++}
++
++fn state_bit(bs: &Bitstream, i: usize) -> Option<bool> {
++    let (ptr, len, buf, rem) = bs.debug_state();
++    if i < rem {
++        return Some((buf >> i) & 1 == 1);
++    }
++    let j = i - rem;
++    if j / 8 >= len {
++        return None;
++    }
++    let b = unsafe { *(ptr as *const u8).add(j / 8) };
++    Some((b >> (j % 8)) & 1 == 1)
++}
++
++fn snap_bit(s: &Snap, j: usize) -> Option<bool> {
++    if j / 8 >= s.data.len() {
++        return None;
++    }
++    Some((s.data[j / 8] >> (j % 8)) & 1 == 1)
++}
++
++/// Returns (sid, rel)
++fn locate(rec: &mut Rec, bs: &Bitstream) -> (usize, usize) {
++    let (ptr, len, buf, rem) = bs.debug_state();
++    let end = ptr + len;
++    let abs = (ptr as u128) * 8 - rem as u128;
++    for (sid, s) in rec.snaps.iter().enumerate() {
++        if s.end != end || abs < s.abs_start {
++            continue;
++        }
++        let rel = (abs - s.abs_start) as usize;
++        let mut ok = true;
++        for i in 0..64 {
++            if state_bit(bs, i) != snap_bit(s, s.pad + rel + i) {
++                ok = false;
++                break;
++            }
++        }
++        if ok {
++            return (sid, rel);
++        }
++    }
++    let pad = (8 - rem % 8) % 8;
++    let mut data = Vec::new();
++    let head = (buf as u128) << pad;
++    for k in 0..(pad + rem) / 8 {
++        data.push((head >> (8 * k)) as u8);
++    }
++    let slice = unsafe { std::slice::from_raw_parts(ptr as *const u8, len) };
++    data.extend_from_slice(slice);
++    rec.snaps.push(Snap {
++        end,
++        abs_start: abs,
++        pad,
++        data,
++        max_rel: 0,
++    });
++    (rec.snaps.len() - 1, 0)
++}
++
++fn rel_of(rec: &mut Rec, sid: usize, bs: &Bitstream) -> usize {
++    let (_, _, _, rem) = bs.debug_state();
++    let (ptr, _, _, _) = bs.debug_state();
++    let abs = (ptr as u128) * 8 - rem as u128;
++    let rel = (abs - rec.snaps[sid].abs_start) as usize;
++    let s = &mut rec.snaps[sid];
++    s.max_rel = s.max_rel.max(rel);
++    rel
++}
++
++pub fn enable() {
++    let mut r = REC.lock().unwrap();
++    r.enabled = true;
++    r.snaps.clear();
++    r.events.clear();
++    r.next_id = 1;
++    r.counts = vec![0];
++    r.dead = vec![true];
++    r.total = 0;
++}
++
++pub fn dump() -> String {
++    let mut r = REC.lock().unwrap();
++    r.enabled = false;
++    let mut out = String::new();
++    for (sid, s) in r.snaps.iter().enumerate() {
++        let keep = ((s.pad + s.max_rel) / 8 + 24).min(s.data.len());
++        let hex: String = s.data[..keep].iter().map(|b| format!("{b:02x}")).collect();
++        out.push_str(&format!("S {sid} {} {hex}\n", s.pad));
++    }
++    for e in &r.events {
++        out.push_str(e);
++        out.push('\n');
++    }
++    out
++}
++
++fn alive(r: &Rec, id: u32) -> bool {
++    r.enabled && id != 0 && !r.dead[id as usize]
++}
++
++/// Called before an op; returns (sid, rel) if recorded.
++pub fn before(id: u32, bs: &Bitstream) -> Option<(usize, usize)> {
++    let mut r = REC.lock().unwrap();
++    if !alive(&r, id) {
++        return None;
++    }
++    if r.total >= TOTAL_CAP() {
++        for d in r.dead.iter_mut() {
++            *d = true;
++        }
++        return None;
++    }
++    r.counts[id as usize] += 1;
++    if r.counts[id as usize] > PER_DECODER_CAP() {
++        r.dead[id as usize] = true;
++        return None;
++    }
++    r.total += 1;
++    let (sid, rel) = locate(&mut r, bs);
++    let _ = rel_of(&mut r, sid, bs);
++    Some((sid, rel))
++}
++
++pub fn after(pos: Option<(usize, usize)>, bs: &Bitstream, line: impl FnOnce(usize, usize, usize) -> String) {
++    let Some((sid, rel)) = pos else { return };
++    let mut r = REC.lock().unwrap();
++    let rel_after = rel_of(&mut r, sid, bs);
++    let l = line(sid, rel, rel_after);
++    r.events.push(l);
++}
++
++/// Parse at top level: returns (sid, rel) if recording.
++pub fn parse_before(bs: &Bitstream) -> Option<(usize, usize)> {
++    if DEPTH.with(|d| d.get()) != 0 {
++        return None;
++    }
++    let mut r = REC.lock().unwrap();
++    if !r.enabled || r.total >= TOTAL_CAP() {
++        return None;
++    }
++    r.total += 1;
++    let (sid, rel) = locate(&mut r, bs);
++    Some((sid, rel))
++}
++
++pub fn parse_after(pos: Option<(usize, usize)>, bs: &Bitstream, num_dist: u32) -> u32 {
++    let Some((sid, rel)) = pos else { return 0 };
++    let mut r = REC.lock().unwrap();
++    let rel_after = rel_of(&mut r, sid, bs);
++    let id = r.next_id;
++    r.next_id += 1;
++    r.counts.push(0);
++    r.dead.push(false);
++    r.events.push(format!("P {id} {sid} {rel} {num_dist} {rel_after}"));
++    id
++}
++
++pub fn clone_id(src: u32) -> u32 {
++    let mut r = REC.lock().unwrap();
++    if !alive(&r, src) || r.total >= TOTAL_CAP() {
++        return 0;
++    }
++    r.total += 1;
++    let id = r.next_id;
++    r.next_id += 1;
++    r.counts.push(0);
++    r.dead.push(false);
++    r.events.push(format!("C {src} {id}"));
++    id
++}
++
++pub fn finalize(id: u32, ok: bool) {
++    let mut r = REC.lock().unwrap();
++    if !alive(&r, id) {
++        return;
++    }
++    r.events.push(format!("F {id} {}", ok as u32));
++}
+diff -ruN ../../../jxl-oxide/crates/jxl-bitstream/src/bitstream.rs jxl-bitstream/src/bitstream.rs
+--- ../../../jxl-oxide/crates/jxl-bitstream/src/bitstream.rs	2026-11-18 04:13:19.330513587 -0500
++++ jxl-bitstream/src/bitstream.rs	2026-11-18 04:32:14.912692830 -0500
+@@ -43,6 +43,11 @@
+         }
+     }
+ 
++    /// RECORDER PATCH: (bytes ptr, bytes len, buf, remaining_buf_bits)
++    pub fn debug_state(&self) -> (usize, usize, u64, usize) {
++        (self.bytes.as_ptr() as usize, self.bytes.len(), self.buf, self.remaining_buf_bits)
++    }
++
+     /// Returns the number of bits that are read or skipped.
+     #[inline]
+     pub fn num_read_bits(&self) -> usize {
