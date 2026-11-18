@@ -41,23 +41,11 @@ pub fn write_hf_coeff(
 ) -> Unit raise @bitstream.JxlError {
   let num_hf_presets = params.num_hf_presets
   let block_info = params.block_info
-  let hf_pass = params.hf_pass
-  let coeff_shift = params.coeff_shift
-  let lf_quant = params.lf_quant
-  let dist = hf_pass.clone_decoder()
-  let qf_thresholds = params.hf_block_ctx.qf_thresholds
-  let lf_thresholds = params.hf_block_ctx.lf_thresholds
-  let block_ctx_map = params.hf_block_ctx.block_ctx_map
+  let dist = params.hf_pass.clone_decoder()
   let num_block_clusters = params.hf_block_ctx.num_block_clusters
-  let lf_idx_mul = (lf_thresholds[0].length() + 1) *
-    (lf_thresholds[1].length() + 1) *
-    (lf_thresholds[2].length() + 1)
-  let hf_idx_mul = qf_thresholds.length() + 1
   let upsampling_shifts = FixedArray::makei(3, idx => {
     @modular.ChannelShift::from_jpeg_upsampling(params.jpeg_upsampling, idx)
   })
-  let hshifts = FixedArray::makei(3, i => upsampling_shifts[i].hshift())
-  let vshifts = FixedArray::makei(3, i => upsampling_shifts[i].vshift())
   let hfp_bits = ceil_log2(num_hf_presets)
   let hfp = bitstream.read_bits(hfp_bits).reinterpret_as_int()
   if hfp >= num_hf_presets {
@@ -80,9 +68,44 @@ pub fn write_hf_coeff(
   let total_len = non_zeros_grid_lengths[0] +
     non_zeros_grid_lengths[1] +
     non_zeros_grid_lengths[2]
+  // The allocation handle is dropped (and the bytes returned) when this
+  // function returns, also on error.
   if params.tracker is Some(tracker) {
     tracker.alloc(total_len, 4)
   }
+  defer (if params.tracker is Some(tracker) { tracker.free(total_len, 4) })
+  write_hf_coeff_inner(
+    bitstream, params, hf_coeff_output, dist, cluster_map, non_zeros_grid_lengths,
+    upsampling_shifts,
+  )
+}
+
+///|
+fn write_hf_coeff_inner(
+  bitstream : @bitstream.Bitstream,
+  params : HfCoeffParams,
+  hf_coeff_output : FixedArray[@grid.SubGrid[Int32]],
+  dist : @coding.Decoder,
+  cluster_map : FixedArray[Int32],
+  non_zeros_grid_lengths : FixedArray[Int32],
+  upsampling_shifts : FixedArray[@modular.ChannelShift],
+) -> Unit raise @bitstream.JxlError {
+  let block_info = params.block_info
+  let hf_pass = params.hf_pass
+  let coeff_shift = params.coeff_shift
+  let lf_quant = params.lf_quant
+  let qf_thresholds = params.hf_block_ctx.qf_thresholds
+  let lf_thresholds = params.hf_block_ctx.lf_thresholds
+  let block_ctx_map = params.hf_block_ctx.block_ctx_map
+  let num_block_clusters = params.hf_block_ctx.num_block_clusters
+  let lf_idx_mul = (lf_thresholds[0].length() + 1) *
+    (lf_thresholds[1].length() + 1) *
+    (lf_thresholds[2].length() + 1)
+  let hf_idx_mul = qf_thresholds.length() + 1
+  let hshifts = FixedArray::makei(3, i => upsampling_shifts[i].hshift())
+  let vshifts = FixedArray::makei(3, i => upsampling_shifts[i].vshift())
+  let width = block_info.width
+  let height = block_info.height
   let non_zeros_grid_row = FixedArray::makei(3, c => {
     FixedArray::make(non_zeros_grid_lengths[c], 0)
   })
@@ -106,7 +129,7 @@ pub fn write_hf_coeff(
             idx *= lf_thresholds.length() + 1
             let x = x >> hshifts[c]
             let y = y >> vshifts[c]
-            let q = lf_quant[c].get(x, y)
+            let q = subgrid_get_checked(lf_quant[c], x, y)
             for threshold in lf_thresholds {
               if q > threshold {
                 idx += 1
@@ -216,7 +239,8 @@ pub fn write_hf_coeff(
           }
           let x = sx * 8 + dx
           let y = sy * 8 + dy
-          coeff_grid.set(x, y, coeff_grid.get(x, y) + coeff)
+          let v = subgrid_get_checked(coeff_grid, x, y)
+          coeff_grid.set(x, y, v + coeff)
           is_prev_coeff_nonzero = 1
           non_zeros -= 1
           if non_zeros == 0 {
@@ -227,7 +251,14 @@ pub fn write_hf_coeff(
     }
   }
   dist.finalize()
-  if params.tracker is Some(tracker) {
-    tracker.free(total_len, 4)
+}
+
+///|
+/// `SharedSubgrid::get` / `MutableSubgrid::get_mut`, which panic on
+/// out-of-range coordinates.
+fn subgrid_get_checked(g : @grid.SubGrid[Int32], x : Int32, y : Int32) -> Int32 {
+  if x < 0 || y < 0 || x >= g.width || y >= g.height {
+    abort("coordinate out of range: (\{x}, \{y}) not in \{g.width}x\{g.height}")
   }
+  g.get(x, y)
 }

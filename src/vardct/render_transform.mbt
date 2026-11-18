@@ -239,7 +239,7 @@ fn transform_dct(coeff : @grid.SubGrid[Float]) -> Unit {
 ///|
 /// `generic::transform`: inverse transform of a varblock with the generic
 /// kernels.
-fn transform_generic(
+pub fn transform_generic(
   coeff : @grid.SubGrid[Float],
   dct_select : TransformType,
 ) -> Unit {

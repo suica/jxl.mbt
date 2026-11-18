@@ -42,6 +42,7 @@ pub fn LfGroup::parse(
       global_ma_config,
       allow_partial,
       tracker,
+      pool: @threadpool.JxlThreadPool::none(),
     }
     Some(@vardct.LfCoeff::parse(bs, lf_coeff_params))
   } else {
@@ -76,6 +77,7 @@ pub fn LfGroup::parse(
       },
       quantizer_global_scale: params.quantizer.unwrap().global_scale,
       tracker,
+      pool: @threadpool.JxlThreadPool::none(),
     }
     Ok(Some(@vardct.HfMetadata::parse(bs, hf_meta_params))) catch {
       e => Err(e)

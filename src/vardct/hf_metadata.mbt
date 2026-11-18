@@ -14,6 +14,7 @@ pub(all) struct HfMetadataParams {
   epf : (Float, FixedArray[Float])?
   quantizer_global_scale : Int32
   tracker : @grid.AllocTracker?
+  pool : @threadpool.JxlThreadPool
 }
 
 ///|
@@ -108,6 +109,8 @@ pub fn HfMetadata::parse(
     1 + 2 * params.num_lf_groups + params.lf_group_idx,
     false,
   )
+  // `subimage.finish(pool)` (sequential, as upstream with `JxlThreadPool::none()`)
+  ignore(params.pool)
   ignore(subimage.finish())
   let image = modular.into_image().unwrap().into_image_channels()
   let x_from_y = image[0]

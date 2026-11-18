@@ -3,10 +3,12 @@ import {
   "suica/jxl/grid",
   "suica/jxl/coding",
   "suica/jxl/modular",
+  "suica/jxl/threadpool",
 }
 
 import {
   "moonbitlang/core/math",
+  "suica/jxl/threadpool",
 } for "wbtest"
 
 import {

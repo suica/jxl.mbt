@@ -67,3 +67,11 @@ test "cosf matches glibc bit-exactly" {
     assert_eq(h, expected[mode], msg="mode \{mode}")
   }
 }
+
+///|
+test "round_f32 rounds half away from zero" {
+  assert_eq(round_f32(2.5), 3.0)
+  assert_eq(round_f32(-2.5), -3.0)
+  assert_eq(round_f32(-2.4), -2.0)
+  assert_eq(round_f32(2039.5), 2040.0)
+}

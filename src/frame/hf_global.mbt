@@ -44,6 +44,7 @@ pub fn HfGlobal::parse(
     frame_header.num_lf_groups(),
     ma_config,
     tracker,
+    @threadpool.JxlThreadPool::none(),
   )
   let dequant_matrices = @vardct.DequantMatrixSet::parse(
     bs, dequant_matrix_params,

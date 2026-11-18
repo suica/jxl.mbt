@@ -8,6 +8,7 @@ pub struct DequantMatrixSetParams {
   priv stream_index : Int32
   priv global_ma_config : @modular.MaConfig?
   priv tracker : @grid.AllocTracker?
+  priv pool : @threadpool.JxlThreadPool
 }
 
 ///|
@@ -19,6 +20,7 @@ pub fn DequantMatrixSetParams::new(
   num_lf_groups : Int32,
   global_ma_config : @modular.MaConfig?,
   tracker : @grid.AllocTracker?,
+  pool : @threadpool.JxlThreadPool,
 ) -> DequantMatrixSetParams {
   {
     dct_select: Dct8,
@@ -26,6 +28,7 @@ pub fn DequantMatrixSetParams::new(
     stream_index: 1 + num_lf_groups * 3,
     global_ma_config,
     tracker,
+    pool,
   }
 }
 
@@ -55,6 +58,9 @@ fn decode_raw_dequant_matrix(
   let image = modular.image_mut().unwrap()
   let subimage = image.prepare_subimage()
   subimage.decode(bitstream, params.stream_index, false)
+  // `subimage.finish(pool)`: jxl-modular's `finish` runs sequentially, which is
+  // what upstream does with `JxlThreadPool::none()`.
+  ignore(params.pool)
   ignore(subimage.finish())
   let channels = modular.into_image().unwrap().into_image_channels()
   FixedArray::makei(3, c => channels[c].buf())

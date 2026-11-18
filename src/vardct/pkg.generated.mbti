@@ -6,6 +6,7 @@ import {
   "suica/jxl/bitstream",
   "suica/jxl/grid",
   "suica/jxl/modular",
+  "suica/jxl/threadpool",
 }
 
 // Values
@@ -22,6 +23,8 @@ pub fn sec_half(Int32) -> FixedArray[Float]
 pub fn sec_half_small(Int32) -> FixedArray[Float]
 
 pub fn transform(@grid.SubGrid[Float], TransformType) -> Unit
+
+pub fn transform_generic(@grid.SubGrid[Float], TransformType) -> Unit
 
 pub fn transform_varblock(@grid.SubGrid[Float], @grid.SubGrid[Float], Int32, Int32, TransformType) -> Unit
 
@@ -46,6 +49,7 @@ pub(all) enum DctDirection {
   Inverse
 }
 
+#derive(@debug.Debug)
 pub struct DequantMatrixSet {
   // private fields
 }
@@ -57,7 +61,7 @@ pub fn DequantMatrixSet::parse(@bitstream.Bitstream, DequantMatrixSetParams) -> 
 pub struct DequantMatrixSetParams {
   // private fields
 }
-pub fn DequantMatrixSetParams::new(Int32, Int32, @modular.MaConfig?, @grid.AllocTracker?) -> Self
+pub fn DequantMatrixSetParams::new(Int32, Int32, @modular.MaConfig?, @grid.AllocTracker?, @threadpool.JxlThreadPool) -> Self
 
 #derive(@debug.Debug)
 pub(all) struct HfBlockContext {
@@ -99,6 +103,7 @@ pub(all) struct HfMetadataParams {
   epf : (Float, FixedArray[Float])?
   quantizer_global_scale : Int32
   tracker : @grid.AllocTracker?
+  pool : @threadpool.JxlThreadPool
 }
 
 pub struct HfPass {
@@ -113,22 +118,22 @@ pub fn HfPassParams::new(HfBlockContext, Int32) -> Self
 
 #derive(@debug.Debug)
 pub(all) struct LfChannelCorrelation {
-  all_default : Bool
   colour_factor : Int32
   base_correlation_x : Float
   base_correlation_b : Float
   x_factor_lf : Int32
   b_factor_lf : Int32
+  // private fields
 }
 pub fn LfChannelCorrelation::default() -> Self
 pub fn LfChannelCorrelation::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
 
 #derive(@debug.Debug)
 pub(all) struct LfChannelDequantization {
-  all_default : Bool
   m_x_lf : Float
   m_y_lf : Float
   m_b_lf : Float
+  // private fields
 }
 pub fn LfChannelDequantization::default() -> Self
 pub fn LfChannelDequantization::m_b_lf_unscaled(Self) -> Float
@@ -152,6 +157,7 @@ pub(all) struct LfCoeffParams {
   global_ma_config : @modular.MaConfig?
   allow_partial : Bool
   tracker : @grid.AllocTracker?
+  pool : @threadpool.JxlThreadPool
 }
 
 #derive(@debug.Debug)

@@ -259,7 +259,13 @@ test "default dequant matrices match jxl-oxide" {
   let bs = @bitstream.Bitstream::new(b"\x01\x00\x00\x00\x00\x00\x00\x00")
   let set = DequantMatrixSet::parse(
     bs,
-    DequantMatrixSetParams::new(8, 1, None, None),
+    DequantMatrixSetParams::new(
+      8,
+      1,
+      None,
+      None,
+      @threadpool.JxlThreadPool::none(),
+    ),
   )
   for entry in ref_dequant {
     let (i, c, h, h_tr) = entry
@@ -330,7 +336,13 @@ test "parametrised dequant matrices match jxl-oxide" {
   let bs = @bitstream.Bitstream::new(data)
   let set = DequantMatrixSet::parse(
     bs,
-    DequantMatrixSetParams::new(8, 1, None, None),
+    DequantMatrixSetParams::new(
+      8,
+      1,
+      None,
+      None,
+      @threadpool.JxlThreadPool::none(),
+    ),
   )
   assert_eq(bs.num_read_bits(), 3008)
   for entry in expected {

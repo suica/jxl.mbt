@@ -548,6 +548,7 @@ fn DequantMatrixParams::parse(
 
 ///|
 /// A set of dequantization matrices.
+#derive(Debug)
 pub struct DequantMatrixSet {
   priv matrices : FixedArray[FixedArray[FixedArray[Float]]]
   priv matrices_tr : FixedArray[FixedArray[FixedArray[Float]]]
@@ -596,7 +597,7 @@ pub fn DequantMatrixSet::parse(
     }
   }
   let jpeg_matrices = match param_list[0].encoding {
-    Raw(denominator~, params~) if ((1.0 : Float) / denominator).round().to_int() ==
+    Raw(denominator~, params~) if round_f32((1.0 : Float) / denominator).to_int() ==
       2040 => params.map(ch => ch.copy())
     _ => []
   }
@@ -653,5 +654,15 @@ pub fn DequantMatrixSet::jpeg_quant_values(
     Some(self.jpeg_matrices[channel])
   } else {
     None
+  }
+}
+
+///|
+/// `f32::round`: rounds half-way cases away from zero.
+fn round_f32(x : Float) -> Float {
+  if x < 0.0 {
+    -(-x).round()
+  } else {
+    x.round()
   }
 }

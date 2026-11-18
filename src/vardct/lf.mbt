@@ -4,7 +4,7 @@
 /// Dequantization information for each channel.
 #derive(Debug)
 pub(all) struct LfChannelDequantization {
-  all_default : Bool
+  priv all_default : Bool
   m_x_lf : Float
   m_y_lf : Float
   m_b_lf : Float
@@ -89,7 +89,7 @@ pub fn Quantizer::parse(
 /// Channel correlation data, used by chroma-from-luma procedure.
 #derive(Debug)
 pub(all) struct LfChannelCorrelation {
-  all_default : Bool
+  priv all_default : Bool
   colour_factor : Int32
   base_correlation_x : Float
   base_correlation_b : Float
@@ -213,6 +213,7 @@ pub(all) struct LfCoeffParams {
   global_ma_config : @modular.MaConfig?
   allow_partial : Bool
   tracker : @grid.AllocTracker?
+  pool : @threadpool.JxlThreadPool
 }
 
 ///|
@@ -247,6 +248,8 @@ pub fn LfCoeff::parse(
   let image = lf_quant.image_mut().unwrap()
   let subimage = image.prepare_subimage()
   subimage.decode(bitstream, 1 + params.lf_group_idx, params.allow_partial)
+  // `subimage.finish(pool)` (sequential, as upstream with `JxlThreadPool::none()`)
+  ignore(params.pool)
   let complete = subimage.finish()
   { extra_precision, lf_quant, partial: !complete, }
 }

@@ -130,6 +130,7 @@ fn check_sections(
     global_ma_config: ma,
     allow_partial: false,
     tracker: None,
+    pool: @threadpool.JxlThreadPool::none(),
   })
   assert_eq(lf_coeff.extra_precision, r.extra_precision)
   assert_eq(lf_coeff.partial, false)
@@ -148,6 +149,7 @@ fn check_sections(
     epf: r.epf,
     quantizer_global_scale: quantizer.global_scale,
     tracker: None,
+    pool: @threadpool.JxlThreadPool::none(),
   })
   assert_eq(bs.num_read_bits(), r.lf_group_end)
   assert_eq(hash_ints(hf_meta.x_from_y.buf()), r.x_from_y_hash)
@@ -169,7 +171,13 @@ fn check_sections(
   bs.skip_bits(r.hf_global_start)
   let dequant_matrices = DequantMatrixSet::parse(
     bs,
-    DequantMatrixSetParams::new(r.bits_per_sample, r.num_lf_groups, ma, None),
+    DequantMatrixSetParams::new(
+      r.bits_per_sample,
+      r.num_lf_groups,
+      ma,
+      None,
+      @threadpool.JxlThreadPool::none(),
+    ),
   )
   let mut dq = 2166136261U
   for ty in dct_select_list {
@@ -208,6 +216,42 @@ fn check_sections(
     let (w, h) = shifts[idx].shift_size((r.block_w, r.block_h))
     @grid.Grid::new(w * 8, h * 8, 0)
   })
+  // A truncated pass group fails, and the tracked scratch bytes are returned
+  // (upstream drops the allocation handle on the error path too).
+  if r.pass_group_end - r.pass_group_start > 64 {
+    let tracker = @grid.AllocTracker::with_limit(1L << 30)
+    let truncated = @bitstream.Bitstream::new_range(
+      pass_group,
+      0,
+      (r.pass_group_start + 32) / 8,
+    )
+    truncated.skip_bits(r.pass_group_start)
+    let scratch = FixedArray::makei(3, idx => {
+      let (w, h) = shifts[idx].shift_size((r.block_w, r.block_h))
+      @grid.Grid::new(w * 8, h * 8, 0).as_subgrid()
+    })
+    let failed = try {
+      write_hf_coeff(
+        truncated,
+        {
+          num_hf_presets,
+          hf_block_ctx,
+          block_info,
+          jpeg_upsampling: r.jpeg_upsampling,
+          lf_quant: Some(lf_quant),
+          hf_pass: hf_passes[0],
+          coeff_shift: r.coeff_shift,
+          tracker: Some(tracker),
+        },
+        scratch,
+      )
+      false
+    } catch {
+      _ => true
+    }
+    assert_true(failed)
+    assert_eq(tracker.bytes_left, 1L << 30)
+  }
   write_hf_coeff(
     bs,
     {
