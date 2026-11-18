@@ -1,0 +1,13 @@
+import {
+  "moonbitlang/core/cmp",
+  "suica/jxl/bitstream",
+  "suica/jxl/brotli",
+  "suica/jxl/cms",
+  "suica/jxl/color",
+  "suica/jxl/container",
+  "suica/jxl/frame",
+  "suica/jxl/grid",
+  "suica/jxl/image",
+  "suica/jxl/jbr",
+  "suica/jxl/render",
+}

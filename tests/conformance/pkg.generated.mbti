@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl_tests/conformance"
+
+import {
+  "suica/jxl_tests/harness",
+}
+
+// Values
+pub fn run_conformance(String, ToleranceSource) -> Unit raise
+
+// Errors
+
+// Types and methods
+pub(all) enum ToleranceSource {
+  Upstream(UpstreamTolerance)
+  TestJson
+}
+
+pub(all) enum UpstreamTolerance {
+  Uniform(@harness.Tolerance)
+  PerChannel(Array[@harness.Tolerance])
+}
+
+// Type aliases
+
+// Traits
