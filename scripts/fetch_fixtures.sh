@@ -12,6 +12,11 @@
 #       compares those two CMSs; here the MoonBit CMS is compared with both).
 #       Needs the jxl-oxide CLI: JXL_OXIDE_CLI=<path to the jxl-oxide binary>,
 #       or JXL_OXIDE_SRC=<jxl-oxide checkout> and cargo to build it.
+#   fixtures/cache/oxide/alpha_premultiplied.npy   (step `oxide-ref`, not in `all`)
+#       conformance case alpha_premultiplied decoded by jxl-oxide to its
+#       reference.icc (f32 npy, 1x1024x1024x4, 16 MB): reference of the
+#       render_conformance test "alpha_premultiplied vs jxl-oxide". Needs the
+#       conformance step and the jxl-oxide CLI (as for `cms`).
 #
 # Sources (override with environment variables):
 #   CONFORMANCE_DIR   existing checkout of https://github.com/libjxl/conformance
@@ -23,7 +28,7 @@
 #                     (jxl-oxide's crates/jxl-oxide-tests/decode). If unset, it is
 #                     cloned into fixtures/cache/jxl-oxide-testdata.
 #
-# Usage: scripts/fetch_fixtures.sh [conformance|decode|cms|all]   (default: all)
+# Usage: scripts/fetch_fixtures.sh [conformance|decode|cms|oxide-ref|all]   (default: all)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -101,14 +106,32 @@ fetch_decode() {
   done
 }
 
-fetch_cms() {
+oxide_cli() {
   local cli="${JXL_OXIDE_CLI:-}"
   if [ -z "$cli" ]; then
     [ -n "${JXL_OXIDE_SRC:-}" ] || { echo "error: set JXL_OXIDE_CLI or JXL_OXIDE_SRC" >&2; exit 1; }
     need cargo
-    (cd "$JXL_OXIDE_SRC" && CARGO_TARGET_DIR="$CACHE/cargo" cargo build --locked --release -p jxl-oxide-cli)
+    (cd "$JXL_OXIDE_SRC" && CARGO_TARGET_DIR="$CACHE/cargo" cargo build --locked --release -p jxl-oxide-cli) >&2
     cli="$CACHE/cargo/release/jxl-oxide"
   fi
+  echo "$cli"
+}
+
+fetch_oxide_ref() {
+  local cli case_dir
+  cli="$(oxide_cli)"
+  case_dir="$CACHE/conformance/alpha_premultiplied"
+  [ -f "$case_dir/input.jxl" ] && [ -e "$case_dir/reference.icc" ] || {
+    echo "error: $case_dir not found (run the conformance step first)" >&2; exit 1; }
+  mkdir -p "$CACHE/oxide"
+  "$cli" "$case_dir/input.jxl" --target-icc "$case_dir/reference.icc" \
+    -f npy -o "$CACHE/oxide/alpha_premultiplied.npy"
+  echo "oxide-ref: $CACHE/oxide/alpha_premultiplied.npy"
+}
+
+fetch_cms() {
+  local cli
+  cli="$(oxide_cli)"
   mkdir -p "$CACHE/cms"
   for cms in lcms2 moxcms; do
     "$cli" "$ROOT/tests/data/cms/cmyk_layers.jxl" --cms "$cms" \
@@ -121,6 +144,7 @@ case "$what" in
   conformance) fetch_conformance ;;
   decode) fetch_decode ;;
   cms) fetch_cms ;;
+  oxide-ref) fetch_oxide_ref ;;
   all) fetch_conformance; fetch_decode ;;
-  *) echo "usage: $0 [conformance|decode|cms|all]" >&2; exit 2 ;;
+  *) echo "usage: $0 [conformance|decode|cms|oxide-ref|all]" >&2; exit 2 ;;
 esac
