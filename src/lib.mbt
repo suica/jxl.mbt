@@ -37,7 +37,7 @@ pub struct JxlImageBuilder {
 
 ///|
 pub fn JxlImageBuilder::default() -> JxlImageBuilder {
-  { tracker: None, force_wide_buffers: false }
+  { tracker: None, force_wide_buffers: false, }
 }
 
 ///|
@@ -145,7 +145,7 @@ pub struct UninitializedJxlImage {
 pub fn UninitializedJxlImage::feed_bytes(
   self : UninitializedJxlImage,
   buf : BytesView,
-) -> Int raise @bitstream.JxlError {
+) -> Int32 raise @bitstream.JxlError {
   let events = self.reader.feed_bytes(buf)
   while events.next() is Some(event) {
     match event {
@@ -202,7 +202,11 @@ pub fn UninitializedJxlImage::try_init(
   }
   bitstream.zero_pad_to_byte()
   let skip_bytes = if image_header.metadata.preview is Some(_) {
-    let frame = @frame.Frame::parse(bitstream, image_header, tracker=self.tracker) catch {
+    let frame = @frame.Frame::parse(
+      bitstream,
+      image_header,
+      tracker=self.tracker,
+    ) catch {
       e if e.unexpected_eof() => return NeedMoreData(self)
       e => raise e
     }
@@ -248,7 +252,7 @@ pub fn UninitializedJxlImage::try_init(
 ///|
 /// The CMS set on new images (upstream: `Lcms2` with the `lcms2` feature).
 fn default_cms() -> &@color.ColorManagementSystem {
-  @cms.MoonCms::{  }
+  @cms.MoonCms::{ }
 }
 
 ///|
@@ -284,7 +288,7 @@ pub fn JxlImage::read_with_defaults(
 pub fn JxlImage::feed_bytes(
   self : JxlImage,
   buf : BytesView,
-) -> Int raise @bitstream.JxlError {
+) -> Int32 raise @bitstream.JxlError {
   let events = self.reader.feed_bytes(buf)
   while events.next() is Some(event) {
     match event {
@@ -314,13 +318,13 @@ pub fn JxlImage::image_header(self : JxlImage) -> @image.ImageHeader {
 
 ///|
 /// Returns the image width with orientation applied.
-pub fn JxlImage::width(self : JxlImage) -> Int {
+pub fn JxlImage::width(self : JxlImage) -> Int32 {
   self.image_header.width_with_orientation()
 }
 
 ///|
 /// Returns the image height with orientation applied.
-pub fn JxlImage::height(self : JxlImage) -> Int {
+pub fn JxlImage::height(self : JxlImage) -> Int32 {
   self.image_header.height_with_orientation()
 }
 
@@ -346,7 +350,7 @@ pub fn JxlImage::rendered_icc(self : JxlImage) -> Bytes {
 ///|
 /// Returns the CICP tag of the color encoding of rendered images, if there's
 /// any.
-pub fn JxlImage::rendered_cicp(self : JxlImage) -> FixedArray[Int]? {
+pub fn JxlImage::rendered_cicp(self : JxlImage) -> FixedArray[Int32]? {
   let encoding = self.ctx.requested_color_encoding()
   encoding.encoding().cicp()
 }
@@ -415,14 +419,14 @@ pub fn JxlImage::aux_boxes(self : JxlImage) -> AuxBoxList {
 
 ///|
 /// Returns the number of currently loaded keyframes.
-pub fn JxlImage::num_loaded_keyframes(self : JxlImage) -> Int {
+pub fn JxlImage::num_loaded_keyframes(self : JxlImage) -> Int32 {
   self.ctx.loaded_keyframes()
 }
 
 ///|
 /// Returns the number of currently loaded frames, including frames that are
 /// not displayed directly.
-pub fn JxlImage::num_loaded_frames(self : JxlImage) -> Int {
+pub fn JxlImage::num_loaded_frames(self : JxlImage) -> Int32 {
   self.ctx.loaded_frames()
 }
 
@@ -437,7 +441,7 @@ pub fn JxlImage::is_loading_done(self : JxlImage) -> Bool {
 /// Returns frame data by keyframe index.
 pub fn JxlImage::frame_by_keyframe(
   self : JxlImage,
-  keyframe_index : Int,
+  keyframe_index : Int32,
 ) -> @render.IndexedFrame? {
   self.ctx.keyframe(keyframe_index)
 }
@@ -447,7 +451,7 @@ pub fn JxlImage::frame_by_keyframe(
 /// keyframe does not exist.
 pub fn JxlImage::frame_header(
   self : JxlImage,
-  keyframe_index : Int,
+  keyframe_index : Int32,
 ) -> @frame.FrameHeader? {
   guard self.ctx.keyframe(keyframe_index) is Some(frame) else { return None }
   Some(frame.header())
@@ -466,14 +470,14 @@ pub fn JxlImage::frame_header(
 ///   following frames and displayed together.
 pub fn JxlImage::frame(
   self : JxlImage,
-  frame_idx : Int,
+  frame_idx : Int32,
 ) -> @render.IndexedFrame? {
   self.ctx.frame(frame_idx)
 }
 
 ///|
 /// Returns the offset of frame within codestream, in bytes.
-pub fn JxlImage::frame_offset(self : JxlImage, frame_index : Int) -> Int? {
+pub fn JxlImage::frame_offset(self : JxlImage, frame_index : Int32) -> Int32? {
   self.inner.frame_offsets.get(frame_index)
 }
 
@@ -526,7 +530,7 @@ pub fn JxlImage::request_color_encoding(
 /// Renders the given keyframe.
 pub fn JxlImage::render_frame(
   self : JxlImage,
-  keyframe_index : Int,
+  keyframe_index : Int32,
 ) -> Render raise @bitstream.JxlError {
   self.render_frame_cropped(keyframe_index)
 }
@@ -535,12 +539,12 @@ pub fn JxlImage::render_frame(
 /// Renders the given keyframe with optional cropping region.
 pub fn JxlImage::render_frame_cropped(
   self : JxlImage,
-  keyframe_index : Int,
+  keyframe_index : Int32,
 ) -> Render raise @bitstream.JxlError {
   let image = self.ctx.render_keyframe(keyframe_index)
-  let image_region = self.ctx.image_region().apply_orientation(
-    self.image_header,
-  )
+  let image_region = self.ctx
+    .image_region()
+    .apply_orientation(self.image_header)
   let frame = self.ctx.keyframe(keyframe_index).unwrap()
   let frame_header = frame.header()
   let target_frame_region = image_region.translate(
@@ -579,9 +583,9 @@ pub fn JxlImage::render_loading_frame_cropped(
   let frame_header = frame.header()
   let name = frame_header.name
   let duration = frame_header.duration
-  let image_region = self.ctx.image_region().apply_orientation(
-    self.image_header,
-  )
+  let image_region = self.ctx
+    .image_region()
+    .apply_orientation(self.image_header)
   let frame = match self.ctx.frame(self.ctx.loaded_frames()) {
     Some(f) => f
     None => self.ctx.frame(self.ctx.loaded_frames() - 1).unwrap()
@@ -635,9 +639,7 @@ pub fn JxlImage::jpeg_reconstruction_status(
   match self.inner.aux_boxes.jbrd() {
     Data(jbrd) => {
       let header = jbrd.header()
-      let exif = self.inner.aux_boxes.first_exif() catch {
-        _ => return Invalid
-      }
+      let exif = self.inner.aux_boxes.first_exif() catch { _ => return Invalid }
       let xml = self.inner.aux_boxes.first_xml()
       if header.expected_icc_len() > 0 {
         if !self.image_header.metadata.colour_encoding.want_icc() {
@@ -732,7 +734,7 @@ pub fn JxlImage::reconstruct_jpeg(
 ///|
 fn JxlImage::convert_ec_info(self : JxlImage) -> Array[ExtraChannel] {
   self.image_header.metadata.ec_info.map(fn(ec_info) {
-    { ty: ec_info.ty, name: ec_info.name, bit_depth: ec_info.bit_depth }
+    { ty: ec_info.ty, name: ec_info.name, bit_depth: ec_info.bit_depth, }
   })
 }
 
@@ -740,8 +742,8 @@ fn JxlImage::convert_ec_info(self : JxlImage) -> Array[ExtraChannel] {
 priv struct JxlImageInner {
   mut end_of_image : Bool
   mut buffer : Bytes
-  mut buffer_offset : Int
-  frame_offsets : Array[Int]
+  mut buffer_offset : Int32
+  frame_offsets : Array[Int32]
   aux_boxes : AuxBoxList
 }
 
@@ -841,7 +843,7 @@ pub(all) enum PixelFormat {
 
 ///|
 /// Returns the number of channels of the image.
-pub fn PixelFormat::channels(self : PixelFormat) -> Int {
+pub fn PixelFormat::channels(self : PixelFormat) -> Int32 {
   match self {
     Gray => 1
     Graya => 2
@@ -885,7 +887,7 @@ pub(all) enum HdrType {
 #derive(Debug)
 pub(all) enum LoadResult {
   /// The frame is loaded with the given keyframe index.
-  Done(Int)
+  Done(Int32)
   /// More data is needed to fully load the frame.
   NeedMoreData
   /// No more frames are present.
@@ -906,10 +908,10 @@ pub(all) enum RenderResult {
 ///|
 /// The result of rendering a keyframe.
 pub struct Render {
-  priv keyframe_index : Int
+  priv keyframe_index : Int32
   priv name : String
-  priv duration : UInt
-  priv orientation : Int
+  priv duration : UInt32
+  priv orientation : Int32
   priv image : @render.ImageWithRegion
   priv extra_channels : Array[ExtraChannel]
   priv target_frame_region : @render.Region
@@ -920,7 +922,7 @@ pub struct Render {
 
 ///|
 /// Returns the keyframe index.
-pub fn Render::keyframe_index(self : Render) -> Int {
+pub fn Render::keyframe_index(self : Render) -> Int32 {
   self.keyframe_index
 }
 
@@ -932,13 +934,13 @@ pub fn Render::name(self : Render) -> String {
 
 ///|
 /// Returns how many ticks this frame is presented.
-pub fn Render::duration(self : Render) -> UInt {
+pub fn Render::duration(self : Render) -> UInt32 {
   self.duration
 }
 
 ///|
 /// Returns the orientation of the image.
-pub fn Render::orientation(self : Render) -> Int {
+pub fn Render::orientation(self : Render) -> Int32 {
   self.orientation
 }
 
@@ -1083,24 +1085,32 @@ pub fn ExtraChannel::is_spot_colour(self : ExtraChannel) -> Bool {
 /// Cropping region information.
 #derive(Debug, Default, Eq)
 pub(all) struct CropInfo {
-  width : Int
-  height : Int
-  left : Int
-  top : Int
+  width : Int32
+  height : Int32
+  left : Int32
+  top : Int32
 }
 
 ///|
 /// `impl From<CropInfo> for Region`.
 pub fn CropInfo::to_region(self : CropInfo) -> @render.Region {
-  { left: self.left, top: self.top, width: self.width, height: self.height }
+  { left: self.left, top: self.top, width: self.width, height: self.height, }
 }
 
 ///|
 /// `impl From<Region> for CropInfo`.
 pub fn CropInfo::from_region(value : @render.Region) -> CropInfo {
   {
-    left: if value.left < 0 { 0 } else { value.left },
-    top: if value.top < 0 { 0 } else { value.top },
+    left: if value.left < 0 {
+      0
+    } else {
+      value.left
+    },
+    top: if value.top < 0 {
+      0
+    } else {
+      value.top
+    },
     width: value.width,
     height: value.height,
   }

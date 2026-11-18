@@ -13,11 +13,14 @@ priv struct Jbrd {
 
 ///|
 fn Jbrd::new() -> Jbrd {
-  { state: Uninit(Buffer()) }
+  { state: Uninit(Buffer()), }
 }
 
 ///|
-fn Jbrd::feed_bytes(self : Jbrd, bytes : BytesView) -> Unit raise @bitstream.JxlError {
+fn Jbrd::feed_bytes(
+  self : Jbrd,
+  bytes : BytesView,
+) -> Unit raise @bitstream.JxlError {
   match self.state {
     Uninit(buf) => {
       buf.write_bytesview(bytes)

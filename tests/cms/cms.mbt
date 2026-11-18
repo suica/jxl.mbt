@@ -6,12 +6,14 @@
 // lcms2 vs moxcms itself scores 92.86).
 
 ///|
-fn render_linear_srgb() -> (FixedArray[Float], Int, Int) raise Error {
+fn render_linear_srgb() -> (FixedArray[Float], Int32, Int32) raise Error {
   let data = @harness.read_file(@harness.data_dir() + "/cms/cmyk_layers.jxl")
   let image = @jxl.JxlImage::builder().read(data)
   let width = image.width()
   let height = image.height()
-  let encoding = @image.EnumColourEncoding::srgb(@image.RenderingIntent::Relative)
+  let encoding = @image.EnumColourEncoding::srgb(
+    @image.RenderingIntent::Relative,
+  )
   encoding.tf = Linear
   image.request_color_encoding(encoding)
   let render = image.render_frame(0)
@@ -46,13 +48,9 @@ fn check_against(reference : String) -> Unit raise Error {
     expected.data[i / 3 * c + i % 3]
   })
   let score = @harness.compute_frame_ssimulacra2(
-    reference_frame,
-    frame,
-    width,
-    height,
+    reference_frame, frame, width, height,
   )
   if !(score >= 90.0) {
     fail("SSIMULACRA2 score too low (score < 90.0), score = \{score}")
   }
 }
-

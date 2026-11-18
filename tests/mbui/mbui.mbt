@@ -26,7 +26,7 @@ pub fn check_size(name : String) -> Unit raise Error {
 ///|
 /// Compares `decode_jxl` with the first frame of the reference (an sRGB
 /// render), allowing `max_diff` in 8-bit units.
-pub fn check_pixels(name : String, max_diff : Int) -> Unit raise Error {
+pub fn check_pixels(name : String, max_diff : Int32) -> Unit raise Error {
   guard load_case(name) is Some((input, npy)) else { return }
   let (h, w, c) = (npy.shape[1], npy.shape[2], npy.shape[3])
   guard @jxl.decode_jxl(input) is Some((dw, dh, rgba)) else {

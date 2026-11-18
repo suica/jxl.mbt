@@ -4,7 +4,7 @@
 
 ///|
 /// `(f * 65535.0 + 0.5) as u16` (Rust saturating float-to-int cast).
-fn to_u16(f : Float) -> Int {
+fn to_u16(f : Float) -> Int32 {
   let v = f * 65535.0 + 0.5
   if v.is_nan() || v <= 0.0 {
     0
@@ -17,7 +17,7 @@ fn to_u16(f : Float) -> Int {
 
 ///|
 /// `1u16 << 14u32.saturating_sub(bits)`
-fn modular_threshold(bits : Int) -> Int {
+fn modular_threshold(bits : Int32) -> Int32 {
   let shift = 14 - bits
   1 << (if shift < 0 { 0 } else { shift })
 }
@@ -38,7 +38,9 @@ pub fn run_decode(name : String) -> Unit raise Error {
     let frame = image.render_frame(idx)
     let marker = expected.marker()
     if marker != 0 {
-      fail("\{name}: keyframe #\{idx}: fixture has no more keyframes (marker \{marker})")
+      fail(
+        "\{name}: keyframe #\{idx}: fixture has no more keyframes (marker \{marker})",
+      )
     }
     let num_color_channels = frame.color_channels().length()
     let image_planar = frame.image_planar()
@@ -85,6 +87,8 @@ pub fn run_decode(name : String) -> Unit raise Error {
   // the fixture's keyframe list ends with a 0xff marker
   let end = expected.marker()
   if end != 0xff {
-    fail("\{name}: fewer keyframes decoded (\{image.num_loaded_keyframes()}) than in the fixture")
+    fail(
+      "\{name}: fewer keyframes decoded (\{image.num_loaded_keyframes()}) than in the fixture",
+    )
   }
 }

@@ -3,7 +3,7 @@
 ///|
 /// Raw Exif metadata.
 pub struct RawExif {
-  priv tiff_header_offset : UInt
+  priv tiff_header_offset : UInt32
   priv payload : BytesView
 }
 
@@ -23,12 +23,12 @@ fn RawExif::new(box_data : Bytes) -> RawExif raise @bitstream.JxlError {
       "tiff_header_offset of Exif box is too large",
     )
   }
-  { tiff_header_offset, payload }
+  { tiff_header_offset, payload, }
 }
 
 ///|
 /// Returns the offset of TIFF header within the payload.
-pub fn RawExif::tiff_header_offset(self : RawExif) -> UInt {
+pub fn RawExif::tiff_header_offset(self : RawExif) -> UInt32 {
   self.tiff_header_offset
 }
 

@@ -5,7 +5,7 @@
 // of `src/color/fastmath.mbt`'s.
 
 ///|
-const NUM_SCALES : Int = 6
+const NUM_SCALES : Int32 = 6
 
 ///|
 /// Fused multiply-add on `Float`: computes `a * b + c` with a single rounding,
@@ -61,11 +61,10 @@ fn mul_add_d(a : Double, b : Double, c : Double) -> Double {
   s + (perr + serr)
 }
 
-
 ///|
 /// Recursive Gaussian constants (ssimulacra2 build.rs, sigma 1.5).
 priv struct GaussianConsts {
-  radius : Int
+  radius : Int32
   vert_mul_in : FixedArray[Float]
   vert_mul_prev : FixedArray[Float]
   mul_in : FixedArray[Float]
@@ -110,7 +109,9 @@ let gaussian_consts : GaussianConsts = {
   let r_5 = p_5 * p_5 / @math.sin(omega[2])
   let neg_half_sigma2 = -0.5 * sigma * sigma
   let recip_radius = 1.0 / radius
-  let rho = omega.map(fn(w) { @math.exp(neg_half_sigma2 * w * w) * recip_radius })
+  let rho = omega.map(fn(w) {
+    @math.exp(neg_half_sigma2 * w * w) * recip_radius
+  })
   let d_13 = p_1 * r_3 - r_1 * p_3
   let d_35 = p_3 * r_5 - r_3 * p_5
   let d_51 = p_5 * r_1 - r_5 * p_1
@@ -154,8 +155,8 @@ let gaussian_consts : GaussianConsts = {
 fn blur_horizontal(
   input : FixedArray[Float],
   output : FixedArray[Float],
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
 ) -> Unit {
   let k = gaussian_consts
   let big_n = k.radius
@@ -203,8 +204,8 @@ fn blur_horizontal(
 fn blur_vertical(
   input : FixedArray[Float],
   output : FixedArray[Float],
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
 ) -> Unit {
   let k = gaussian_consts
   let big_n = k.radius
@@ -242,8 +243,8 @@ fn blur_vertical(
 ///|
 fn blur_planes(
   img : Array[FixedArray[Float]],
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
 ) -> Array[FixedArray[Float]] {
   img.map(fn(plane) {
     let temp = FixedArray::make(width * height, (0.0 : Float))
@@ -281,7 +282,7 @@ fn cbrtf(x : Float) -> Float {
 /// `xyb_to_planar`).
 fn linear_rgb_to_positive_xyb_planar(
   rgb : FixedArray[Float],
-  n : Int,
+  n : Int32,
 ) -> Array[FixedArray[Float]] {
   let m = opsin_absorbance_matrix
   let neg_bias_cbrt = -cbrtf(opsin_absorbance_bias)
@@ -299,7 +300,11 @@ fn linear_rgb_to_positive_xyb_planar(
       let v = mul_add(
         m[c * 3],
         r,
-        mul_add(m[c * 3 + 1], g, mul_add(m[c * 3 + 2], b, opsin_absorbance_bias)),
+        mul_add(
+          m[c * 3 + 1],
+          g,
+          mul_add(m[c * 3 + 2], b, opsin_absorbance_bias),
+        ),
       )
       let v : Float = if v < 0.0 { 0.0 } else { v }
       mixed[c] = cbrtf(v) + neg_bias_cbrt
@@ -318,9 +323,9 @@ fn linear_rgb_to_positive_xyb_planar(
 ///|
 fn downscale_by_2(
   input : FixedArray[Float],
-  in_w : Int,
-  in_h : Int,
-) -> (FixedArray[Float], Int, Int) {
+  in_w : Int32,
+  in_h : Int32,
+) -> (FixedArray[Float], Int32, Int32) {
   let scale = 2
   let out_w = (in_w + scale - 1) / scale
   let out_h = (in_h + scale - 1) / scale
@@ -356,8 +361,8 @@ fn image_multiply(
 
 ///|
 fn ssim_map(
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
   m1 : Array[FixedArray[Float]],
   m2 : Array[FixedArray[Float]],
   s11 : Array[FixedArray[Float]],
@@ -396,8 +401,8 @@ fn ssim_map(
 
 ///|
 fn edge_diff_map(
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
   img1 : Array[FixedArray[Float]],
   mu1 : Array[FixedArray[Float]],
   img2 : Array[FixedArray[Float]],
@@ -428,114 +433,22 @@ fn edge_diff_map(
 
 ///|
 let ssimulacra2_weight : FixedArray[Double] = [
-  0.0,
-  0.0007376606707406586,
-  0.0,
-  0.0,
-  0.0007793481682867309,
-  0.0,
-  0.0,
-  0.0004371155730107379,
-  0.0,
-  1.1041726426657346,
-  0.00066284834129271,
-  0.00015231632783718752,
-  0.0,
-  0.0016406437456599754,
-  0.0,
-  1.8422455520539298,
-  11.441172603757666,
-  0.0,
-  0.0007989109436015163,
-  0.000176816438078653,
-  0.0,
-  1.8787594979546387,
-  10.94906990605142,
-  0.0,
-  0.0007289346991508072,
-  0.9677937080626833,
-  0.0,
-  0.00014003424285435884,
-  0.9981766977854967,
-  0.00031949755934435053,
-  0.0004550992113792063,
-  0.0,
-  0.0,
-  0.0013648766163243398,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  7.466890328078848,
-  0.0,
-  17.445833984131262,
-  0.0006235601634041466,
-  0.0,
-  0.0,
-  6.683678146179332,
-  0.00037724407979611296,
-  1.027889937768264,
-  225.20515300849274,
-  0.0,
-  0.0,
-  19.213238186143016,
-  0.0011401524586618361,
-  0.001237755635509985,
-  176.39317598450694,
-  0.0,
-  0.0,
-  24.43300999870476,
-  0.28520802612117757,
-  0.0004485436923833408,
-  0.0,
-  0.0,
-  0.0,
-  34.77906344483772,
-  44.835625328877896,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  0.0008680556573291698,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  0.0005313191874358747,
-  0.0,
-  0.00016533814161379112,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  0.0004179171803251336,
-  0.0017290828234722833,
-  0.0,
-  0.0020827005846636437,
-  0.0,
-  0.0,
-  8.826982764996862,
-  23.19243343998926,
-  0.0,
-  95.1080498811086,
-  0.9863978034400682,
-  0.9834382792465353,
-  0.0012286405048278493,
-  171.2667255897307,
-  0.9807858872435379,
-  0.0,
-  0.0,
-  0.0,
-  0.0005130064588990679,
-  0.0,
-  0.00010854057858411537,
+  0.0, 0.0007376606707406586, 0.0, 0.0, 0.0007793481682867309, 0.0, 0.0, 0.0004371155730107379,
+  0.0, 1.1041726426657346, 0.00066284834129271, 0.00015231632783718752, 0.0, 0.0016406437456599754,
+  0.0, 1.8422455520539298, 11.441172603757666, 0.0, 0.0007989109436015163, 0.000176816438078653,
+  0.0, 1.8787594979546387, 10.94906990605142, 0.0, 0.0007289346991508072, 0.9677937080626833,
+  0.0, 0.00014003424285435884, 0.9981766977854967, 0.00031949755934435053, 0.0004550992113792063,
+  0.0, 0.0, 0.0013648766163243398, 0.0, 0.0, 0.0, 0.0, 0.0, 7.466890328078848, 0.0,
+  17.445833984131262, 0.0006235601634041466, 0.0, 0.0, 6.683678146179332, 0.00037724407979611296,
+  1.027889937768264, 225.20515300849274, 0.0, 0.0, 19.213238186143016, 0.0011401524586618361,
+  0.001237755635509985, 176.39317598450694, 0.0, 0.0, 24.43300999870476, 0.28520802612117757,
+  0.0004485436923833408, 0.0, 0.0, 0.0, 34.77906344483772, 44.835625328877896, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0008680556573291698, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0005313191874358747, 0.0, 0.00016533814161379112, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0004179171803251336,
+  0.0017290828234722833, 0.0, 0.0020827005846636437, 0.0, 0.0, 8.826982764996862,
+  23.19243343998926, 0.0, 95.1080498811086, 0.9863978034400682, 0.9834382792465353,
+  0.0012286405048278493, 171.2667255897307, 0.9807858872435379, 0.0, 0.0, 0.0, 0.0005130064588990679,
+  0.0, 0.00010854057858411537,
 ]
 
 ///|
@@ -544,8 +457,8 @@ let ssimulacra2_weight : FixedArray[Double] = [
 pub fn compute_frame_ssimulacra2(
   source : FixedArray[Float],
   distorted : FixedArray[Float],
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
 ) -> Double raise Failure {
   if source.length() != width * height * 3 ||
     distorted.length() != width * height * 3 {

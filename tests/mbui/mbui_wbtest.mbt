@@ -237,8 +237,13 @@ test "mbui/decode_jxl/truncated" {
 
 ///|
 test "mbui/decode_jxl/fuzz findings do not crash" {
-  for name in ["large_output_size", "icc_parse_oob", "container_small_jxlp", "timeout_dim_shift"] {
-    let data = @harness.read_file(@harness.data_dir() + "/fuzz_findings/" + name + ".fuzz")
+  for
+    name in [
+      "large_output_size", "icc_parse_oob", "container_small_jxlp", "timeout_dim_shift",
+    ] {
+    let data = @harness.read_file(
+      @harness.data_dir() + "/fuzz_findings/" + name + ".fuzz",
+    )
     @jxl.decode_jxl(data) |> ignore
   }
 }

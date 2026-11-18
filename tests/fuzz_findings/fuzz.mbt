@@ -10,8 +10,8 @@ pub fn fuzz_decode(name : String) -> Unit raise Error {
   let image = @jxl.JxlImage::builder()
     .alloc_tracker(@grid.AllocTracker::with_limit(128L * 1024L * 1024L)) // 128 MiB
     .read(data) catch {
-    _ => return
-  }
+      _ => return
+    }
   image.image_header() |> ignore
   for keyframe_idx in 0..<image.num_loaded_keyframes() {
     (image.render_frame(keyframe_idx) |> ignore) catch {

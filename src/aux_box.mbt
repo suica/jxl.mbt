@@ -17,7 +17,7 @@ pub struct AuxBoxReader {
 
 ///|
 fn AuxBoxReader::new() -> AuxBoxReader {
-  { data: Init, done: false }
+  { data: Init, done: false, }
 }
 
 ///|
@@ -65,7 +65,9 @@ pub fn AuxBoxReader::feed_data(
 }
 
 ///|
-pub fn AuxBoxReader::finalize(self : AuxBoxReader) -> Unit raise @bitstream.JxlError {
+pub fn AuxBoxReader::finalize(
+  self : AuxBoxReader,
+) -> Unit raise @bitstream.JxlError {
   if self.done {
     return
   }
@@ -246,7 +248,8 @@ fn AuxBoxList::jbrd(self : AuxBoxList) -> AuxBoxData[@jbr.JpegBitstreamData] {
   if self.jbrd.data() is Some(data) {
     Data(data)
   } else if self.last_box &&
-    self.current_box_ty != Some(@container.ContainerBoxType::jpeg_reconstruction()) {
+    self.current_box_ty !=
+    Some(@container.ContainerBoxType::jpeg_reconstruction()) {
     NotFound
   } else {
     Decoding

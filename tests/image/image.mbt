@@ -14,8 +14,8 @@ pub fn open_decoder(name : String) -> @jxl.JxlDecoder? raise Error {
 pub fn check_decode(
   name : String,
   color : @jxl.ColorType,
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
 ) -> Unit raise Error {
   guard open_decoder(name) is Some(decoder) else { return }
   assert_eq(decoder.color_type(), color)
@@ -32,7 +32,9 @@ pub fn check_decode(
     (U16(buf), L16 | La16 | Rgb16 | Rgba16) => {
       assert_eq(buf.length(), len)
       for v in buf {
-        guard v >= 0 && v <= 65535 else { fail("u16 sample out of range: \{v}") }
+        guard v >= 0 && v <= 65535 else {
+          fail("u16 sample out of range: \{v}")
+        }
       }
     }
     (F32(buf), Rgb32F | Rgba32F) => assert_eq(buf.length(), len)

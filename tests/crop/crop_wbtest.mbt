@@ -100,67 +100,53 @@ test "crop/spot" {
 
 ///|
 test "crop/crop_sunset_logo_0" {
-  run_crops("sunset_logo", [
-    { width: 179, height: 258, left: 527, top: 298 },
-  ])
+  run_crops("sunset_logo", [{ width: 179, height: 258, left: 527, top: 298, }])
 }
 
 ///|
 test "crop/crop_progressive_0" {
-  run_crops("progressive", [
-    { width: 315, height: 571, left: 1711, top: 800 },
-  ])
+  run_crops("progressive", [{ width: 315, height: 571, left: 1711, top: 800, }])
 }
 
 ///|
 test "crop/crop_progressive_1" {
-  run_crops("progressive", [
-    { width: 1159, height: 359, left: 776, top: 1745 },
-  ])
+  run_crops("progressive", [{ width: 1159, height: 359, left: 776, top: 1745, }])
 }
 
 ///|
 test "crop/crop_noise_0" {
-  run_crops("noise", [
-    { width: 195, height: 162, left: 169, top: 194 },
-  ])
+  run_crops("noise", [{ width: 195, height: 162, left: 169, top: 194, }])
 }
 
 ///|
 test "crop/crop_blendmodes_0" {
-  run_crops("blendmodes", [
-    { width: 242, height: 163, left: 81, top: 302 },
-  ])
+  run_crops("blendmodes", [{ width: 242, height: 163, left: 81, top: 302, }])
 }
 
 ///|
 test "crop/crop_alpha_triangles_triple" {
   run_crops("alpha_triangles", [
-    { width: 460, height: 325, left: 468, top: 356 },
-    { width: 361, height: 147, left: 524, top: 475 },
+    { width: 460, height: 325, left: 468, top: 356, },
+    { width: 361, height: 147, left: 524, top: 475, },
   ])
 }
 
 ///|
 test "crop/crop_progressive_triple" {
   run_crops("progressive", [
-    { width: 941, height: 659, left: 1893, top: 35 },
-    { width: 1847, height: 1220, left: 850, top: 929 },
-    { width: 1421, height: 814, left: 1568, top: 1460 },
+    { width: 941, height: 659, left: 1893, top: 35, },
+    { width: 1847, height: 1220, left: 850, top: 929, },
+    { width: 1421, height: 814, left: 1568, top: 1460, },
   ])
 }
 
 ///|
 test "crop/crop_bike_0" {
-  run_crops("bike", [
-    { width: 936, height: 137, left: 877, top: 2353 },
-  ])
+  run_crops("bike", [{ width: 936, height: 137, left: 877, top: 2353, }])
 }
 
 ///|
 test "crop/crop_upsampling_0" {
   // upstream: #[ignore = "fails only on CI with emulated aarch64"]
-  run_crops("upsampling", [
-    { width: 368, height: 128, left: 90, top: 460 },
-  ])
+  run_crops("upsampling", [{ width: 368, height: 128, left: 90, top: 460, }])
 }

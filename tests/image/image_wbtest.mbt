@@ -32,7 +32,9 @@ test "image/decode_cmyk" {
 test "image/icc_profile" {
   guard open_decoder("grayscale") is Some(decoder) else { return }
   let icc = decoder.icc_profile().unwrap()
-  let expected = @harness.read_file(@harness.data_dir() + "/image/grayscale.icc")
+  let expected = @harness.read_file(
+    @harness.data_dir() + "/image/grayscale.icc",
+  )
   assert_eq(icc, expected)
 }
 

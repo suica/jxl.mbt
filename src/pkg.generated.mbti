@@ -1,14 +1,257 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "suica/jxl"
 
+import {
+  "moonbitlang/core/debug",
+  "suica/jxl/bitstream",
+  "suica/jxl/color",
+  "suica/jxl/container",
+  "suica/jxl/frame",
+  "suica/jxl/grid",
+  "suica/jxl/image",
+  "suica/jxl/render",
+}
+
 // Values
+pub fn decode_jxl(Bytes) -> (Int32, Int32, FixedArray[Byte])?
+
 pub fn is_jxl(Bytes) -> Bool
 
 pub fn jxl_size(Bytes) -> (Int32, Int32)?
 
+pub fn sample_f32_to_u16(Float) -> Int32
+
+pub fn sample_f32_to_u8(Float) -> Int32
+
 // Errors
 
 // Types and methods
+pub(all) enum AuxBoxData[T] {
+  Data(T)
+  Decoding
+  NotFound
+}
+pub fn[T] AuxBoxData::has_data(Self[T]) -> Bool
+pub fn[T] AuxBoxData::is_decoding(Self[T]) -> Bool
+pub fn[T] AuxBoxData::is_not_found(Self[T]) -> Bool
+pub fn[T, U] AuxBoxData::map(Self[T], (T) -> U raise?) -> Self[U] raise?
+pub fn[T] AuxBoxData::unwrap(Self[T]) -> T
+pub fn[T] AuxBoxData::unwrap_or(Self[T], T) -> T
+
+pub struct AuxBoxList {
+  // private fields
+}
+pub fn AuxBoxList::first_exif(Self) -> AuxBoxData[RawExif] raise @bitstream.JxlError
+pub fn AuxBoxList::first_xml(Self) -> AuxBoxData[Bytes]
+
+pub struct AuxBoxReader {
+  // private fields
+}
+pub fn AuxBoxReader::data(Self) -> AuxBoxData[Bytes]
+pub fn AuxBoxReader::feed_data(Self, BytesView) -> Unit raise @bitstream.JxlError
+pub fn AuxBoxReader::finalize(Self) -> Unit raise @bitstream.JxlError
+pub fn AuxBoxReader::is_done(Self) -> Bool
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ColorType {
+  L8
+  La8
+  Rgb8
+  Rgba8
+  L16
+  La16
+  Rgb16
+  Rgba16
+  Rgb32F
+  Rgba32F
+}
+
+#derive(Default, Eq, @debug.Debug)
+pub(all) struct CropInfo {
+  width : Int32
+  height : Int32
+  left : Int32
+  top : Int32
+}
+pub fn CropInfo::from_region(@render.Region) -> Self
+pub fn CropInfo::to_region(Self) -> @render.Region
+
+pub(all) enum DecodedSamples {
+  U8(FixedArray[Byte])
+  U16(FixedArray[Int32])
+  F32(FixedArray[Float])
+}
+
+pub struct ExtraChannel {
+  // private fields
+}
+pub fn ExtraChannel::bit_depth(Self) -> @image.BitDepth
+pub fn ExtraChannel::is_alpha(Self) -> Bool
+pub fn ExtraChannel::is_black(Self) -> Bool
+pub fn ExtraChannel::is_spot_colour(Self) -> Bool
+pub fn ExtraChannel::name(Self) -> String
+pub fn ExtraChannel::ty(Self) -> @image.ExtraChannelType
+
+pub struct FrameBuffer {
+  // private fields
+}
+pub fn FrameBuffer::buf(Self) -> FixedArray[Float]
+pub fn FrameBuffer::buf_grouped(Self, Int32) -> Array[FixedArray[Float]]
+pub fn FrameBuffer::buf_mut(Self) -> FixedArray[Float]
+pub fn FrameBuffer::channels(Self) -> Int32
+pub fn FrameBuffer::from_grids(ArrayView[@render.ImageBuffer], ArrayView[@image.BitDepth], ArrayView[@render.Region], @render.Region, Int32) -> Self
+pub fn FrameBuffer::height(Self) -> Int32
+pub fn FrameBuffer::new(Int32, Int32, Int32) -> Self
+pub fn FrameBuffer::width(Self) -> Int32
+
+#derive(Eq, @debug.Debug)
+pub(all) enum HdrType {
+  Pq
+  Hlg
+}
+
+pub struct ImageStream {
+  // private fields
+}
+pub fn ImageStream::channels(Self) -> Int32
+pub fn ImageStream::height(Self) -> Int32
+pub fn ImageStream::width(Self) -> Int32
+pub fn ImageStream::write_to_buffer_f32(Self, FixedArray[Float], start? : Int32) -> Int32
+pub fn ImageStream::write_to_buffer_u16(Self, FixedArray[Int32], start? : Int32) -> Int32
+pub fn ImageStream::write_to_buffer_u8(Self, FixedArray[Byte], start? : Int32) -> Int32
+
+pub enum InitializeResult {
+  NeedMoreData(UninitializedJxlImage)
+  Initialized(JxlImage)
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum JpegReconstructionStatus {
+  Available
+  Invalid
+  Unavailable
+  NeedMoreData
+}
+
+pub struct JxlDecoder {
+  // private fields
+}
+pub fn JxlDecoder::color_type(Self) -> ColorType
+pub fn JxlDecoder::dimensions(Self) -> (Int32, Int32)
+pub fn JxlDecoder::exif_metadata(Self) -> Bytes? raise @bitstream.JxlError
+pub fn JxlDecoder::icc_profile(Self) -> Bytes?
+pub fn JxlDecoder::image(Self) -> JxlImage
+pub fn JxlDecoder::new(Bytes) -> Self raise @bitstream.JxlError
+pub fn JxlDecoder::read_image(Self) -> DecodedSamples raise @bitstream.JxlError
+pub fn JxlDecoder::read_rect(Self, Int32, Int32, Int32, Int32) -> DecodedSamples raise @bitstream.JxlError
+
+pub struct JxlImage {
+  // private fields
+}
+pub fn JxlImage::aux_boxes(Self) -> AuxBoxList
+pub fn JxlImage::builder() -> JxlImageBuilder
+pub fn JxlImage::current_image_region(Self) -> CropInfo
+pub fn JxlImage::feed_bytes(Self, BytesView) -> Int32 raise @bitstream.JxlError
+pub fn JxlImage::finalize(Self) -> Unit raise @bitstream.JxlError
+pub fn JxlImage::frame(Self, Int32) -> @render.IndexedFrame?
+pub fn JxlImage::frame_by_keyframe(Self, Int32) -> @render.IndexedFrame?
+pub fn JxlImage::frame_header(Self, Int32) -> @frame.FrameHeader?
+pub fn JxlImage::frame_offset(Self, Int32) -> Int32?
+pub fn JxlImage::hdr_type(Self) -> HdrType?
+pub fn JxlImage::height(Self) -> Int32
+pub fn JxlImage::image_header(Self) -> @image.ImageHeader
+pub fn JxlImage::is_loading_done(Self) -> Bool
+pub fn JxlImage::jpeg_reconstruction_status(Self) -> JpegReconstructionStatus
+pub fn JxlImage::num_loaded_frames(Self) -> Int32
+pub fn JxlImage::num_loaded_keyframes(Self) -> Int32
+pub fn JxlImage::original_icc(Self) -> Bytes?
+pub fn JxlImage::pixel_format(Self) -> PixelFormat
+pub fn JxlImage::read_with_defaults(Bytes) -> Self raise @bitstream.JxlError
+pub fn JxlImage::reader(Self) -> @container.ContainerParser
+pub fn JxlImage::reconstruct_jpeg(Self) -> Bytes raise @bitstream.JxlError
+pub fn JxlImage::render_frame(Self, Int32) -> Render raise @bitstream.JxlError
+pub fn JxlImage::render_frame_cropped(Self, Int32) -> Render raise @bitstream.JxlError
+pub fn JxlImage::render_loading_frame(Self) -> Render raise @bitstream.JxlError
+pub fn JxlImage::render_loading_frame_cropped(Self) -> Render raise @bitstream.JxlError
+pub fn JxlImage::render_spot_color(Self) -> Bool
+pub fn JxlImage::rendered_cicp(Self) -> FixedArray[Int32]?
+pub fn JxlImage::rendered_icc(Self) -> Bytes
+pub fn JxlImage::request_color_encoding(Self, @image.EnumColourEncoding) -> Unit
+pub fn JxlImage::request_icc(Self, Bytes) -> Unit raise @bitstream.JxlError
+pub fn JxlImage::set_cms(Self, &@color.ColorManagementSystem) -> Unit
+pub fn JxlImage::set_image_region(Self, CropInfo) -> Self
+pub fn JxlImage::set_render_spot_color(Self, Bool) -> Self
+pub fn JxlImage::width(Self) -> Int32
+
+pub struct JxlImageBuilder {
+  // private fields
+}
+pub fn JxlImageBuilder::alloc_tracker(Self, @grid.AllocTracker) -> Self
+pub fn JxlImageBuilder::build_uninit(Self) -> UninitializedJxlImage
+pub fn JxlImageBuilder::default() -> Self
+pub fn JxlImageBuilder::force_wide_buffers(Self, Bool) -> Self
+pub fn JxlImageBuilder::read(Self, Bytes) -> JxlImage raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) enum LoadResult {
+  Done(Int32)
+  NeedMoreData
+  NoMoreFrames
+}
+
+#derive(Eq, Hash, @debug.Debug)
+pub(all) enum PixelFormat {
+  Gray
+  Graya
+  Rgb
+  Rgba
+  Cmyk
+  Cmyka
+}
+pub fn PixelFormat::channels(Self) -> Int32
+pub fn PixelFormat::has_alpha(Self) -> Bool
+pub fn PixelFormat::has_black(Self) -> Bool
+pub fn PixelFormat::is_grayscale(Self) -> Bool
+
+pub struct RawExif {
+  // private fields
+}
+pub fn RawExif::payload(Self) -> BytesView
+pub fn RawExif::tiff_header_offset(Self) -> UInt32
+
+pub struct Render {
+  // private fields
+}
+pub fn Render::color_channels(Self) -> ArrayView[@render.ImageBuffer]
+pub fn Render::duration(Self) -> UInt32
+pub fn Render::extra_channels(Self) -> (Array[ExtraChannel], ArrayView[@render.ImageBuffer])
+pub fn Render::image_all_channels(Self) -> FrameBuffer
+pub fn Render::image_planar(Self) -> Array[FrameBuffer]
+pub fn Render::keyframe_index(Self) -> Int32
+pub fn Render::name(Self) -> String
+pub fn Render::orientation(Self) -> Int32
+pub fn Render::stream(Self) -> ImageStream
+pub fn Render::stream_no_alpha(Self) -> ImageStream
+
+pub(all) enum RenderResult {
+  Done(Render)
+  NeedMoreData
+  NoMoreFrames
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum SampleKind {
+  F32
+  U16
+  U8
+}
+
+pub struct UninitializedJxlImage {
+  // private fields
+}
+pub fn UninitializedJxlImage::feed_bytes(Self, BytesView) -> Int32 raise @bitstream.JxlError
+pub fn UninitializedJxlImage::reader(Self) -> @container.ContainerParser
+pub fn UninitializedJxlImage::try_init(Self) -> InitializeResult raise @bitstream.JxlError
 
 // Type aliases
 

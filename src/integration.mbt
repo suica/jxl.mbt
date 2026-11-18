@@ -24,7 +24,7 @@ pub(all) enum ColorType {
 /// Interleaved samples of a decoded image.
 pub(all) enum DecodedSamples {
   U8(FixedArray[Byte])
-  U16(FixedArray[Int])
+  U16(FixedArray[Int32])
   F32(FixedArray[Float])
 }
 
@@ -53,8 +53,8 @@ pub fn JxlDecoder::new(data : Bytes) -> JxlDecoder raise @bitstream.JxlError {
     @grid.AllocTracker::with_limit(0x7fffffffffffffffL),
   )
   let image = builder.read(data)
-  let crop = { width: image.width(), height: image.height(), left: 0, top: 0 }
-  let decoder = { image, current_crop: crop }
+  let crop = { width: image.width(), height: image.height(), left: 0, top: 0, }
+  let decoder = { image, current_crop: crop, }
   // Convert CMYK to sRGB
   if decoder.image.pixel_format().has_black() {
     decoder.image.request_color_encoding(
@@ -85,7 +85,7 @@ fn JxlDecoder::need_16bit(self : JxlDecoder) -> Bool {
 
 ///|
 /// Width and height with orientation applied.
-pub fn JxlDecoder::dimensions(self : JxlDecoder) -> (Int, Int) {
+pub fn JxlDecoder::dimensions(self : JxlDecoder) -> (Int32, Int32) {
   (self.image.width(), self.image.height())
 }
 
@@ -149,12 +149,12 @@ pub fn JxlDecoder::read_image(
 /// packed without padding.
 pub fn JxlDecoder::read_rect(
   self : JxlDecoder,
-  x : Int,
-  y : Int,
-  width : Int,
-  height : Int,
+  x : Int32,
+  y : Int32,
+  width : Int32,
+  height : Int32,
 ) -> DecodedSamples raise @bitstream.JxlError {
-  self.read_image_inner({ width, height, left: x, top: y })
+  self.read_image_inner({ width, height, left: x, top: y, })
 }
 
 ///|
@@ -169,7 +169,9 @@ fn JxlDecoder::read_image_inner(
   if self.image.frame_by_keyframe(0) is None &&
     self.image.num_loaded_keyframes() == 0 &&
     self.image.is_loading_done() {
-    raise @bitstream.Io("UnexpectedEof: reader ended before parsing first frame")
+    raise @bitstream.Io(
+      "UnexpectedEof: reader ended before parsing first frame",
+    )
   }
   let render = if self.image.num_loaded_keyframes() > 0 {
     self.image.render_frame(0)

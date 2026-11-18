@@ -11,7 +11,7 @@
 /// grayscale spread to R, G and B; alpha 255 where the image has none,
 /// premultiplied alpha undone; colours
 /// converted to sRGB (CMYK and ICC-profiled images through the CMS).
-pub fn decode_jxl(b : Bytes) -> (Int, Int, FixedArray[Byte])? {
+pub fn decode_jxl(b : Bytes) -> (Int32, Int32, FixedArray[Byte])? {
   if !is_jxl(b) {
     return None
   }
@@ -23,7 +23,7 @@ pub fn decode_jxl(b : Bytes) -> (Int, Int, FixedArray[Byte])? {
 ///|
 fn decode_jxl_rgba8(
   b : Bytes,
-) -> (Int, Int, FixedArray[Byte])? raise @bitstream.JxlError {
+) -> (Int32, Int32, FixedArray[Byte])? raise @bitstream.JxlError {
   // Bound what one picture may allocate: room for a few float planes per
   // pixel of the size its header gives, so crafted sizes fail cleanly.
   guard jxl_size(b) is Some((w, h)) else { return None }

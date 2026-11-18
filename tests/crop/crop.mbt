@@ -21,7 +21,7 @@ fn Rng::new(name : String) -> Rng {
   for i in 0..<seed.length() {
     h = (h ^ seed.code_unit_at(i).to_int().to_uint64()) * 0x100000001b3UL
   }
-  { state: if h == 0UL { 1UL } else { h } }
+  { state: if h == 0UL { 1UL } else { h }, }
 }
 
 ///|
@@ -36,7 +36,7 @@ fn Rng::next(self : Rng) -> UInt64 {
 
 ///|
 /// Uniform in `lo..=hi`.
-fn Rng::range_inclusive(self : Rng, lo : Int, hi : Int) -> Int {
+fn Rng::range_inclusive(self : Rng, lo : Int32, hi : Int32) -> Int32 {
   let n = (hi - lo + 1).to_uint64()
   lo + (self.next() % n).to_int()
 }
@@ -70,7 +70,10 @@ pub fn run_random_crops(name : String) -> Unit raise Error {
 }
 
 ///|
-pub fn run_crops(name : String, regions : Array[@jxl.CropInfo]) -> Unit raise Error {
+pub fn run_crops(
+  name : String,
+  regions : Array[@jxl.CropInfo],
+) -> Unit raise Error {
   guard @harness.read_fixture(@harness.conformance_path(name)) is Some(buf) else {
     return
   }

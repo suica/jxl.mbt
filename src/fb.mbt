@@ -3,9 +3,9 @@
 ///|
 /// Frame buffer representing a decoded image.
 pub struct FrameBuffer {
-  priv width : Int
-  priv height : Int
-  priv channels : Int
+  priv width : Int32
+  priv height : Int32
+  priv channels : Int32
   priv buf : FixedArray[Float]
 }
 
@@ -13,13 +13,21 @@ pub struct FrameBuffer {
 /// Creates a new framebuffer with given dimension.
 ///
 /// Note that framebuffer allocations are not tracked.
-pub fn FrameBuffer::new(width : Int, height : Int, channels : Int) -> FrameBuffer {
+pub fn FrameBuffer::new(
+  width : Int32,
+  height : Int32,
+  channels : Int32,
+) -> FrameBuffer {
   let len = FrameBuffer::buffer_len(width, height, channels)
-  { width, height, channels, buf: FixedArray::make(len, 0.0) }
+  { width, height, channels, buf: FixedArray::make(len, 0.0), }
 }
 
 ///|
-fn FrameBuffer::buffer_len(width : Int, height : Int, channels : Int) -> Int {
+fn FrameBuffer::buffer_len(
+  width : Int32,
+  height : Int32,
+  channels : Int32,
+) -> Int32 {
   let len = width.to_int64() * height.to_int64() * channels.to_int64()
   if width < 0 || height < 0 || channels < 0 || len > 0x7fffffffL {
     abort("framebuffer dimensions overflow")
@@ -33,17 +41,12 @@ fn FrameBuffer::buffer_len(width : Int, height : Int, channels : Int) -> Int {
 /// `parse_integer_sample` for integer buffers).
 fn sample_f32(
   g : @render.ImageBuffer,
-  x : Int,
-  y : Int,
+  x : Int32,
+  y : Int32,
   bit_depth : @image.BitDepth,
 ) -> Float {
   match g {
-    F32(g) =>
-      if x < g.width() && y < g.height() {
-        g.get(x, y)
-      } else {
-        0.0
-      }
+    F32(g) => if x < g.width() && y < g.height() { g.get(x, y) } else { 0.0 }
     I32(g) => {
       let v = if x < g.width() && y < g.height() { g.get(x, y) } else { 0 }
       bit_depth.parse_integer_sample(v)
@@ -58,7 +61,7 @@ pub fn FrameBuffer::from_grids(
   bit_depth : ArrayView[@image.BitDepth],
   grid_regions : ArrayView[@render.Region],
   copy_region : @render.Region,
-  orientation : Int,
+  orientation : Int32,
 ) -> FrameBuffer {
   let channels = grids.length()
   if channels == 0 {
@@ -67,7 +70,7 @@ pub fn FrameBuffer::from_grids(
   if orientation < 1 || orientation > 8 {
     abort("Invalid orientation \{orientation}")
   }
-  let { left, top, width, height } = copy_region
+  let { left, top, width, height, } = copy_region
   let (outw, outh) = if orientation <= 4 {
     (width, height)
   } else {
@@ -113,19 +116,19 @@ pub fn FrameBuffer::from_grids(
 
 ///|
 /// Returns the width of the frame buffer.
-pub fn FrameBuffer::width(self : FrameBuffer) -> Int {
+pub fn FrameBuffer::width(self : FrameBuffer) -> Int32 {
   self.width
 }
 
 ///|
 /// Returns the height of the frame buffer.
-pub fn FrameBuffer::height(self : FrameBuffer) -> Int {
+pub fn FrameBuffer::height(self : FrameBuffer) -> Int32 {
   self.height
 }
 
 ///|
 /// Returns the number of channels of the frame buffer.
-pub fn FrameBuffer::channels(self : FrameBuffer) -> Int {
+pub fn FrameBuffer::channels(self : FrameBuffer) -> Int32 {
   self.channels
 }
 
@@ -151,11 +154,9 @@ pub fn FrameBuffer::buf_mut(self : FrameBuffer) -> FixedArray[Float] {
 /// Panics if `n != self.channels()`.
 pub fn FrameBuffer::buf_grouped(
   self : FrameBuffer,
-  n : Int,
+  n : Int32,
 ) -> Array[FixedArray[Float]] {
-  guard self.channels == n else {
-    abort("assertion failed: channels == \{n}")
-  }
+  guard self.channels == n else { abort("assertion failed: channels == \{n}") }
   let grouped_len = FrameBuffer::buffer_len(self.width, self.height, 1)
   Array::makei(grouped_len, fn(i) {
     FixedArray::makei(n, fn(c) { self.buf[i * n + c] })
@@ -165,22 +166,22 @@ pub fn FrameBuffer::buf_grouped(
 ///|
 /// Image stream that writes to a caller's buffer.
 pub struct ImageStream {
-  priv orientation : Int
-  priv width : Int
-  priv height : Int
+  priv orientation : Int32
+  priv width : Int32
+  priv height : Int32
   priv grids : Array[@render.ImageBuffer]
-  priv start_offset_xy : Array[(Int, Int)]
+  priv start_offset_xy : Array[(Int32, Int32)]
   priv bit_depth : Array[@image.BitDepth]
   priv spot_colors : Array[ImageStreamSpotColor]
-  priv mut y : Int
-  priv mut x : Int
-  priv mut c : Int
+  priv mut y : Int32
+  priv mut x : Int32
+  priv mut c : Int32
 }
 
 ///|
 priv struct ImageStreamSpotColor {
   grid : @render.ImageBuffer
-  start_offset_xy : (Int, Int)
+  start_offset_xy : (Int32, Int32)
   bit_depth : @image.BitDepth
   rgb : (Float, Float, Float)
   solidity : Float
@@ -192,7 +193,7 @@ fn ImageStream::from_render(render : Render, skip_alpha : Bool) -> ImageStream {
   guard orientation >= 1 && orientation <= 8 else {
     abort("Invalid orientation \{orientation}")
   }
-  let { left, top, width, height } = render.target_frame_region
+  let { left, top, width, height, } = render.target_frame_region
   let (width, height) = if orientation >= 5 {
     (height, width)
   } else {
@@ -272,19 +273,19 @@ fn ImageStream::from_render(render : Render, skip_alpha : Bool) -> ImageStream {
 
 ///|
 /// Returns width of the image.
-pub fn ImageStream::width(self : ImageStream) -> Int {
+pub fn ImageStream::width(self : ImageStream) -> Int32 {
   self.width
 }
 
 ///|
 /// Returns height of the image.
-pub fn ImageStream::height(self : ImageStream) -> Int {
+pub fn ImageStream::height(self : ImageStream) -> Int32 {
   self.height
 }
 
 ///|
 /// Returns the number of channels of the image.
-pub fn ImageStream::channels(self : ImageStream) -> Int {
+pub fn ImageStream::channels(self : ImageStream) -> Int32 {
   self.grids.length()
 }
 
@@ -303,21 +304,21 @@ pub(all) enum SampleKind {
 
 ///|
 /// `f32 as u16` conversion of `(val * 65535 + 0.5).clamp(0, 65535)`.
-pub fn sample_f32_to_u16(val : Float) -> Int {
+pub fn sample_f32_to_u16(val : Float) -> Int32 {
   let v = val * 65535.0 + 0.5
   clamp_float_to_int(v, 65535.0)
 }
 
 ///|
 /// `f32 as u8` conversion of `(val * 255 + 0.5).clamp(0, 255)`.
-pub fn sample_f32_to_u8(val : Float) -> Int {
+pub fn sample_f32_to_u8(val : Float) -> Int32 {
   let v = val * 255.0 + 0.5
   clamp_float_to_int(v, 255.0)
 }
 
 ///|
 /// `v.clamp(0, max) as uN`: NaN maps to 0 like Rust's saturating cast.
-fn clamp_float_to_int(v : Float, max : Float) -> Int {
+fn clamp_float_to_int(v : Float, max : Float) -> Int32 {
   if v.is_nan() || v <= 0.0 {
     0
   } else if v >= max {
@@ -331,10 +332,10 @@ fn clamp_float_to_int(v : Float, max : Float) -> Int {
 /// Upstream `Sealed::copy_from_grid` for `u16` (result in 0..=65535).
 fn copy_u16_from_grid(
   grid : @render.ImageBuffer,
-  x : Int,
-  y : Int,
+  x : Int32,
+  y : Int32,
   bit_depth : @image.BitDepth,
-) -> Int {
+) -> Int32 {
   if bit_depth is IntegerSample(bits_per_sample=16) {
     match grid {
       F32(g) => {
@@ -361,10 +362,10 @@ fn copy_u16_from_grid(
 /// Upstream `Sealed::copy_from_grid` for `u8` (result in 0..=255).
 fn copy_u8_from_grid(
   grid : @render.ImageBuffer,
-  x : Int,
-  y : Int,
+  x : Int32,
+  y : Int32,
   bit_depth : @image.BitDepth,
-) -> Int {
+) -> Int32 {
   if bit_depth is IntegerSample(bits_per_sample=8) {
     match grid {
       F32(g) => {
@@ -393,11 +394,16 @@ fn copy_u8_from_grid(
 pub fn ImageStream::write_to_buffer_f32(
   self : ImageStream,
   buf : FixedArray[Float],
-  start? : Int = 0,
-) -> Int {
-  self.write_samples(buf.length() - start, fn(i, grid, x, y, bit_depth) {
-    buf[start + i] = sample_f32(grid, x, y, bit_depth)
-  }, fn(i, v) { buf[start + i] = v }, fn(i) { buf[start + i] = 0.0 })
+  start~ : Int32 = 0,
+) -> Int32 {
+  self.write_samples(
+    buf.length() - start,
+    fn(i, grid, x, y, bit_depth) {
+      buf[start + i] = sample_f32(grid, x, y, bit_depth)
+    },
+    fn(i, v) { buf[start + i] = v },
+    fn(i) { buf[start + i] = 0.0 },
+  )
 }
 
 ///|
@@ -405,14 +411,17 @@ pub fn ImageStream::write_to_buffer_f32(
 /// how many samples are written.
 pub fn ImageStream::write_to_buffer_u16(
   self : ImageStream,
-  buf : FixedArray[Int],
-  start? : Int = 0,
-) -> Int {
-  self.write_samples(buf.length() - start, fn(i, grid, x, y, bit_depth) {
-    buf[start + i] = copy_u16_from_grid(grid, x, y, bit_depth)
-  }, fn(i, v) { buf[start + i] = sample_f32_to_u16(v) }, fn(i) {
-    buf[start + i] = 0
-  })
+  buf : FixedArray[Int32],
+  start~ : Int32 = 0,
+) -> Int32 {
+  self.write_samples(
+    buf.length() - start,
+    fn(i, grid, x, y, bit_depth) {
+      buf[start + i] = copy_u16_from_grid(grid, x, y, bit_depth)
+    },
+    fn(i, v) { buf[start + i] = sample_f32_to_u16(v) },
+    fn(i) { buf[start + i] = 0 },
+  )
 }
 
 ///|
@@ -421,13 +430,16 @@ pub fn ImageStream::write_to_buffer_u16(
 pub fn ImageStream::write_to_buffer_u8(
   self : ImageStream,
   buf : FixedArray[Byte],
-  start? : Int = 0,
-) -> Int {
-  self.write_samples(buf.length() - start, fn(i, grid, x, y, bit_depth) {
-    buf[start + i] = copy_u8_from_grid(grid, x, y, bit_depth).to_byte()
-  }, fn(i, v) { buf[start + i] = sample_f32_to_u8(v).to_byte() }, fn(i) {
-    buf[start + i] = b'\x00'
-  })
+  start~ : Int32 = 0,
+) -> Int32 {
+  self.write_samples(
+    buf.length() - start,
+    fn(i, grid, x, y, bit_depth) {
+      buf[start + i] = copy_u8_from_grid(grid, x, y, bit_depth).to_byte()
+    },
+    fn(i, v) { buf[start + i] = sample_f32_to_u8(v).to_byte() },
+    fn(i) { buf[start + i] = b'\x00' },
+  )
 }
 
 ///|
@@ -436,11 +448,11 @@ pub fn ImageStream::write_to_buffer_u8(
 /// `default` (store the zero sample) callbacks indexed by output position.
 fn ImageStream::write_samples(
   self : ImageStream,
-  capacity : Int,
-  from_grid : (Int, @render.ImageBuffer, Int, Int, @image.BitDepth) -> Unit,
-  from_f32 : (Int, Float) -> Unit,
-  default : (Int) -> Unit,
-) -> Int {
+  capacity : Int32,
+  from_grid : (Int32, @render.ImageBuffer, Int32, Int32, @image.BitDepth) -> Unit,
+  from_f32 : (Int32, Float) -> Unit,
+  default : (Int32) -> Unit,
+) -> Int32 {
   let channels = self.grids.length()
   let mut count = 0
   while self.y < self.height {
@@ -499,9 +511,9 @@ fn ImageStream::write_samples(
 ///|
 fn ImageStream::to_original_coord(
   self : ImageStream,
-  x : Int,
-  y : Int,
-) -> (Int, Int) {
+  x : Int32,
+  y : Int32,
+) -> (Int32, Int32) {
   let width = self.width
   let height = self.height
   match self.orientation {

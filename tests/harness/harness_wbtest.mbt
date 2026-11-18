@@ -169,9 +169,9 @@ test "io/decode fixture buf" {
 ///|
 /// The synthetic image of the reference run of the Rust `ssimulacra2` crate
 /// (gradients, optionally with LCG noise).
-fn synth_rgb(w : Int, h : Int, noise : Bool) -> FixedArray[Float] {
+fn synth_rgb(w : Int32, h : Int32, noise : Bool) -> FixedArray[Float] {
   let out = FixedArray::make(w * h * 3, (0.0 : Float))
-  let mut s : UInt = 12345
+  let mut s : UInt32 = 12345
   for y in 0..<h {
     for x in 0..<w {
       let px : FixedArray[Float] = [

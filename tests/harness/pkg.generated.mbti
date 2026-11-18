@@ -12,6 +12,8 @@ pub fn channel_errors(FixedArray[Float], Int32, FixedArray[Float], Int32, Int32,
 
 pub fn check_errors(ChannelError, Array[Tolerance]) -> Array[String]
 
+pub fn compute_frame_ssimulacra2(FixedArray[Float], FixedArray[Float], Int32, Int32) -> Double raise Failure
+
 pub fn conformance_case_dir(String) -> String
 
 pub fn conformance_path(String) -> String

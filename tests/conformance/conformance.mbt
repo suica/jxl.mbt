@@ -42,7 +42,7 @@ pub fn run_conformance(
   let json_tol = @harness.test_json_frame_tolerances(
     @harness.read_text(dir + "/test.json"),
   )
-  let tolerance_of = fn(keyframe_idx : Int) -> Array[@harness.Tolerance] {
+  let tolerance_of = fn(keyframe_idx : Int32) -> Array[@harness.Tolerance] {
     match source {
       Upstream(Uniform(t)) => Array::make(channels, t)
       Upstream(PerChannel(ts)) => ts
@@ -66,7 +66,9 @@ pub fn run_conformance(
     let render = image.render_frame(idx)
     let keyframe_idx = render.keyframe_index()
     if keyframe_idx >= num_frames {
-      fail("\{name}: keyframe #\{keyframe_idx} not in reference (\{num_frames} frames)")
+      fail(
+        "\{name}: keyframe #\{keyframe_idx} not in reference (\{num_frames} frames)",
+      )
     }
     let fb = render.image_all_channels()
     let buf = fb.buf()
@@ -97,7 +99,9 @@ pub fn run_conformance(
     fail("\{name}: \{failures.length()} tolerance violation(s): \{failures}")
   }
   if num_frames != num_keyframes {
-    fail("\{name}: \{num_keyframes} keyframes decoded, reference has \{num_frames}")
+    fail(
+      "\{name}: \{num_keyframes} keyframes decoded, reference has \{num_frames}",
+    )
   }
   if !image.is_loading_done() {
     fail("\{name}: image loading not done")
@@ -105,6 +109,6 @@ pub fn run_conformance(
 }
 
 ///|
-fn shape_str(shape : Array[Int]) -> String {
+fn shape_str(shape : Array[Int32]) -> String {
   "(" + shape.map(fn(d) { d.to_string() }).join(", ") + ")"
 }
