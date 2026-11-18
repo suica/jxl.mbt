@@ -51,6 +51,14 @@ fn sample_f32(
       let v = if x < g.width() && y < g.height() { g.get(x, y) } else { 0 }
       bit_depth.parse_integer_sample(v)
     }
+    I16(g) => {
+      let v = if x < g.width() && y < g.height() {
+        g.get(x, y).to_int()
+      } else {
+        0
+      }
+      bit_depth.parse_integer_sample(v)
+    }
   }
 }
 
@@ -200,7 +208,7 @@ fn ImageStream::from_render(render : Render, skip_alpha : Bool) -> ImageStream {
     (width, height)
   }
   let fb = render.image.buffer()
-  let color_channels = render.image.color_channels
+  let color_channels = render.image.color_channels()
   let regions_and_shifts = render.image.regions_and_shifts()
   let grids = Array::from_iter(render.color_channels().iter())
   let bit_depth = Array::make(grids.length(), render.color_bit_depth)
@@ -352,6 +360,19 @@ fn copy_u16_from_grid(
           v
         }
       }
+      // `.max(0) as u16`
+      I16(g) => {
+        let v = if x < g.width() && y < g.height() {
+          g.get(x, y).to_int()
+        } else {
+          0
+        }
+        if v < 0 {
+          0
+        } else {
+          v
+        }
+      }
     }
   } else {
     sample_f32_to_u16(sample_f32(grid, x, y, bit_depth))
@@ -374,6 +395,20 @@ fn copy_u8_from_grid(
       }
       I32(g) => {
         let v = if x < g.width() && y < g.height() { g.get(x, y) } else { 0 }
+        if v < 0 {
+          0
+        } else if v > 255 {
+          255
+        } else {
+          v
+        }
+      }
+      I16(g) => {
+        let v = if x < g.width() && y < g.height() {
+          g.get(x, y).to_int()
+        } else {
+          0
+        }
         if v < 0 {
           0
         } else if v > 255 {

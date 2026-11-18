@@ -969,7 +969,7 @@ pub fn Render::stream_no_alpha(self : Render) -> ImageStream {
 /// alpha channels are needed.
 pub fn Render::image_all_channels(self : Render) -> FrameBuffer {
   let fb = self.image.buffer()
-  let bit_depth = Array::make(self.image.color_channels, self.color_bit_depth)
+  let bit_depth = Array::make(self.image.color_channels(), self.color_bit_depth)
   for ec in self.extra_channels {
     bit_depth.push(ec.bit_depth)
   }
@@ -989,7 +989,7 @@ pub fn Render::image_all_channels(self : Render) -> FrameBuffer {
 /// All extra channels are included.
 pub fn Render::image_planar(self : Render) -> Array[FrameBuffer] {
   let grids = self.image.buffer()
-  let color_channels = self.image.color_channels
+  let color_channels = self.image.color_channels()
   let regions = self.image.regions_and_shifts()
   let out = []
   for c, grid in grids {
@@ -1022,7 +1022,7 @@ pub fn Render::image_planar(self : Render) -> Array[FrameBuffer] {
 ///
 /// Orientation is not applied.
 pub fn Render::color_channels(self : Render) -> ArrayView[@render.ImageBuffer] {
-  let color_channels = self.image.color_channels
+  let color_channels = self.image.color_channels()
   self.image.buffer()[:color_channels]
 }
 
@@ -1033,7 +1033,7 @@ pub fn Render::color_channels(self : Render) -> ArrayView[@render.ImageBuffer] {
 pub fn Render::extra_channels(
   self : Render,
 ) -> (Array[ExtraChannel], ArrayView[@render.ImageBuffer]) {
-  let color_channels = self.image.color_channels
+  let color_channels = self.image.color_channels()
   (self.extra_channels, self.image.buffer()[color_channels:])
 }
 
