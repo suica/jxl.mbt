@@ -46,6 +46,8 @@ pub let primaries_srgb : FixedArray[FixedArray[Float]]
 
 pub fn[P : AsPrimaries, W : AsIlluminant] primaries_to_xyz_mat(P, W) -> FixedArray[Float]
 
+pub fn read_icc(@bitstream.Bitstream) -> Bytes raise @bitstream.JxlError
+
 pub fn[P : AsPrimaries, W : AsIlluminant] xyz_to_primaries_mat(P, W) -> FixedArray[Float]
 
 // Errors

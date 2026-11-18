@@ -87,10 +87,10 @@ fn reference_size(dir : String) -> (Int32, Int32)? raise {
     let dims : Array[Int32] = []
     let mut i = 10
     let end = 10 + header_len
-    while i + 9 < end && b[i:i + 9].to_owned() != b"'shape':" + b" (" {
+    while i + 10 < end && b[i:i + 10].to_owned() != b"'shape':" + b" (" {
       i += 1
     }
-    i += 9
+    i += 10
     let mut cur = -1
     while i < end && b[i] != b')' {
       let ch = b[i].to_int()
@@ -207,5 +207,44 @@ test "conformance image headers" {
     )
   }
   println("checked image size of \{checked} conformance test cases")
+  assert_true(checked > 0)
+}
+
+///|
+test "conformance embedded ICC profiles" {
+  let root = conformance_dir()
+  if !@fs.path_exists(root) {
+    println("conformance testcases not found at \{root}; skipped")
+    return
+  }
+  let names : Array[String] = @fs.read_dir(root).iter().collect()
+  names.sort()
+  let mut checked = 0
+  for name in names {
+    let dir = root + "/" + name
+    let input = dir + "/input.jxl"
+    if !@fs.path_exists(input) {
+      continue
+    }
+    let bs = @bitstream.Bitstream::new(
+      extract_codestream(@fs.read_file_to_bytes(input)),
+    )
+    let header = @image.ImageHeader::parse(bs)
+    if !header.metadata.colour_encoding.want_icc() {
+      continue
+    }
+    let icc = @color.decode_icc(@color.read_icc(bs))
+    bs.zero_pad_to_byte()
+    let original = dir + "/original.icc"
+    if @fs.path_exists(original) {
+      let expected = @fs.read_file_to_bytes(original)
+      assert_eq((name, icc.length()), (name, expected.length()))
+      assert_true(icc == expected, msg="\{name}: ICC profile differs")
+      checked += 1
+    } else {
+      println("\{name}: no original.icc")
+    }
+  }
+  println("checked embedded ICC profile of \{checked} conformance test cases")
   assert_true(checked > 0)
 }
