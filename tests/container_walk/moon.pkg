@@ -1,0 +1,5 @@
+import {
+  "suica/jxl/container",
+  "moonbitlang/x/fs",
+  "moonbitlang/core/env",
+} for "test"
