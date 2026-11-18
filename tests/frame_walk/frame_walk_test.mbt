@@ -198,3 +198,173 @@ test "conformance frame walk" {
   println(lines.join("\n"))
   assert_true(n >= 40)
 }
+
+///|
+fn[T] ok_or_raise(
+  r : Result[T, @bitstream.JxlError]?,
+  what : String,
+) -> T raise {
+  match r {
+    Some(Ok(v)) => v
+    Some(Err(e)) => fail("\{what}: \{@debug.to_string(e)}")
+    None => fail("\{what}: not available")
+  }
+}
+
+///|
+/// Decodes all group data of a frame (LfGlobal, LfGroups, HfGlobal, pass groups)
+/// the way jxl-render drives jxl-frame, without rendering.
+fn decode_frame_data(frame : @frame.Frame) -> Unit raise {
+  let header = frame.header()
+  let lf_global = ok_or_raise(frame.try_parse_lf_global(), "LfGlobal")
+  let gmodular = lf_global.gmodular
+  let groups = match gmodular.modular.image_mut() {
+    Some(image) => Some(image.prepare_groups(frame.pass_shifts()))
+    None => None
+  }
+  let lf_groups = []
+  for lf_group_idx in 0..<header.num_lf_groups() {
+    let mlf_group = match groups {
+      Some(g) if lf_group_idx < g.lf_groups.length() =>
+        Some(g.lf_groups[lf_group_idx])
+      _ => None
+    }
+    let lf_group = ok_or_raise(
+      frame.try_parse_lf_group(
+        lf_global.vardct,
+        gmodular.ma_config(),
+        mlf_group,
+        lf_group_idx,
+      ),
+      "LfGroup \{lf_group_idx}",
+    )
+    assert_false(lf_group.partial)
+    lf_groups.push(lf_group)
+  }
+  let hf_global = match frame.try_parse_hf_global(Some(lf_global)) {
+    Some(Ok(h)) => Some(h)
+    Some(Err(e)) => fail("HfGlobal: \{@debug.to_string(e)}")
+    None => {
+      assert_true(header.encoding == Modular)
+      None
+    }
+  }
+  // Coefficient buffers (X, Y, B), padded to whole blocks.
+  let width = header.color_sample_width()
+  let height = header.color_sample_height()
+  let shifts = FixedArray::makei(3, c => {
+    @modular.ChannelShift::from_jpeg_upsampling(header.jpeg_upsampling, c)
+  })
+  let coeffs = shifts.map(shift => {
+    let (w8, h8) = shift.shift_size(((width + 7) / 8, (height + 7) / 8))
+    @grid.Grid::new(w8 * 8, h8 * 8, 0)
+  })
+  let group_dim = header.group_dim()
+  let groups_per_row = header.groups_per_row()
+  for pass_idx in 0..<header.passes.num_passes {
+    for group_idx in 0..<header.num_groups() {
+      let lf_group = lf_groups[header.lf_group_idx_from_group_idx(group_idx)]
+      let pg = ok_or_raise(
+        frame.pass_group_bitstream(pass_idx, group_idx),
+        "PassGroup \{pass_idx}/\{group_idx}",
+      )
+      assert_false(pg.partial)
+      let modular = match groups {
+        Some(g) if pass_idx < g.pass_groups.length() &&
+          group_idx < g.pass_groups[pass_idx].length() =>
+          Some(g.pass_groups[pass_idx][group_idx])
+        _ => None
+      }
+      let vardct = match (lf_global.vardct, hf_global) {
+        (Some(lf_vardct), Some(hf_global)) => {
+          let gx = group_idx % groups_per_row
+          let gy = group_idx / groups_per_row
+          let out = FixedArray::makei(3, c => {
+            let shift = shifts[c]
+            let grid = coeffs[c]
+            let gd_w = group_dim >> shift.hshift()
+            let gd_h = group_dim >> shift.vshift()
+            let left = gx * gd_w
+            let top = gy * gd_h
+            grid
+            .as_subgrid()
+            .subgrid(
+              left,
+              top,
+              @cmp.minimum(gd_w, grid.width() - left),
+              @cmp.minimum(gd_h, grid.height() - top),
+            )
+          })
+          Some(
+            (
+              { lf_vardct, hf_global, hf_coeff_output: out, } :
+              @frame.PassGroupParamsVardct),
+          )
+        }
+        _ => None
+      }
+      @frame.decode_pass_group(pg.bitstream, {
+        frame_header: header,
+        lf_group,
+        pass_idx,
+        group_idx,
+        global_ma_config: gmodular.ma_config(),
+        modular,
+        vardct,
+        allow_partial: false,
+        tracker: None,
+      }) catch {
+        e => fail("PassGroup \{pass_idx}/\{group_idx}: \{@debug.to_string(e)}")
+      }
+    }
+  }
+}
+
+///|
+test "conformance frame data decode" {
+  guard testcases_dir() is Some(dir) else {
+    println("conformance suite not found; skipping")
+    return
+  }
+  let only = @env.get_env_var("JXL_FRAME_WALK_ONLY")
+  let cases = @fs.read_dir(dir).to_owned()
+  cases.sort()
+  let mut n = 0
+  for name in cases {
+    let path = dir + "/" + name + "/input.jxl"
+    if !@fs.path_exists(path) {
+      continue
+    }
+    if only is Some(o) && o != "" && o != name {
+      continue
+    }
+    let cs = extract_codestream(@fs.read_file_to_bytes(path))
+    let bs = @bitstream.Bitstream::new(cs)
+    let image_header = @image.ImageHeader::parse(bs)
+    if image_header.metadata.colour_encoding.want_icc() {
+      skip_icc(bs) |> ignore
+    }
+    bs.zero_pad_to_byte()
+    let mut pos = bs.num_read_bits() / 8
+    let mut idx = 0
+    while true {
+      let bs = @bitstream.Bitstream::new_range(cs, pos, cs.length() - pos)
+      let frame = @frame.Frame::parse(bs, image_header)
+      let data_start = bs.num_read_bits() / 8
+      let total = frame.toc().total_byte_size()
+      frame.feed_bytes(cs[pos + data_start:pos + data_start + total]) |> ignore
+      if image_header.metadata.preview is None || idx > 0 {
+        decode_frame_data(frame) catch {
+          e => fail("\{name} frame \{idx}: \{e}")
+        }
+      }
+      pos += data_start + total
+      idx += 1
+      if frame.header().is_last {
+        break
+      }
+    }
+    n += 1
+  }
+  println("decoded group data of \{n} conformance inputs")
+}

@@ -4,8 +4,11 @@ import {
   "suica/jxl/container",
   "suica/jxl/frame",
   "suica/jxl/image",
+  "suica/jxl/grid",
+  "suica/jxl/modular",
   "moonbitlang/x/fs",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
   "moonbitlang/core/cmp",
+  "moonbitlang/core/debug",
 } for "test"

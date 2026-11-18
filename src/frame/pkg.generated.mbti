@@ -7,9 +7,14 @@ import {
   "suica/jxl/bitstream",
   "suica/jxl/grid",
   "suica/jxl/image",
+  "suica/jxl/modular",
+  "suica/jxl/vardct",
 }
 
 // Values
+pub fn decode_pass_group(@bitstream.Bitstream, PassGroupParams) -> Unit raise @bitstream.JxlError
+
+pub fn decode_pass_group_modular(@bitstream.Bitstream, FrameHeader, @modular.MaConfig?, Int32, Int32, @modular.TransformedModularSubimage, Bool, @grid.AllocTracker?) -> Unit raise @bitstream.JxlError
 
 // Errors
 
@@ -91,8 +96,12 @@ pub fn Frame::header(Self) -> FrameHeader
 pub fn Frame::image_header(Self) -> @image.ImageHeader
 pub fn Frame::is_loading_done(Self) -> Bool
 pub fn Frame::parse(@bitstream.Bitstream, @image.ImageHeader, tracker? : @grid.AllocTracker?) -> Self raise @bitstream.JxlError
+pub fn Frame::pass_group_bitstream(Self, Int32, Int32) -> Result[PassGroupBitstream, @bitstream.JxlError]?
 pub fn Frame::pass_shifts(Self) -> @sorted_map.SortedMap[Int32, (Int32, Int32)]
 pub fn Frame::toc(Self) -> Toc
+pub fn Frame::try_parse_hf_global(Self, LfGlobal?) -> Result[HfGlobal, @bitstream.JxlError]?
+pub fn Frame::try_parse_lf_global(Self) -> Result[LfGlobal, @bitstream.JxlError]?
+pub fn Frame::try_parse_lf_group(Self, LfGlobalVarDct?, @modular.MaConfig?, @modular.TransformedModularSubimage?, Int32) -> Result[LfGroup, @bitstream.JxlError]?
 
 #derive(Eq, @debug.Debug)
 pub(all) struct FrameFlags(UInt64)
@@ -180,11 +189,103 @@ pub fn Gabor::default() -> Self
 pub fn Gabor::enabled(Self) -> Bool
 pub fn Gabor::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
 
+pub struct GlobalModular {
+  ma_config : @modular.MaConfig?
+  modular : @modular.Modular
+  // private fields
+}
+pub fn GlobalModular::extra_channel_from(Self) -> Int32
+pub fn GlobalModular::is_partial(Self) -> Bool
+pub fn GlobalModular::ma_config(Self) -> @modular.MaConfig?
+pub fn GlobalModular::parse(@bitstream.Bitstream, LfGlobalParams) -> Self raise @bitstream.JxlError
+pub fn GlobalModular::try_clone(Self) -> Self
+
+pub(all) struct HfGlobal {
+  dequant_matrices : @vardct.DequantMatrixSet
+  num_hf_presets : Int32
+  hf_passes : Array[@vardct.HfPass]
+}
+pub fn HfGlobal::parse(@bitstream.Bitstream, HfGlobalParams) -> Self raise @bitstream.JxlError
+
+pub(all) struct HfGlobalParams {
+  metadata : @image.ImageMetadata
+  frame_header : FrameHeader
+  ma_config : @modular.MaConfig?
+  hf_block_ctx : @vardct.HfBlockContext
+  tracker : @grid.AllocTracker?
+}
+pub fn HfGlobalParams::new(@image.ImageMetadata, FrameHeader, LfGlobal, @grid.AllocTracker?) -> Self
+
+pub(all) struct LfGlobal {
+  patches : Patches?
+  splines : Splines?
+  noise : NoiseParameters?
+  lf_dequant : @vardct.LfChannelDequantization
+  vardct : LfGlobalVarDct?
+  gmodular : GlobalModular
+}
+pub fn LfGlobal::parse(@bitstream.Bitstream, LfGlobalParams) -> Self raise @bitstream.JxlError
+
+pub(all) struct LfGlobalParams {
+  image_header : @image.ImageHeader
+  frame_header : FrameHeader
+  tracker : @grid.AllocTracker?
+  allow_partial : Bool
+}
+pub fn LfGlobalParams::new(@image.ImageHeader, FrameHeader, @grid.AllocTracker?, Bool) -> Self
+
+pub(all) struct LfGlobalVarDct {
+  quantizer : @vardct.Quantizer
+  hf_block_ctx : @vardct.HfBlockContext
+  lf_chan_corr : @vardct.LfChannelCorrelation
+}
+pub fn LfGlobalVarDct::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub(all) struct LfGroup {
+  lf_coeff : @vardct.LfCoeff?
+  hf_meta : @vardct.HfMetadata?
+  partial : Bool
+}
+pub fn LfGroup::parse(@bitstream.Bitstream, LfGroupParams) -> Self raise @bitstream.JxlError
+
+pub(all) struct LfGroupParams {
+  frame_header : FrameHeader
+  quantizer : @vardct.Quantizer?
+  global_ma_config : @modular.MaConfig?
+  mlf_group : @modular.TransformedModularSubimage?
+  lf_group_idx : Int32
+  allow_partial : Bool
+  tracker : @grid.AllocTracker?
+}
+
 #derive(@debug.Debug)
 pub(all) struct NoiseParameters {
   lut : FixedArray[Float]
 }
 pub fn NoiseParameters::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub(all) struct PassGroupBitstream {
+  bitstream : @bitstream.Bitstream
+  partial : Bool
+}
+
+pub(all) struct PassGroupParams {
+  frame_header : FrameHeader
+  lf_group : LfGroup
+  pass_idx : Int32
+  group_idx : Int32
+  global_ma_config : @modular.MaConfig?
+  modular : @modular.TransformedModularSubimage?
+  vardct : PassGroupParamsVardct?
+  allow_partial : Bool
+  tracker : @grid.AllocTracker?
+}
+
+pub(all) struct PassGroupParamsVardct {
+  lf_vardct : LfGlobalVarDct
+  hf_global : HfGlobal
+  hf_coeff_output : FixedArray[@grid.SubGrid[Int32]]
+}
 
 #derive(@debug.Debug)
 pub(all) struct Passes {

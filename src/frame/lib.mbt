@@ -82,7 +82,7 @@ fn GroupData::append(self : GroupData, chunk : BytesView) -> Unit {
   let buf = match self.buf {
     Some(buf) => buf
     None => {
-      let buf = Buffer(size_hint=self.toc_group.size)
+      let buf = Buffer(capacity=self.toc_group.size)
       buf.write_bytesview(self.view)
       self.buf = Some(buf)
       buf

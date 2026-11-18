@@ -3,6 +3,8 @@ import {
   "suica/jxl/grid",
   "suica/jxl/image",
   "suica/jxl/coding",
+  "suica/jxl/modular",
+  "suica/jxl/vardct",
   "moonbitlang/core/cmp",
   "moonbitlang/core/sorted_map",
 }
