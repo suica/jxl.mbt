@@ -145,10 +145,13 @@ pub impl ColorManagementSystem for NullCms
 
 #derive(@debug.Debug)
 pub(all) struct OpsinInverseMatrix {
+  all_default : Bool
   inv_mat : FixedArray[FixedArray[Float]]
   opsin_bias : FixedArray[Float]
   quant_bias : FixedArray[Float]
+  quant_bias_numerator : Float
 }
+pub fn OpsinInverseMatrix::default() -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum Primaries {
@@ -169,11 +172,13 @@ pub(all) enum RenderingIntent {
 
 #derive(@debug.Debug)
 pub(all) struct ToneMapping {
+  all_default : Bool
   intensity_target : Float
   min_nits : Float
   relative_to_max_display : Bool
   linear_below : Float
 }
+pub fn ToneMapping::default() -> Self
 
 #derive(Eq, @debug.Debug)
 pub(all) enum TransferFunction {

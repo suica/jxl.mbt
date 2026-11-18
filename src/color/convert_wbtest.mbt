@@ -1,30 +1,11 @@
 ///|
 fn default_oim() -> OpsinInverseMatrix {
-  {
-    inv_mat: [
-      [11.031566901960783, -9.866943921568629, -0.16462299647058826],
-      [-3.254147380392157, 4.418770392156863, -0.16462299647058826],
-      [-3.6588512862745097, 2.7129230470588235, 1.9459282392156863],
-    ],
-    opsin_bias: [
-      -0.0037930732552754493, -0.0037930732552754493, -0.0037930732552754493,
-    ],
-    quant_bias: [
-      1.0 - 0.05465007330715401,
-      1.0 - 0.07005449891748593,
-      1.0 - 0.049935103337343655,
-    ],
-  }
+  OpsinInverseMatrix::default()
 }
 
 ///|
 fn default_tone_mapping(intensity_target : Float) -> ToneMapping {
-  {
-    intensity_target,
-    min_nits: 0.0,
-    relative_to_max_display: false,
-    linear_below: 0.0,
-  }
+  { ..ToneMapping::default(), all_default: false, intensity_target, }
 }
 
 ///|
@@ -224,9 +205,25 @@ test "grey to rgb" {
 }
 
 ///|
+/// A header-only RGB ICC profile (no TRC tags, so it is not representable as
+/// an enum colour encoding). `marker` goes into an unused header byte.
+fn fake_rgb_icc(marker : Byte) -> Bytes {
+  Bytes::makei(128, i => {
+    match i {
+      3 => b'\x80' // size = 128
+      0x10 => b'R'
+      0x11 => b'G'
+      0x12 => b'B'
+      0x13 => b' '
+      0x64 => marker
+      _ => b'\x00'
+    }
+  })
+}
+
+///|
 test "icc target requires cms" {
-  let icc = Bytes::make(128, b'\x00')
-  let to = ColorEncodingWithProfile::with_icc(icc)
+  let to = ColorEncodingWithProfile::with_icc(fake_rgb_icc(b'\x00'))
   assert_true(to.encoding().want_icc())
   let result = Ok(
     ColorTransform::new(
@@ -281,10 +278,10 @@ impl ColorManagementSystem for TestCms with fn prepare_transform(_, _, _, _) {
 
 ///|
 test "icc to icc uses cms" {
-  let mut icc = Bytes::make(128, b'\x00')
-  let from = ColorEncodingWithProfile::with_icc(icc)
-  icc = Bytes::makei(128, i => if i == 0 { b'\x01' } else { b'\x00' })
-  let to = ColorEncodingWithProfile::with_icc(icc)
+  let from = ColorEncodingWithProfile::with_icc(fake_rgb_icc(b'\x00'))
+  let to = ColorEncodingWithProfile::with_icc(fake_rgb_icc(b'\x01'))
+  assert_true(!from.is_grayscale())
+  assert_true(!from.is_cmyk())
   let t = ColorTransform::new(
     from,
     to,
