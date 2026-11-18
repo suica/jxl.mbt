@@ -2,7 +2,7 @@
 
 ///|
 /// Color encoding, either represented by enum values, or a signal of existence of ICC profile.
-#derive(Debug, Eq)
+#derive(Debug)
 pub(all) enum ColourEncoding {
   /// Color encoding is represented by enum values.
   Enum(EnumColourEncoding)
@@ -84,7 +84,7 @@ pub fn ColourEncoding::cicp(self : ColourEncoding) -> FixedArray[Int32]? {
 
 ///|
 /// "Enum color encoding" represented by JPEG XL enum values.
-#derive(Debug, Eq)
+#derive(Debug)
 pub(all) struct EnumColourEncoding {
   mut colour_space : ColourSpace
   mut white_point : WhitePoint
@@ -372,11 +372,11 @@ pub fn Customxy::as_float(self : Customxy) -> FixedArray[Float] {
 /// HDR tone mapping metadata.
 #derive(Debug)
 pub(all) struct ToneMapping {
-  all_default : Bool
-  intensity_target : Float
-  min_nits : Float
-  relative_to_max_display : Bool
-  linear_below : Float
+  priv all_default : Bool
+  mut intensity_target : Float
+  mut min_nits : Float
+  mut relative_to_max_display : Bool
+  mut linear_below : Float
 }
 
 ///|
@@ -442,7 +442,7 @@ pub fn ColourSpace::from_raw(
     1 => Grey
     2 => Xyb
     3 => Unknown
-    _ => raise @bitstream.InvalidEnum("ColourSpace", value)
+    _ => raise @bitstream.InvalidEnum("jxl_image::color::ColourSpace", value)
   }
 }
 
@@ -485,7 +485,10 @@ pub fn WhitePoint::parse(
     10 => E
     11 => Dci
     2 => Custom(Customxy::parse(bs))
-    _ => raise @bitstream.InvalidEnum("WhitePointDiscriminator", d)
+    _ =>
+      raise @bitstream.InvalidEnum(
+        "jxl_image::color::WhitePointDiscriminator", d,
+      )
   }
 }
 
@@ -523,7 +526,10 @@ pub fn Primaries::parse(
       let blue = Customxy::parse(bs)
       Custom(red~, green~, blue~)
     }
-    _ => raise @bitstream.InvalidEnum("PrimariesDiscriminator", d)
+    _ =>
+      raise @bitstream.InvalidEnum(
+        "jxl_image::color::PrimariesDiscriminator", d,
+      )
   }
 }
 
@@ -566,7 +572,8 @@ pub fn RenderingIntent::from_raw(
     1 => Relative
     2 => Saturation
     3 => Absolute
-    _ => raise @bitstream.InvalidEnum("RenderingIntent", value)
+    _ =>
+      raise @bitstream.InvalidEnum("jxl_image::color::RenderingIntent", value)
   }
 }
 
@@ -623,7 +630,8 @@ pub fn TransferFunction::from_raw(
     16 => Pq
     17 => Dci
     18 => Hlg
-    _ => raise @bitstream.InvalidEnum("TransferFunction", value)
+    _ =>
+      raise @bitstream.InvalidEnum("jxl_image::color::TransferFunction", value)
   }
 }
 
@@ -659,11 +667,11 @@ pub fn TransferFunction::cicp(self : TransferFunction) -> Int32? {
 /// Opsin inverse metadata.
 #derive(Debug)
 pub(all) struct OpsinInverseMatrix {
-  all_default : Bool
-  inv_mat : FixedArray[FixedArray[Float]]
-  opsin_bias : FixedArray[Float]
-  quant_bias : FixedArray[Float]
-  quant_bias_numerator : Float
+  priv all_default : Bool
+  mut inv_mat : FixedArray[FixedArray[Float]]
+  mut opsin_bias : FixedArray[Float]
+  mut quant_bias : FixedArray[Float]
+  mut quant_bias_numerator : Float
 }
 
 ///|

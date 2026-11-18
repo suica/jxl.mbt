@@ -13,10 +13,10 @@ import {
 // Types and methods
 #derive(@debug.Debug)
 pub(all) struct AnimationHeader {
-  tps_numerator : Int32
-  tps_denominator : Int32
-  num_loops : UInt32
-  have_timecodes : Bool
+  mut tps_numerator : Int32
+  mut tps_denominator : Int32
+  mut num_loops : UInt32
+  mut have_timecodes : Bool
 }
 pub fn AnimationHeader::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
 
@@ -30,7 +30,7 @@ pub fn BitDepth::default() -> Self
 pub fn BitDepth::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
 pub fn BitDepth::parse_integer_sample(Self, Int32) -> Float
 
-#derive(Eq, @debug.Debug)
+#derive(@debug.Debug)
 pub(all) enum ColourEncoding {
   Enum(EnumColourEncoding)
   IccProfile(ColourSpace)
@@ -63,7 +63,7 @@ pub(all) struct Customxy {
 pub fn Customxy::as_float(Self) -> FixedArray[Float]
 pub fn Customxy::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
 
-#derive(Eq, @debug.Debug)
+#derive(@debug.Debug)
 pub(all) struct EnumColourEncoding {
   mut colour_space : ColourSpace
   mut white_point : WhitePoint
@@ -92,19 +92,20 @@ pub fn EnumColourEncoding::xyb(RenderingIntent) -> Self
 
 #derive(@debug.Debug)
 pub(all) struct Extensions {
-  extension_bits : UInt64
+  // private fields
 }
 pub fn Extensions::default() -> Self
 pub fn Extensions::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
 
 #derive(@debug.Debug)
 pub(all) struct ExtraChannelInfo {
-  ty : ExtraChannelType
-  bit_depth : BitDepth
-  dim_shift : Int32
-  name : String
+  mut ty : ExtraChannelType
+  mut bit_depth : BitDepth
+  mut dim_shift : Int32
+  mut name : String
 }
 pub fn ExtraChannelInfo::alpha_associated(Self) -> Bool?
+pub fn ExtraChannelInfo::clone(Self) -> Self
 pub fn ExtraChannelInfo::default() -> Self
 pub fn ExtraChannelInfo::is_alpha(Self) -> Bool
 pub fn ExtraChannelInfo::is_black(Self) -> Bool
@@ -126,8 +127,8 @@ pub fn ExtraChannelType::default() -> Self
 
 #derive(@debug.Debug)
 pub(all) struct ImageHeader {
-  size : SizeHeader
-  metadata : ImageMetadata
+  mut size : SizeHeader
+  mut metadata : ImageMetadata
 }
 pub fn ImageHeader::height_with_orientation(Self) -> Int32
 pub fn ImageHeader::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
@@ -135,29 +136,22 @@ pub fn ImageHeader::width_with_orientation(Self) -> Int32
 
 #derive(@debug.Debug)
 pub(all) struct ImageMetadata {
-  all_default : Bool
-  extra_fields : Bool
-  orientation : Int32
-  have_intr_size : Bool
-  intrinsic_size : SizeHeader?
-  have_preview : Bool
-  preview : PreviewHeader?
-  have_animation : Bool
-  animation : AnimationHeader?
-  bit_depth : BitDepth
-  modular_16bit_buffers : Bool
-  num_extra : Int32
-  ec_info : Array[ExtraChannelInfo]
-  xyb_encoded : Bool
-  colour_encoding : ColourEncoding
-  tone_mapping : ToneMapping
-  extensions : Extensions
-  default_m : Bool
-  opsin_inverse_matrix : OpsinInverseMatrix
-  cw_mask : Int32
-  up2_weight : FixedArray[Float]
-  up4_weight : FixedArray[Float]
-  up8_weight : FixedArray[Float]
+  mut orientation : Int32
+  mut intrinsic_size : SizeHeader?
+  mut preview : PreviewHeader?
+  mut animation : AnimationHeader?
+  mut bit_depth : BitDepth
+  mut modular_16bit_buffers : Bool
+  mut ec_info : Array[ExtraChannelInfo]
+  mut xyb_encoded : Bool
+  mut colour_encoding : ColourEncoding
+  mut tone_mapping : ToneMapping
+  mut extensions : Extensions
+  mut opsin_inverse_matrix : OpsinInverseMatrix
+  mut up2_weight : FixedArray[Float]
+  mut up4_weight : FixedArray[Float]
+  mut up8_weight : FixedArray[Float]
+  // private fields
 }
 pub fn ImageMetadata::alpha(Self) -> Int32?
 pub fn ImageMetadata::apply_orientation(Self, Int32, Int32, Int32, Int32, Bool) -> (Int32, Int32, Int32, Int32)
@@ -167,23 +161,20 @@ pub fn ImageMetadata::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlEr
 
 #derive(@debug.Debug)
 pub(all) struct OpsinInverseMatrix {
-  all_default : Bool
-  inv_mat : FixedArray[FixedArray[Float]]
-  opsin_bias : FixedArray[Float]
-  quant_bias : FixedArray[Float]
-  quant_bias_numerator : Float
+  mut inv_mat : FixedArray[FixedArray[Float]]
+  mut opsin_bias : FixedArray[Float]
+  mut quant_bias : FixedArray[Float]
+  mut quant_bias_numerator : Float
+  // private fields
 }
 pub fn OpsinInverseMatrix::default() -> Self
 pub fn OpsinInverseMatrix::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
 
 #derive(@debug.Debug)
 pub(all) struct PreviewHeader {
-  div8 : Bool
-  h_div8 : Int32
-  height : Int32
-  ratio : Int32
-  w_div8 : Int32
-  width : Int32
+  mut height : Int32
+  mut width : Int32
+  // private fields
 }
 pub fn PreviewHeader::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
 
@@ -211,23 +202,20 @@ pub fn RenderingIntent::to_raw(Self) -> Int32
 
 #derive(@debug.Debug)
 pub(all) struct SizeHeader {
-  div8 : Bool
-  h_div8 : Int32
-  height : Int32
-  ratio : Int32
-  w_div8 : Int32
-  width : Int32
+  mut height : Int32
+  mut width : Int32
+  // private fields
 }
 pub fn SizeHeader::default() -> Self
 pub fn SizeHeader::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
 
 #derive(@debug.Debug)
 pub(all) struct ToneMapping {
-  all_default : Bool
-  intensity_target : Float
-  min_nits : Float
-  relative_to_max_display : Bool
-  linear_below : Float
+  mut intensity_target : Float
+  mut min_nits : Float
+  mut relative_to_max_display : Bool
+  mut linear_below : Float
+  // private fields
 }
 pub fn ToneMapping::default() -> Self
 pub fn ToneMapping::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError

@@ -5,9 +5,9 @@
 #derive(Debug)
 pub(all) struct ImageHeader {
   /// Image size information.
-  size : SizeHeader
+  mut size : SizeHeader
   /// Image metadata.
-  metadata : ImageMetadata
+  mut metadata : ImageMetadata
 }
 
 ///|
@@ -77,14 +77,14 @@ fn read_u32_int(
 /// Image size information.
 #derive(Debug)
 pub(all) struct SizeHeader {
-  div8 : Bool
-  h_div8 : Int32
+  priv div8 : Bool
+  priv h_div8 : Int32
   /// Image height.
-  height : Int32
-  ratio : Int32
-  w_div8 : Int32
+  mut height : Int32
+  priv ratio : Int32
+  priv w_div8 : Int32
   /// Image width.
-  width : Int32
+  mut width : Int32
 }
 
 ///|
@@ -158,47 +158,47 @@ fn SizeHeader::compute_default_width(
 /// Image metadata.
 #derive(Debug)
 pub(all) struct ImageMetadata {
-  all_default : Bool
-  extra_fields : Bool
+  priv all_default : Bool
+  priv extra_fields : Bool
   /// Value representing image orientation.
-  orientation : Int32
-  have_intr_size : Bool
+  mut orientation : Int32
+  priv have_intr_size : Bool
   /// Recommended size to display the image.
-  intrinsic_size : SizeHeader?
-  have_preview : Bool
+  mut intrinsic_size : SizeHeader?
+  priv have_preview : Bool
   /// Size information of the preview frame, if there is any.
-  preview : PreviewHeader?
-  have_animation : Bool
+  mut preview : PreviewHeader?
+  priv have_animation : Bool
   /// Information about the animation such as TPS, if the image is animated.
-  animation : AnimationHeader?
+  mut animation : AnimationHeader?
   /// Bit depth information, which is used to parse Modular image samples.
-  bit_depth : BitDepth
+  mut bit_depth : BitDepth
   /// Whether 16-bit buffer is sufficient to correctly parse Modular images.
-  modular_16bit_buffers : Bool
-  num_extra : Int32
+  mut modular_16bit_buffers : Bool
+  priv num_extra : Int32
   /// Information about extra channels, such as alpha and black channels.
-  ec_info : Array[ExtraChannelInfo]
+  mut ec_info : Array[ExtraChannelInfo]
   /// Whether the image is encoded in XYB color space.
-  xyb_encoded : Bool
+  mut xyb_encoded : Bool
   /// Color encoding of the image.
   ///
   /// If `xyb_encoded` is `true`, this is a suggestion of the color space to present the
   /// decoded image. If it's not, the decoded image is in the color space represented by this
   /// field.
-  colour_encoding : ColourEncoding
+  mut colour_encoding : ColourEncoding
   /// Tone mapping information, which is used to map HDR images to SDR.
-  tone_mapping : ToneMapping
-  extensions : Extensions
-  default_m : Bool
+  mut tone_mapping : ToneMapping
+  mut extensions : Extensions
+  priv default_m : Bool
   /// Opsin inverse matrix, which is used to transform XYB encoded image to sRGB color space.
-  opsin_inverse_matrix : OpsinInverseMatrix
-  cw_mask : Int32
+  mut opsin_inverse_matrix : OpsinInverseMatrix
+  priv cw_mask : Int32
   /// 2x upsampling weights.
-  up2_weight : FixedArray[Float]
+  mut up2_weight : FixedArray[Float]
   /// 4x upsampling weights.
-  up4_weight : FixedArray[Float]
+  mut up4_weight : FixedArray[Float]
   /// 8x upsampling weights.
-  up8_weight : FixedArray[Float]
+  mut up8_weight : FixedArray[Float]
 }
 
 ///|
@@ -355,14 +355,14 @@ pub fn ImageMetadata::default() -> ImageMetadata {
 ///|
 #derive(Debug)
 pub(all) struct PreviewHeader {
-  div8 : Bool
-  h_div8 : Int32
+  priv div8 : Bool
+  priv h_div8 : Int32
   /// Height of the preview image.
-  height : Int32
-  ratio : Int32
-  w_div8 : Int32
+  mut height : Int32
+  priv ratio : Int32
+  priv w_div8 : Int32
   /// Width of the preview image.
-  width : Int32
+  mut width : Int32
 }
 
 ///|
@@ -416,13 +416,13 @@ pub fn PreviewHeader::parse(
 #derive(Debug)
 pub(all) struct AnimationHeader {
   /// TPS numerator.
-  tps_numerator : Int32
+  mut tps_numerator : Int32
   /// TPS denominator.
-  tps_denominator : Int32
+  mut tps_denominator : Int32
   /// Number of loops, where 0 means it loops forever.
-  num_loops : UInt32
+  mut num_loops : UInt32
   /// Whether keyframes in the image has their timecodes embedded.
-  have_timecodes : Bool
+  mut have_timecodes : Bool
 }
 
 ///|
@@ -456,7 +456,7 @@ pub fn AnimationHeader::parse(
 ///|
 #derive(Debug)
 pub(all) struct Extensions {
-  extension_bits : UInt64
+  priv extension_bits : UInt64
 }
 
 ///|
@@ -484,18 +484,18 @@ pub fn Extensions::parse(
 }
 
 ///|
-/// `skip_bits` for a 64-bit length.
+/// `skip_bits(len as usize)` for a 64-bit length. Lengths beyond the remaining bits fail
+/// with `Eof` exactly like upstream (all remaining bits are consumed first).
 fn skip_bits_u64(
   bs : @bitstream.Bitstream,
   len : UInt64,
 ) -> Unit raise @bitstream.JxlError {
-  let mut left = len
-  let chunk = 0x40000000UL
-  while left > chunk {
-    bs.skip_bits(chunk.to_int())
-    left = left - chunk
+  let left = bs.bits_left()
+  if len > left.to_uint64() {
+    bs.skip_bits(left + 1)
+  } else {
+    bs.skip_bits(len.to_int())
   }
-  bs.skip_bits(left.to_int())
 }
 
 ///|
@@ -551,13 +551,13 @@ pub fn ImageMetadata::apply_orientation(
 #derive(Debug)
 pub(all) struct ExtraChannelInfo {
   /// Type and associated parameters of the channel.
-  ty : ExtraChannelType
+  mut ty : ExtraChannelType
   /// Bit depth information about the channel.
-  bit_depth : BitDepth
+  mut bit_depth : BitDepth
   /// `dim_shift` used to decode Modular image.
-  dim_shift : Int32
+  mut dim_shift : Int32
   /// Name of the channel.
-  name : String
+  mut name : String
 }
 
 ///|
@@ -581,7 +581,7 @@ pub fn ExtraChannelInfo::parse(
   let ty_id = bs.read_enum_raw()
   match ty_id {
     0..<=6 | 15 | 16 => ()
-    _ => raise @bitstream.InvalidEnum("ExtraChannelTypeRaw", ty_id)
+    _ => raise @bitstream.InvalidEnum("jxl_image::ExtraChannelTypeRaw", ty_id)
   }
   let bit_depth = BitDepth::parse(bs)
   let dim_shift = read_u32_int(
@@ -619,6 +619,17 @@ pub fn ExtraChannelInfo::parse(
     _ => Optional
   }
   { ty, bit_depth, dim_shift, name, }
+}
+
+///|
+/// An independent copy (Rust `Clone`).
+pub fn ExtraChannelInfo::clone(self : ExtraChannelInfo) -> ExtraChannelInfo {
+  {
+    ty: self.ty,
+    bit_depth: self.bit_depth,
+    dim_shift: self.dim_shift,
+    name: self.name,
+  }
 }
 
 ///|
