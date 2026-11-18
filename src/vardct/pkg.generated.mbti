@@ -1,0 +1,199 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/vardct"
+
+import {
+  "moonbitlang/core/debug",
+  "suica/jxl/bitstream",
+  "suica/jxl/grid",
+  "suica/jxl/modular",
+}
+
+// Values
+pub let dct8_natural_order : FixedArray[(Int32, Int32)]
+
+pub fn dct_2d(@grid.SubGrid[Float], DctDirection) -> Unit
+
+pub fn scale_f(Int32, Int32) -> Float
+
+pub fn sec_half(Int32) -> FixedArray[Float]
+
+pub fn transform(@grid.SubGrid[Float], TransformType) -> Unit
+
+pub fn transform_varblock(@grid.SubGrid[Float], @grid.SubGrid[Float], Int32, Int32, TransformType) -> Unit
+
+pub fn transform_varblocks(FixedArray[@grid.SubGrid[Float]], FixedArray[@grid.SubGrid[Float]], FixedArray[Int32], FixedArray[Int32], @grid.SubGrid[BlockInfo]) -> Unit
+
+pub fn varblock_at(@grid.SubGrid[BlockInfo], Int32, Int32, Int32, Int32) -> (Int32, Int32, TransformType, Int32)?
+
+pub fn write_hf_coeff(@bitstream.Bitstream, HfCoeffParams, FixedArray[@grid.SubGrid[Int32]]) -> Unit raise @bitstream.JxlError
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum BlockInfo {
+  Uninit
+  Occupied
+  Data(dct_select~ : TransformType, hf_mul~ : Int32)
+}
+pub impl Default for BlockInfo
+
+#derive(Eq, @debug.Debug)
+pub(all) enum DctDirection {
+  Forward
+  Inverse
+}
+
+pub struct DequantMatrixSet {
+  // private fields
+}
+pub fn DequantMatrixSet::get(Self, Int32, TransformType) -> FixedArray[Float]
+pub fn DequantMatrixSet::get_transposed(Self, Int32, TransformType) -> FixedArray[Float]
+pub fn DequantMatrixSet::jpeg_quant_values(Self, Int32) -> FixedArray[Int32]?
+pub fn DequantMatrixSet::parse(@bitstream.Bitstream, DequantMatrixSetParams) -> Self raise @bitstream.JxlError
+
+pub struct DequantMatrixSetParams {
+  // private fields
+}
+pub fn DequantMatrixSetParams::new(Int32, Int32, @modular.MaConfig?, @grid.AllocTracker?) -> Self
+
+#derive(@debug.Debug)
+pub(all) struct HfBlockContext {
+  qf_thresholds : Array[Int32]
+  lf_thresholds : FixedArray[Array[Int32]]
+  block_ctx_map : FixedArray[Int32]
+  num_block_clusters : Int32
+}
+pub fn HfBlockContext::default() -> Self
+pub fn HfBlockContext::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub(all) struct HfCoeffParams {
+  num_hf_presets : Int32
+  hf_block_ctx : HfBlockContext
+  block_info : @grid.SubGrid[BlockInfo]
+  jpeg_upsampling : FixedArray[Int32]
+  lf_quant : FixedArray[@grid.SubGrid[Int32]]?
+  hf_pass : HfPass
+  coeff_shift : Int32
+  tracker : @grid.AllocTracker?
+}
+
+pub(all) struct HfMetadata {
+  x_from_y : @grid.Grid[Int32]
+  b_from_y : @grid.Grid[Int32]
+  block_info : @grid.Grid[BlockInfo]
+  epf_sigma : @grid.Grid[Float]
+}
+pub fn HfMetadata::parse(@bitstream.Bitstream, HfMetadataParams) -> Self raise @bitstream.JxlError
+
+pub(all) struct HfMetadataParams {
+  num_lf_groups : Int32
+  lf_group_idx : Int32
+  lf_width : Int32
+  lf_height : Int32
+  jpeg_upsampling : FixedArray[Int32]
+  bits_per_sample : Int32
+  global_ma_config : @modular.MaConfig?
+  epf : (Float, FixedArray[Float])?
+  quantizer_global_scale : Int32
+  tracker : @grid.AllocTracker?
+}
+
+pub struct HfPass {
+  // private fields
+}
+pub fn HfPass::parse(@bitstream.Bitstream, HfPassParams) -> Self raise @bitstream.JxlError
+
+pub struct HfPassParams {
+  // private fields
+}
+pub fn HfPassParams::new(HfBlockContext, Int32) -> Self
+
+#derive(@debug.Debug)
+pub(all) struct LfChannelCorrelation {
+  all_default : Bool
+  colour_factor : Int32
+  base_correlation_x : Float
+  base_correlation_b : Float
+  x_factor_lf : Int32
+  b_factor_lf : Int32
+}
+pub fn LfChannelCorrelation::default() -> Self
+pub fn LfChannelCorrelation::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) struct LfChannelDequantization {
+  all_default : Bool
+  m_x_lf : Float
+  m_y_lf : Float
+  m_b_lf : Float
+}
+pub fn LfChannelDequantization::default() -> Self
+pub fn LfChannelDequantization::m_b_lf_unscaled(Self) -> Float
+pub fn LfChannelDequantization::m_x_lf_unscaled(Self) -> Float
+pub fn LfChannelDequantization::m_y_lf_unscaled(Self) -> Float
+pub fn LfChannelDequantization::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub(all) struct LfCoeff {
+  extra_precision : Int32
+  lf_quant : @modular.Modular
+  partial : Bool
+}
+pub fn LfCoeff::parse(@bitstream.Bitstream, LfCoeffParams) -> Self raise @bitstream.JxlError
+
+pub(all) struct LfCoeffParams {
+  lf_group_idx : Int32
+  lf_width : Int32
+  lf_height : Int32
+  jpeg_upsampling : FixedArray[Int32]
+  bits_per_sample : Int32
+  global_ma_config : @modular.MaConfig?
+  allow_partial : Bool
+  tracker : @grid.AllocTracker?
+}
+
+#derive(@debug.Debug)
+pub(all) struct Quantizer {
+  global_scale : Int32
+  quant_lf : Int32
+}
+pub fn Quantizer::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(Eq, Hash, @debug.Debug)
+pub(all) enum TransformType {
+  Dct8
+  Hornuss
+  Dct2
+  Dct4
+  Dct16
+  Dct32
+  Dct16x8
+  Dct8x16
+  Dct32x8
+  Dct8x32
+  Dct32x16
+  Dct16x32
+  Dct4x8
+  Dct8x4
+  Afv0
+  Afv1
+  Afv2
+  Afv3
+  Dct64
+  Dct64x32
+  Dct32x64
+  Dct128
+  Dct128x64
+  Dct64x128
+  Dct256
+  Dct256x128
+  Dct128x256
+}
+pub fn TransformType::dct_select_size(Self) -> (Int32, Int32)
+pub fn TransformType::need_transpose(Self) -> Bool
+pub fn TransformType::to_int(Self) -> Int32
+pub fn TransformType::try_from(Int32) -> Self raise @bitstream.JxlError
+
+// Type aliases
+
+// Traits
