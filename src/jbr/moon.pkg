@@ -1,0 +1,8 @@
+import {
+  "suica/jxl/bitstream",
+  "suica/jxl/brotli",
+  "suica/jxl/grid",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/hashset",
+}

@@ -1,0 +1,10 @@
+[package]
+name = "rec"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+jxl-oxide = { path = "../oxide/crates/jxl-oxide", default-features = false }
+jxl-coding = { path = "../oxide/crates/jxl-coding" }
+
+[workspace]
