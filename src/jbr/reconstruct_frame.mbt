@@ -1,10 +1,5 @@
 // Port of `JpegBitstreamReconstructor::new` (jxl-jbr/src/reconstruct.rs):
 // decodes the VarDCT frame into `ParsedFrameData`.
-//
-// PENDING: this file is renamed to `reconstruct_frame.mbt` (and
-// "suica/jxl/frame", "suica/jxl/vardct", "suica/jxl/modular" added to
-// moon.pkg) once those packages are merged. It codes against the mirrored
-// upstream names (PORTING.md); adjust to the merged signatures.
 
 ///|
 /// Creates a reconstruction context with given JPEG XL frame and metadata.
@@ -53,7 +48,8 @@ pub fn JpegBitstreamReconstructor::new(
     raise err_incompatible_frame()
   }
   let lf_global = match frame.try_parse_lf_global() {
-    Some(x) => x
+    Some(Ok(x)) => x
+    Some(Err(e)) => raise e
     None => raise err_frame_data_incomplete()
   }
   let lf_global_vardct = lf_global.vardct.unwrap()
@@ -84,13 +80,14 @@ pub fn JpegBitstreamReconstructor::new(
     }
   }
   let hf_global = match frame.try_parse_hf_global(Some(lf_global)) {
-    Some(x) => x
+    Some(Ok(x)) => x
+    Some(Err(e)) => raise e
     None => raise err_frame_data_incomplete()
   }
   let jpeg_quant_values = []
   for c in 0..<3 {
     match hf_global.dequant_matrices.jpeg_quant_values(c) {
-      Some(q) => jpeg_quant_values.push(FixedArray::from_iter(q.iter()))
+      Some(q) => jpeg_quant_values.push(q)
       None => raise err_incompatible_frame()
     }
   }
@@ -104,12 +101,13 @@ pub fn JpegBitstreamReconstructor::new(
         None,
         lf_group_idx,
       ) {
-      Some(x) => lf_groups.push(x)
+      Some(Ok(x)) => lf_groups.push(x)
+      Some(Err(e)) => raise e
       None => raise err_frame_data_incomplete()
     }
   }
   let num_groups = frame_header.num_groups()
-  let pass_groups : Array[FixedArray[@grid.Grid[Int]]] = []
+  let pass_groups : Array[FixedArray[@grid.Grid[Int32]]] = []
   for group_idx in 0..<num_groups {
     let (w, h) = frame_header.group_size_for(group_idx)
     pass_groups.push(
@@ -125,7 +123,8 @@ pub fn JpegBitstreamReconstructor::new(
   for pass_idx in 0..<frame_header.passes.num_passes {
     for group_idx in 0..<num_groups {
       let pass_group = match frame.pass_group_bitstream(pass_idx, group_idx) {
-        Some(x) => x
+        Some(Ok(x)) => x
+        Some(Err(e)) => raise e
         None => raise err_frame_data_incomplete()
       }
       if pass_group.partial {
@@ -136,7 +135,7 @@ pub fn JpegBitstreamReconstructor::new(
       let lf_group = lf_groups[lf_group_idx]
       let pg = pass_groups[group_idx]
       // decode_pass_group writes in (X, Y, B) = (Cb, Y, Cr) order.
-      let hf_coeff_output = [
+      let hf_coeff_output : FixedArray[@grid.SubGrid[Int32]] = [
         pg[1].as_subgrid(),
         pg[0].as_subgrid(),
         pg[2].as_subgrid(),
@@ -163,17 +162,22 @@ pub fn JpegBitstreamReconstructor::new(
     let b_from_y = lf_groups.map(fn(g) { g.hf_meta.unwrap().b_from_y })
     integer_cfl(info, jpeg_quant_values, x_from_y, b_from_y, pass_groups)
   }
-  let dc_offset : FixedArray[Int] = if frame_header.do_ycbcr {
+  let dc_offset : FixedArray[Int32] = if frame_header.do_ycbcr {
     [0, 0, 0]
   } else {
     let dequant_x = jpeg_quant_values[0]
     let dequant_y = jpeg_quant_values[1]
     let dequant_b = jpeg_quant_values[2]
-    [dequant_y[0], dequant_x[0], dequant_b[0]].map(fn(q) { to_i16(1024 / q) })
+    [
+      to_i16(1024 / dequant_y[0]),
+      to_i16(1024 / dequant_x[0]),
+      to_i16(1024 / dequant_b[0]),
+    ]
   }
-  let lf_quant = lf_groups.map(fn(g) {
+  let lf_quant : Array[FixedArray[@grid.Grid[Int32]]] = lf_groups.map(fn(g) {
     let chans = g.lf_coeff.unwrap().lf_quant.image().unwrap().image_channels()
-    [chans[0], chans[1], chans[2]]
+    let a : FixedArray[@grid.Grid[Int32]] = [chans[0], chans[1], chans[2]]
+    a
   })
   let parsed : ParsedFrameData = {
     lf_quant,
