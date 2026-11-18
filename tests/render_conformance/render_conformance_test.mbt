@@ -29,7 +29,7 @@ fn extract_codestream(data : Bytes) -> Bytes {
   if data.length() >= 2 && data[0] == b'\xff' && data[1] == b'\x0a' {
     return data
   }
-  let out = Array::new()
+  let out : Array[Byte] = []
   let mut pos = 0
   while pos + 8 <= data.length() {
     let mut size = be32(data, pos).reinterpret_as_uint().to_int64()
@@ -91,7 +91,7 @@ fn read_npy(path : String) -> (Int, Int, Int, Int, FixedArray[Float]) raise {
       (b[o + 1].to_uint() << 8) |
       (b[o + 2].to_uint() << 16) |
       (b[o + 3].to_uint() << 24)
-    out[k] = bits.reinterpret_as_float()
+    out[k] = Float::reinterpret_from_uint(bits)
   }
   (dims[0], dims[1], dims[2], dims[3], out)
 }
@@ -99,7 +99,9 @@ fn read_npy(path : String) -> (Int, Int, Int, Int, FixedArray[Float]) raise {
 ///|
 /// Decodes `codestream` and returns the render context with all frames
 /// loaded.
-fn load_image(codestream : Bytes) -> @render.RenderContext raise {
+fn load_image(
+  codestream : Bytes,
+) -> (@render.RenderContext, @image.ImageHeader) raise {
   let bs = @bitstream.Bitstream::new(codestream)
   let image_header = @image.ImageHeader::parse(bs)
   let embedded_icc = if image_header.metadata.colour_encoding.want_icc() {
@@ -113,9 +115,7 @@ fn load_image(codestream : Bytes) -> @render.RenderContext raise {
     .build(image_header)
   if image_header.metadata.have_preview {
     // Skip the preview frame.
-    let preview = @render.RenderContext::builder().build(image_header)
-    ignore(preview)
-    abort("preview frames are not supported by this test")
+    fail("preview frames are not supported by this test")
   }
   let mut pos = bs.num_read_bits() / 8
   while pos < codestream.length() {
@@ -138,7 +138,7 @@ fn load_image(codestream : Bytes) -> @render.RenderContext raise {
       break
     }
   }
-  ctx
+  (ctx, image_header)
 }
 
 ///|
@@ -151,18 +151,33 @@ fn compare_frame(
   height : Int,
   width : Int,
   channels : Int,
+  bit_depth : Array[@image.BitDepth],
+  frame_x0 : Int,
+  frame_y0 : Int,
 ) -> (Double, Double) {
   let mut peak = 0.0
   let mut sum_sq = 0.0
   let regions = image.regions_and_shifts()
   let buffers = image.buffer()
   for c in 0..<channels {
-    guard buffers[c] is F32(g) else { abort("channel \{c} is not float") }
+    // Integer (modular) buffers are scaled with the channel bit depth, as
+    // the public API does.
+    let g = match buffers[c] {
+      F32(g) => g
+      I32(g) => {
+        let out = @grid.Grid::new(g.width(), g.height(), (0.0 : Float))
+        for i in 0..<(g.width() * g.height()) {
+          out.buf()[i] = bit_depth[c].parse_integer_sample(g.buf()[i])
+        }
+        out
+      }
+    }
     let (region, _) = regions[c]
     for y in 0..<height {
       for x in 0..<width {
-        let gx = x - region.left
-        let gy = y - region.top
+        // Regions are in frame coordinates.
+        let gx = x - frame_x0 - region.left
+        let gy = y - frame_y0 - region.top
         let v = if gx >= 0 && gy >= 0 && gx < g.width() && gy < g.height() {
           g.get(gx, gy).to_double()
         } else {
@@ -189,12 +204,22 @@ fn run_case(name : String) -> Unit raise {
     return
   }
   let data = @fs.read_file_to_bytes(dir + "/input.jxl")
-  let ctx = load_image(extract_codestream(data))
+  let (ctx, header) = load_image(extract_codestream(data))
   let (frames, height, width, channels, ref_) = read_npy(npy)
   assert_eq(ctx.loaded_keyframes(), frames)
   for k in 0..<frames {
     let image = ctx.render_keyframe(k)
-    let (peak, rms) = compare_frame(image, ref_, k, height, width, channels)
+    let fh = ctx.keyframe(k).unwrap().header()
+    let bit_depth = []
+    for c in 0..<image.color_channels() {
+      bit_depth.push(header.metadata.bit_depth)
+    }
+    for ec in header.metadata.ec_info {
+      bit_depth.push(ec.bit_depth)
+    }
+    let (peak, rms) = compare_frame(
+      image, ref_, k, height, width, channels, bit_depth, fh.x0, fh.y0,
+    )
     println("\{name} frame \{k}: peak \{peak} rms \{rms}")
     // Tolerances of test.json for these cases.
     assert_true(peak <= 0.000976562 + 1.0e-6, msg="\{name}: peak error \{peak}")
@@ -218,4 +243,66 @@ test "render modular conformance: lz77_flower" {
     return
   }
   run_case("lz77_flower")
+}
+
+///|
+/// Peak/RMS tolerances of each frame from `test.json`.
+fn tolerances(dir : String) -> Array[(Double, Double)] raise {
+  let j = @json.parse(@fs.read_file_to_string(dir + "/test.json"))
+  guard j is { "frames": Array(frames), .. } else { fail("bad test.json") }
+  frames.map(f => {
+    guard f is { "peak_error": Number(p, ..), "rms_error": Number(r, ..), .. } else {
+      abort("bad frame tolerance")
+    }
+    (p, r)
+  })
+}
+
+///|
+/// Renders every conformance test case and reports the result (set
+/// `JXL_RENDER_SWEEP=1`); does not fail on mismatches.
+test "render conformance sweep" {
+  guard @env.get_env_var("JXL_RENDER_SWEEP") is Some("1") else { return }
+  let root = conformance_dir()
+  let names = @fs.read_dir(root).iter().collect()
+  names.sort()
+  for name in names {
+    let dir = root + "/" + name
+    if !@fs.path_exists(dir + "/reference_image.npy") {
+      continue
+    }
+    try {
+      let tol = tolerances(dir)
+      let data = @fs.read_file_to_bytes(dir + "/input.jxl")
+      let (ctx, header) = load_image(extract_codestream(data))
+      let (frames, height, width, channels, ref_) = read_npy(
+        dir + "/reference_image.npy",
+      )
+      let mut msg = "frames \{ctx.loaded_keyframes()}/\{frames}"
+      for k in 0..<frames {
+        let image = ctx.render_keyframe(k)
+    let fh = ctx.keyframe(k).unwrap().header()
+        let bit_depth = []
+        for _ in 0..<image.color_channels() {
+          bit_depth.push(header.metadata.bit_depth)
+        }
+        for ec in header.metadata.ec_info {
+          bit_depth.push(ec.bit_depth)
+        }
+        if image.channels() < channels {
+          msg += " | frame \{k}: \{image.channels()} channels < \{channels}"
+          continue
+        }
+        let (peak, rms) = compare_frame(
+          image, ref_, k, height, width, channels, bit_depth, fh.x0, fh.y0,
+        )
+        let (tp, tr) = tol[k]
+        let ok = peak <= tp && rms <= tr
+        msg += " | \{if ok { "OK" } else { "FAIL" }} f\{k} peak \{peak} rms \{rms}"
+      }
+      println("\{name}: \{msg}")
+    } catch {
+      e => println("\{name}: ERROR \{e}")
+    }
+  }
 }

@@ -2,8 +2,11 @@ import {
   "suica/jxl/bitstream",
   "suica/jxl/image",
   "suica/jxl/color",
-  "suica/jxl/grid",
   "suica/jxl/render",
+  "suica/jxl/grid",
   "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/cmp",
+  "moonbitlang/core/debug",
   "moonbitlang/x/fs",
 } for "test"

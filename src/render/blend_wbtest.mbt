@@ -20,12 +20,18 @@ test "blend_single replace/add/mul with offsets" {
   p.base_topleft = (2, 0)
   p.new_topleft = (1, 0)
   blend_single(base.as_subgrid(), new.as_subgrid(), p)
-  debug_inspect(base.buf(), content="[1, 2, 20, 4, 5, 40]")
+  debug_inspect(base.buf(), content=(
+    #|<FixedArray: [1, 2, 20, 4, 5, 40]>
+  ))
   blend_single(base.as_subgrid(), new.as_subgrid(), params(Add, 2, 2))
-  debug_inspect(base.buf(), content="[11, 22, 20, 34, 45, 40]")
+  debug_inspect(base.buf(), content=(
+    #|<FixedArray: [11, 22, 20, 34, 45, 40]>
+  ))
   let m = grid_of(2, 1, [2, -1])
   blend_single(base.as_subgrid(), m.as_subgrid(), params(Mul(true), 2, 1))
-  debug_inspect(base.buf(), content="[11, 0, 20, 34, 45, 40]")
+  debug_inspect(base.buf(), content=(
+    #|<FixedArray: [11, 0, 20, 34, 45, 40]>
+  ))
 }
 
 ///|
@@ -43,7 +49,9 @@ test "blend_single blend modes" {
     premultiplied: false,
   })
   blend_single(base.as_subgrid(), new.as_subgrid(), params(mode, 1, 1))
-  debug_inspect(base.buf(), content="[0.5]")
+  debug_inspect(base.buf(), content=(
+    #|<FixedArray: [0.5]>
+  ))
   // Premultiplied.
   let base = grid_of(1, 1, [0.25])
   let mode = Blend({
@@ -54,7 +62,9 @@ test "blend_single blend modes" {
     premultiplied: true,
   })
   blend_single(base.as_subgrid(), new.as_subgrid(), params(mode, 1, 1))
-  debug_inspect(base.buf(), content="[0.875]")
+  debug_inspect(base.buf(), content=(
+    #|<FixedArray: [0.875]>
+  ))
   // MixAlpha.
   let a = grid_of(1, 1, [0.5])
   let b = grid_of(1, 1, [0.5])
@@ -63,7 +73,9 @@ test "blend_single blend modes" {
     b.as_subgrid(),
     params(MixAlpha(clamp=false, swapped=false), 1, 1),
   )
-  debug_inspect(a.buf(), content="[0.75]")
+  debug_inspect(a.buf(), content=(
+    #|<FixedArray: [0.75]>
+  ))
   // MulAdd.
   let base = grid_of(1, 1, [0.25])
   let mode = MulAdd({
@@ -74,7 +86,9 @@ test "blend_single blend modes" {
     premultiplied: false,
   })
   blend_single(base.as_subgrid(), new.as_subgrid(), params(mode, 1, 1))
-  debug_inspect(base.buf(), content="[0.625]")
+  debug_inspect(base.buf(), content=(
+    #|<FixedArray: [0.625]>
+  ))
 }
 
 ///|
@@ -86,7 +100,9 @@ test "upsample_nn and mirror" {
     fail("type")
   }
   debug_inspect((out.width(), out.height()), content="(4, 2)")
-  debug_inspect(out.buf(), content="[1, 1, 2, 2, 1, 1, 2, 2]")
+  debug_inspect(out.buf(), content=(
+    #|<FixedArray: [1, 1, 2, 2, 1, 1, 2, 2]>
+  ))
   debug_inspect(
     [mirror(-1, 4), mirror(-2, 4), mirror(4, 4), mirror(5, 4), mirror(2, 4)],
     content="[0, 1, 3, 2, 2]",
@@ -105,6 +121,8 @@ test "padded grid mirror" {
   p.mirror_edges_padding()
   debug_inspect(
     p.buf_padded(),
-    content="[1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 4, 4, 3, 3, 4, 4]",
+    content=(
+      #|<FixedArray: [1, 1, 2, 2, 1, 1, 2, 2, 3, 3, 4, 4, 3, 3, 4, 4]>
+    ),
   )
 }

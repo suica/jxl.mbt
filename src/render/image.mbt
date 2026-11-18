@@ -563,7 +563,7 @@ pub fn ImageWithRegion::upsample_nonseparable(
     let width = downsampled_valid_region.width
     let height = downsampled_valid_region.height
     let subgrid = grid.as_subgrid().subgrid(left, top, width, height)
-    let out_region = Ref::new(downsampled_valid_region)
+    let out_region = Ref(downsampled_valid_region)
     let out = upsample(
       subgrid,
       out_region,
