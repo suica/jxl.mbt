@@ -8,6 +8,19 @@ The structure of the packages follows jxl-oxide's crates.
 
 **Status: work in progress.**
 
+## Not supported
+
+The colour management system in `src/cms` (a port of Little CMS 2.19's float
+transform path) does not support:
+
+- floating-point profile tags (`mpet`, `D2Bx`/`B2Dx`); profiles relying on them
+  are rejected with `NotSupported`;
+- named-colour, device-link and abstract profiles as transform endpoints;
+- black-preserving rendering intents (10–15);
+- partial chromatic adaptation (the adaptation state is fixed at 1.0).
+
+None of these occur in the libjxl conformance suite or jxl-oxide's test images.
+
 ## License
 
 Like jxl-oxide, this project is dual-licensed under either of
