@@ -25,7 +25,7 @@
 //   `pool` and `JxlImage::pool` are not ported).
 // - Errors: every fallible function raises `@bitstream.JxlError`.
 // - Default CMS: the pure MoonBit `@cms` package plays the role of the `lcms2`
-//   feature (it is set on every new image); `set_cms(@color.NullCms::new())`
+//   feature (it is set on every new image); `set_cms(@color.NullCms::{ })`
 //   disables it as upstream.
 
 ///|
