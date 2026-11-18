@@ -42,6 +42,34 @@ pub fn AllocTracker::free(
 }
 
 ///|
+/// Expands the current limit by `by_bytes` bytes (wrapping, like
+/// `AtomicUsize::fetch_add`).
+pub fn AllocTracker::expand_limit(self : AllocTracker, by_bytes : Int64) -> Unit {
+  self.bytes_left += by_bytes
+}
+
+///|
+/// Shrinks the current limit by `by_bytes` bytes.
+///
+/// Raises `OutOfMemory` if the total amount of current allocation doesn't
+/// allow shrinking the limit.
+pub fn AllocTracker::shrink_limit(
+  self : AllocTracker,
+  by_bytes : Int64,
+) -> Unit raise @bitstream.JxlError {
+  if by_bytes > self.bytes_left {
+    raise @bitstream.OutOfMemory(
+      if by_bytes > 0x7fffffffL {
+        0x7fffffff
+      } else {
+        by_bytes.to_int()
+      },
+    )
+  }
+  self.bytes_left -= by_bytes
+}
+
+///|
 /// A row-major 2D buffer (jxl-grid `AlignedGrid`); stride is the width.
 pub struct Grid[T] {
   width : Int32
