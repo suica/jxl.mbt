@@ -1,6 +1,7 @@
 import {
   "suica/jxl/bitstream",
   "suica/jxl/brotli",
+  "suica/jxl/frame",
   "suica/jxl/grid",
   "moonbitlang/core/buffer",
   "moonbitlang/core/hashmap",
