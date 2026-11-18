@@ -1,0 +1,13 @@
+import {
+  "suica/jxl/bitstream",
+  "suica/jxl/grid",
+  "suica/jxl/image",
+  "suica/jxl/coding",
+  "moonbitlang/core/cmp",
+  "moonbitlang/core/sorted_map",
+}
+
+import {
+  "suica/jxl/bitstream",
+  "suica/jxl/image",
+} for "test"

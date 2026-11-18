@@ -1,0 +1,11 @@
+import {
+  "suica/jxl/bitstream",
+  "suica/jxl/coding",
+  "suica/jxl/container",
+  "suica/jxl/frame",
+  "suica/jxl/image",
+  "moonbitlang/x/fs",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/cmp",
+} for "test"

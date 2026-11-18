@@ -1,0 +1,293 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/frame"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/sorted_map",
+  "suica/jxl/bitstream",
+  "suica/jxl/grid",
+  "suica/jxl/image",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum BlendMode {
+  Replace
+  Add
+  Blend
+  MulAdd
+  Mul
+}
+pub fn BlendMode::default() -> Self
+pub fn BlendMode::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+pub fn BlendMode::use_alpha(Self) -> Bool
+
+#derive(@debug.Debug)
+pub(all) struct BlendingInfo {
+  mode : BlendMode
+  alpha_channel : Int32
+  clamp : Bool
+  source : Int32
+}
+pub fn BlendingInfo::default() -> Self
+
+#derive(@debug.Debug)
+pub(all) struct BlendingModeInformation {
+  mode : PatchBlendMode
+  alpha_channel : Int32
+  clamp : Bool
+}
+
+#derive(@debug.Debug)
+pub(all) enum EdgePreservingFilter {
+  Disabled
+  Enabled(EpfParams)
+}
+pub fn EdgePreservingFilter::default() -> Self
+pub fn EdgePreservingFilter::enabled(Self) -> Bool
+pub fn EdgePreservingFilter::parse(@bitstream.Bitstream, Encoding) -> Self raise @bitstream.JxlError
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Encoding {
+  VarDct
+  Modular
+}
+pub fn Encoding::default() -> Self
+pub fn Encoding::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) struct EpfParams {
+  iters : Int32
+  sharp_lut : FixedArray[Float]
+  channel_scale : FixedArray[Float]
+  sigma : EpfSigma
+  sigma_for_modular : Float
+}
+pub fn EpfParams::default() -> Self
+
+#derive(@debug.Debug)
+pub(all) struct EpfSigma {
+  quant_mul : Float
+  pass0_sigma_scale : Float
+  pass2_sigma_scale : Float
+  border_sad_mul : Float
+}
+pub fn EpfSigma::default() -> Self
+pub fn EpfSigma::parse(@bitstream.Bitstream, Encoding) -> Self raise @bitstream.JxlError
+
+pub struct Frame {
+  // private fields
+}
+pub fn Frame::adjust_region(Self, (Int32, Int32, Int32, Int32)) -> (Int32, Int32, Int32, Int32)
+pub fn Frame::alloc_tracker(Self) -> @grid.AllocTracker?
+pub fn Frame::current_loading_group(Self) -> TocGroup?
+pub fn Frame::data(Self, TocGroupKind) -> BytesView?
+pub fn Frame::feed_bytes(Self, BytesView) -> BytesView raise @bitstream.JxlError
+pub fn Frame::header(Self) -> FrameHeader
+pub fn Frame::image_header(Self) -> @image.ImageHeader
+pub fn Frame::is_loading_done(Self) -> Bool
+pub fn Frame::parse(@bitstream.Bitstream, @image.ImageHeader, tracker? : @grid.AllocTracker?) -> Self raise @bitstream.JxlError
+pub fn Frame::pass_shifts(Self) -> @sorted_map.SortedMap[Int32, (Int32, Int32)]
+pub fn Frame::toc(Self) -> Toc
+
+#derive(Eq, @debug.Debug)
+pub(all) struct FrameFlags(UInt64)
+pub fn FrameFlags::noise(Self) -> Bool
+pub fn FrameFlags::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+pub fn FrameFlags::patches(Self) -> Bool
+pub fn FrameFlags::skip_adaptive_lf_smoothing(Self) -> Bool
+pub fn FrameFlags::splines(Self) -> Bool
+pub fn FrameFlags::use_lf_frame(Self) -> Bool
+
+#derive(@debug.Debug)
+pub(all) struct FrameHeader {
+  all_default : Bool
+  frame_type : FrameType
+  encoding : Encoding
+  flags : FrameFlags
+  do_ycbcr : Bool
+  encoded_color_channels : Int32
+  jpeg_upsampling : FixedArray[Int32]
+  upsampling : Int32
+  ec_upsampling : Array[Int32]
+  group_size_shift : Int32
+  x_qm_scale : Int32
+  b_qm_scale : Int32
+  passes : Passes
+  lf_level : Int32
+  have_crop : Bool
+  x0 : Int32
+  y0 : Int32
+  width : Int32
+  height : Int32
+  blending_info : BlendingInfo
+  ec_blending_info : Array[BlendingInfo]
+  duration : UInt32
+  timecode : UInt32
+  is_last : Bool
+  save_as_reference : Int32
+  resets_canvas : Bool
+  save_before_ct : Bool
+  name : String
+  restoration_filter : RestorationFilter
+  extensions : @image.Extensions
+  bit_depth : @image.BitDepth
+}
+pub fn FrameHeader::can_reference(Self) -> Bool
+pub fn FrameHeader::color_sample_height(Self) -> Int32
+pub fn FrameHeader::color_sample_width(Self) -> Int32
+pub fn FrameHeader::default(@image.ImageHeader) -> Self
+pub fn FrameHeader::encoded_color_channels(Self) -> Int32
+pub fn FrameHeader::group_dim(Self) -> Int32
+pub fn FrameHeader::group_idx_from_coord(Self, Int32, Int32) -> Int32?
+pub fn FrameHeader::group_size_for(Self, Int32) -> (Int32, Int32)
+pub fn FrameHeader::groups_per_row(Self) -> Int32
+pub fn FrameHeader::is_group_collides_region(Self, Int32, (Int32, Int32, Int32, Int32)) -> Bool
+pub fn FrameHeader::is_keyframe(Self) -> Bool
+pub fn FrameHeader::is_lf_group_collides_region(Self, Int32, (Int32, Int32, Int32, Int32)) -> Bool
+pub fn FrameHeader::lf_group_dim(Self) -> Int32
+pub fn FrameHeader::lf_group_idx_from_group_idx(Self, Int32) -> Int32
+pub fn FrameHeader::lf_group_size_for(Self, Int32) -> (Int32, Int32)
+pub fn FrameHeader::lf_groups_per_row(Self) -> Int32
+pub fn FrameHeader::num_groups(Self) -> Int32
+pub fn FrameHeader::num_lf_groups(Self) -> Int32
+pub fn FrameHeader::parse(@bitstream.Bitstream, @image.ImageHeader) -> Self raise @bitstream.JxlError
+pub fn FrameHeader::sample_height(Self, Int32) -> Int32
+pub fn FrameHeader::sample_width(Self, Int32) -> Int32
+
+#derive(Eq, @debug.Debug)
+pub(all) enum FrameType {
+  RegularFrame
+  LfFrame
+  ReferenceOnly
+  SkipProgressive
+}
+pub fn FrameType::default() -> Self
+pub fn FrameType::is_normal_frame(Self) -> Bool
+pub fn FrameType::is_progressive_frame(Self) -> Bool
+pub fn FrameType::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) enum Gabor {
+  Disabled
+  Enabled(FixedArray[FixedArray[Float]])
+}
+pub fn Gabor::default() -> Self
+pub fn Gabor::enabled(Self) -> Bool
+pub fn Gabor::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) struct NoiseParameters {
+  lut : FixedArray[Float]
+}
+pub fn NoiseParameters::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) struct Passes {
+  num_passes : Int32
+  num_ds : Int32
+  shift : Array[Int32]
+  downsample : Array[Int32]
+  last_pass : Array[Int32]
+}
+pub fn Passes::default() -> Self
+pub fn Passes::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(Eq, @debug.Debug)
+pub(all) enum PatchBlendMode {
+  None
+  Replace
+  Add
+  Mul
+  BlendAbove
+  BlendBelow
+  MulAddAbove
+  MulAddBelow
+}
+pub fn PatchBlendMode::try_from(UInt32) -> Self raise @bitstream.JxlError
+pub fn PatchBlendMode::use_alpha(Self) -> Bool
+
+#derive(@debug.Debug)
+pub(all) struct PatchRef {
+  ref_idx : Int32
+  x0 : Int32
+  y0 : Int32
+  width : Int32
+  height : Int32
+  patch_targets : Array[PatchTarget]
+}
+
+#derive(@debug.Debug)
+pub(all) struct PatchTarget {
+  x : Int32
+  y : Int32
+  blending : Array[BlendingModeInformation]
+}
+
+#derive(@debug.Debug)
+pub(all) struct Patches {
+  patches : Array[PatchRef]
+}
+pub fn Patches::parse(@bitstream.Bitstream, @image.ImageHeader, FrameHeader) -> Self raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) struct QuantSpline {
+  quant_points : Array[(Int64, Int64)]
+  manhattan_distance : UInt64
+  xyb_dct : FixedArray[FixedArray[Int32]]
+  sigma_dct : FixedArray[Int32]
+}
+
+#derive(@debug.Debug)
+pub(all) struct RestorationFilter {
+  all_default : Bool
+  gab : Gabor
+  epf : EdgePreservingFilter
+  extensions : @image.Extensions
+}
+pub fn RestorationFilter::default() -> Self
+pub fn RestorationFilter::parse(@bitstream.Bitstream, Encoding) -> Self raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) struct Splines {
+  quant_splines : Array[QuantSpline]
+  quant_adjust : Int32
+}
+pub fn Splines::estimate_area(Self, (Float, Float)?) -> UInt64
+pub fn Splines::parse(@bitstream.Bitstream, FrameHeader) -> Self raise @bitstream.JxlError
+
+pub struct Toc {
+  // private fields
+}
+pub fn Toc::bookmark(Self) -> Int32
+pub fn Toc::group_index_bitstream_order(Self, TocGroupKind) -> Int32
+pub fn Toc::is_single_entry(Self) -> Bool
+pub fn Toc::iter_bitstream_order(Self) -> Array[TocGroup]
+pub fn Toc::parse(@bitstream.Bitstream, FrameHeader) -> Self raise @bitstream.JxlError
+pub fn Toc::total_byte_size(Self) -> Int32
+pub impl Show for Toc
+
+#derive(Eq, @debug.Debug)
+pub(all) struct TocGroup {
+  kind : TocGroupKind
+  mut offset : Int32
+  size : Int32
+}
+
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub(all) enum TocGroupKind {
+  All
+  LfGlobal
+  LfGroup(Int32)
+  HfGlobal
+  GroupPass(pass_idx~ : Int32, group_idx~ : Int32)
+}
+pub impl Show for TocGroupKind
+
+// Type aliases
+
+// Traits
