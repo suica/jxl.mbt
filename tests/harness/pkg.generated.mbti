@@ -1,0 +1,93 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl_tests/harness"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn cache_dir() -> String
+
+pub fn channel_errors(FixedArray[Float], Int32, FixedArray[Float], Int32, Int32, Int32) -> ChannelError
+
+pub fn check_errors(ChannelError, Array[Tolerance]) -> Array[String]
+
+pub fn conformance_case_dir(String) -> String
+
+pub fn conformance_path(String) -> String
+
+pub fn conformance_testcases_dir() -> String
+
+pub fn data_dir() -> String
+
+pub fn debug_enabled() -> Bool
+
+pub fn decode_testcases_dir() -> String
+
+pub fn file_exists(String) -> Bool
+
+pub fn format_errors(ChannelError) -> String
+
+pub fn read_file(String) -> Bytes raise Failure
+
+pub fn read_fixture(String) -> Bytes? raise Failure
+
+pub fn read_npy(Bytes) -> Npy raise Failure
+
+pub fn read_text(String) -> String raise Failure
+
+pub fn read_u32_le(Bytes, Int32) -> Int32
+
+pub fn require_fixtures() -> Bool
+
+pub fn sha256(BytesView) -> Bytes
+
+pub fn sha256_hex(BytesView) -> String
+
+pub fn test_json_frame_tolerances(String) -> Array[Tolerance] raise Failure
+
+pub fn to_hex(BytesView) -> String
+
+pub fn write_npy_bytes(Array[Int32], FixedArray[Float]) -> Bytes
+
+// Errors
+
+// Types and methods
+pub(all) struct ChannelError {
+  peak : Array[Float]
+  rmse : Array[Float]
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct FixtureHeader {
+  width : Int32
+  height : Int32
+  channels : Int32
+}
+
+pub struct FixtureReader {
+  buf : Bytes
+  mut pos : Int32
+}
+pub fn FixtureReader::at_end(Self) -> Bool
+pub fn FixtureReader::header(Self) -> FixtureHeader raise Failure
+pub fn FixtureReader::marker(Self) -> Int32 raise Failure
+pub fn FixtureReader::new(Bytes) -> Self
+pub fn FixtureReader::plane(Self, Int32) -> FixedArray[Int32] raise Failure
+
+pub(all) struct Npy {
+  shape : Array[Int32]
+  data : FixedArray[Float]
+}
+pub fn Npy::frame_len(Self) -> Int32
+pub fn Npy::frames(Self, Int32) -> Array[FixedArray[Float]]
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Tolerance {
+  peak : Float
+  rmse : Float
+}
+
+// Type aliases
+
+// Traits
