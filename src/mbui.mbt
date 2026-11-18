@@ -44,11 +44,11 @@ fn decode_jxl_rgba8(
   let is_gray = pixel_format.is_grayscale()
   if is_gray {
     image.request_color_encoding(
-      @color.EnumColourEncoding::gray_srgb(@color.RenderingIntent::Relative),
+      @image.EnumColourEncoding::gray_srgb(@image.RenderingIntent::Relative),
     )
   } else {
     image.request_color_encoding(
-      @color.EnumColourEncoding::srgb(@color.RenderingIntent::Relative),
+      @image.EnumColourEncoding::srgb(@image.RenderingIntent::Relative),
     )
   }
   // Whether the alpha channel the stream picks (the first one) is

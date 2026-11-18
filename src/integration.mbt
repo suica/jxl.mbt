@@ -58,7 +58,7 @@ pub fn JxlDecoder::new(data : Bytes) -> JxlDecoder raise @bitstream.JxlError {
   // Convert CMYK to sRGB
   if decoder.image.pixel_format().has_black() {
     decoder.image.request_color_encoding(
-      @color.EnumColourEncoding::srgb(@color.RenderingIntent::Relative),
+      @image.EnumColourEncoding::srgb(@image.RenderingIntent::Relative),
     )
   }
   decoder

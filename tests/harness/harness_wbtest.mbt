@@ -165,3 +165,70 @@ test "io/decode fixture buf" {
   assert_eq(r.marker(), 0xff)
   assert_true(r.at_end())
 }
+
+///|
+/// The synthetic image of the reference run of the Rust `ssimulacra2` crate
+/// (gradients, optionally with LCG noise).
+fn synth_rgb(w : Int, h : Int, noise : Bool) -> FixedArray[Float] {
+  let out = FixedArray::make(w * h * 3, (0.0 : Float))
+  let mut s : UInt = 12345
+  for y in 0..<h {
+    for x in 0..<w {
+      let px : FixedArray[Float] = [
+        Float::from_int(x) / Float::from_int(w),
+        Float::from_int(y) / Float::from_int(h),
+        Float::from_int(x * y % 17) / 16.0,
+      ]
+      if noise {
+        for k in 0..<3 {
+          s = s * 1103515245 + 12345
+          let n = Float::from_int(((s >> 16) & 0x7fff).reinterpret_as_int()) /
+            32767.0 -
+            0.5
+          let v = px[k] + n * 0.05
+          px[k] = if v < 0.0 { 0.0 } else if v > 1.0 { 1.0 } else { v }
+        }
+      }
+      for k in 0..<3 {
+        out[(y * w + x) * 3 + k] = px[k]
+      }
+    }
+  }
+  out
+}
+
+///|
+test "ssimulacra2/matches the Rust crate" {
+  // `ssimulacra2` 0.5.1 gives 85.3363634154 for this pair
+  let (w, h) = (77, 53)
+  let score = compute_frame_ssimulacra2(
+    synth_rgb(w, h, false),
+    synth_rgb(w, h, true),
+    w,
+    h,
+  )
+  assert_true((score - 85.3363634154).abs() < 1.0e-6)
+  let same = compute_frame_ssimulacra2(
+    synth_rgb(w, h, true),
+    synth_rgb(w, h, true),
+    w,
+    h,
+  )
+  assert_true((same - 100.0).abs() < 1.0e-6)
+}
+
+///|
+test "ssimulacra2/lcms2 vs moxcms fixture" {
+  // the cms fixtures: `ssimulacra2` 0.5.1 gives 92.8602575593
+  let dir = cache_dir() + "/cms"
+  guard read_fixture(dir + "/cmyk_layers.lcms2.npy") is Some(a) else { return }
+  guard read_fixture(dir + "/cmyk_layers.moxcms.npy") is Some(b) else { return }
+  let a = read_npy(a)
+  let b = read_npy(b)
+  let rgb = fn(n : Npy) {
+    let (h, w, c) = (n.shape[1], n.shape[2], n.shape[3])
+    FixedArray::makei(w * h * 3, fn(i) { n.data[i / 3 * c + i % 3] })
+  }
+  let score = compute_frame_ssimulacra2(rgb(a), rgb(b), a.shape[2], a.shape[1])
+  assert_true((score - 92.8602575593).abs() < 1.0e-6)
+}

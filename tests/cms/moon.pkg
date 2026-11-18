@@ -1,0 +1,5 @@
+import {
+  "suica/jxl",
+  "suica/jxl/image",
+  "suica/jxl_tests/harness",
+}

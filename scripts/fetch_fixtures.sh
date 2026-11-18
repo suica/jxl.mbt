@@ -6,6 +6,12 @@
 #       libjxl conformance testcases (incl. the *_5 level-5 variants)
 #   fixtures/cache/decode/<case>/{input.jxl,output.buf}
 #       jxl-oxide decode test data; output.buf is the decompressed output.buf.zst
+#   fixtures/cache/cms/cmyk_layers.{lcms2,moxcms}.npy   (step `cms`, not in `all`)
+#       tests/data/cms/cmyk_layers.jxl rendered to linear sRGB by jxl-oxide with
+#       Little CMS 2 and with moxcms: the references of the cms test (upstream
+#       compares those two CMSs; here the MoonBit CMS is compared with both).
+#       Needs the jxl-oxide CLI: JXL_OXIDE_CLI=<path to the jxl-oxide binary>,
+#       or JXL_OXIDE_SRC=<jxl-oxide checkout> and cargo to build it.
 #
 # Sources (override with environment variables):
 #   CONFORMANCE_DIR   existing checkout of https://github.com/libjxl/conformance
@@ -17,7 +23,7 @@
 #                     (jxl-oxide's crates/jxl-oxide-tests/decode). If unset, it is
 #                     cloned into fixtures/cache/jxl-oxide-testdata.
 #
-# Usage: scripts/fetch_fixtures.sh [conformance|decode|all]   (default: all)
+# Usage: scripts/fetch_fixtures.sh [conformance|decode|cms|all]   (default: all)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -95,9 +101,26 @@ fetch_decode() {
   done
 }
 
+fetch_cms() {
+  local cli="${JXL_OXIDE_CLI:-}"
+  if [ -z "$cli" ]; then
+    [ -n "${JXL_OXIDE_SRC:-}" ] || { echo "error: set JXL_OXIDE_CLI or JXL_OXIDE_SRC" >&2; exit 1; }
+    need cargo
+    (cd "$JXL_OXIDE_SRC" && CARGO_TARGET_DIR="$CACHE/cargo" cargo build --locked --release -p jxl-oxide-cli)
+    cli="$CACHE/cargo/release/jxl-oxide"
+  fi
+  mkdir -p "$CACHE/cms"
+  for cms in lcms2 moxcms; do
+    "$cli" "$ROOT/tests/data/cms/cmyk_layers.jxl" --cms "$cms" \
+      --target-colorspace "srgb,tf=linear" -f npy -o "$CACHE/cms/cmyk_layers.$cms.npy"
+  done
+  echo "cms: $CACHE/cms"
+}
+
 case "$what" in
   conformance) fetch_conformance ;;
   decode) fetch_decode ;;
+  cms) fetch_cms ;;
   all) fetch_conformance; fetch_decode ;;
-  *) echo "usage: $0 [conformance|decode|all]" >&2; exit 2 ;;
+  *) echo "usage: $0 [conformance|decode|cms|all]" >&2; exit 2 ;;
 esac

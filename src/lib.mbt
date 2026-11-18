@@ -511,7 +511,7 @@ pub fn JxlImage::request_icc(
 /// `EnumColourEncoding`.
 pub fn JxlImage::request_color_encoding(
   self : JxlImage,
-  color_encoding : @color.EnumColourEncoding,
+  color_encoding : @image.EnumColourEncoding,
 ) -> Unit {
   self.ctx.request_color_encoding(
     @color.ColorEncodingWithProfile::new(color_encoding),
