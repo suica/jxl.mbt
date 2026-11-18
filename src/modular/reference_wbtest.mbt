@@ -259,6 +259,257 @@ let reference_data : String =
   #|palette 544 4 5 3 13 16 true 1706917279
 
 ///|
+/// Same cases with `i16` samples (upstream's `*_i16_base` squeeze, `i16`
+/// RCT and palette).
+let reference_data_i16 : String =
+  #|squeeze16 100 1 1 -1000 1000 true 3557663484
+  #|squeeze16 100 1 1 -32768 32767 true 487496551
+  #|squeeze16 100 1 1 -1000 1000 false 3557663484
+  #|squeeze16 100 1 1 -32768 32767 false 487496551
+  #|squeeze16 101 2 3 -1000 1000 true 2840819356
+  #|squeeze16 101 2 3 -32768 32767 true 1655315660
+  #|squeeze16 101 2 3 -1000 1000 false 196801115
+  #|squeeze16 101 2 3 -32768 32767 false 1014319553
+  #|squeeze16 102 5 4 -1000 1000 true 2042836736
+  #|squeeze16 102 5 4 -32768 32767 true 2184228222
+  #|squeeze16 102 5 4 -1000 1000 false 4037628889
+  #|squeeze16 102 5 4 -32768 32767 false 343942274
+  #|squeeze16 103 8 7 -1000 1000 true 1171492520
+  #|squeeze16 103 8 7 -32768 32767 true 3081352171
+  #|squeeze16 103 8 7 -1000 1000 false 1781310396
+  #|squeeze16 103 8 7 -32768 32767 false 1337488655
+  #|squeeze16 104 17 9 -1000 1000 true 1050819833
+  #|squeeze16 104 17 9 -32768 32767 true 3047428332
+  #|squeeze16 104 17 9 -1000 1000 false 1562887907
+  #|squeeze16 104 17 9 -32768 32767 false 1183830713
+  #|squeeze16 105 33 2 -1000 1000 true 3904326397
+  #|squeeze16 105 33 2 -32768 32767 true 3518569547
+  #|squeeze16 105 33 2 -1000 1000 false 1827776824
+  #|squeeze16 105 33 2 -32768 32767 false 1625055147
+  #|squeeze16 106 3 33 -1000 1000 true 2387503154
+  #|squeeze16 106 3 33 -32768 32767 true 3251846559
+  #|squeeze16 106 3 33 -1000 1000 false 1022911430
+  #|squeeze16 106 3 33 -32768 32767 false 1310305986
+  #|rct16 200 0 2341895168
+  #|rct16 201 1 1078674571
+  #|rct16 202 2 3883878583
+  #|rct16 203 3 2636056382
+  #|rct16 204 4 2156940462
+  #|rct16 205 5 799507348
+  #|rct16 206 6 1778562340
+  #|rct16 207 7 820672059
+  #|rct16 208 8 1700076448
+  #|rct16 209 9 1828551350
+  #|rct16 210 10 2483018118
+  #|rct16 211 11 1682098490
+  #|rct16 212 12 985029953
+  #|rct16 213 13 2953212849
+  #|rct16 214 14 387410893
+  #|rct16 215 15 507230997
+  #|rct16 216 16 415479936
+  #|rct16 217 17 1118152223
+  #|rct16 218 18 3127508702
+  #|rct16 219 19 4150609149
+  #|rct16 220 20 1388659899
+  #|rct16 221 21 745211529
+  #|rct16 222 22 1901074630
+  #|rct16 223 23 4134106862
+  #|rct16 224 24 604575711
+  #|rct16 225 25 1324669683
+  #|rct16 226 26 3681545787
+  #|rct16 227 27 3619213104
+  #|rct16 228 28 984272709
+  #|rct16 229 29 4269047716
+  #|rct16 230 30 1944435402
+  #|rct16 231 31 758191230
+  #|rct16 232 32 3648990487
+  #|rct16 233 33 2184338468
+  #|rct16 234 34 3152265842
+  #|rct16 235 35 938817023
+  #|rct16 236 36 1541042345
+  #|rct16 237 37 4281341380
+  #|rct16 238 38 1438438774
+  #|rct16 239 39 1490531941
+  #|rct16 240 40 241730030
+  #|rct16 241 41 1738318124
+  #|rct16 242 42 10097789
+  #|rct16 243 43 3088224119
+  #|rct16 244 44 2172948554
+  #|rct16 245 45 419885295
+  #|rct16 246 46 492728571
+  #|rct16 247 47 3353380085
+  #|rct16 248 48 3647309791
+  #|rct16 249 49 2467042919
+  #|rct16 250 50 357340830
+  #|rct16 251 51 2926490334
+  #|rct16 252 52 1605672395
+  #|rct16 253 53 87642554
+  #|rct16 254 54 1676270549
+  #|rct16 255 55 670493045
+  #|rct16 256 56 1782221488
+  #|rct16 257 57 2004173762
+  #|rct16 258 58 2085868373
+  #|rct16 259 59 2064918407
+  #|rct16 260 60 121755729
+  #|rct16 261 61 2782454071
+  #|rct16 262 62 1071588443
+  #|rct16 263 63 3004160757
+  #|rct16 264 64 2122386231
+  #|rct16 265 65 3945279190
+  #|rct16 266 66 2496592585
+  #|rct16 267 67 61197494
+  #|rct16 268 68 29823430
+  #|rct16 269 69 658954877
+  #|rct16 270 70 748938878
+  #|rct16 271 71 1818452943
+  #|rct16 272 72 719775455
+  #|rct16 273 73 326149352
+  #|palette16 401 1 5 3 2 1 false 3931145058
+  #|palette16 402 1 5 3 2 1 true 458449968
+  #|palette16 403 1 5 3 5 1 false 2089814539
+  #|palette16 404 1 5 3 5 1 true 3741213483
+  #|palette16 405 1 5 3 6 1 false 115192283
+  #|palette16 406 1 5 3 6 1 true 939337881
+  #|palette16 407 1 5 3 8 1 false 479975817
+  #|palette16 408 1 5 3 8 1 true 2283821432
+  #|palette16 409 1 5 3 11 1 false 3361553759
+  #|palette16 410 1 5 3 11 1 true 4064087018
+  #|palette16 411 1 5 3 13 1 false 716184015
+  #|palette16 412 1 5 3 13 1 true 2112708784
+  #|palette16 413 1 5 3 0 8 false 2041246799
+  #|palette16 414 1 5 3 0 8 true 2685191872
+  #|palette16 415 1 5 3 3 8 false 3208520604
+  #|palette16 416 1 5 3 3 8 true 3980906066
+  #|palette16 417 1 5 3 6 8 false 923411047
+  #|palette16 418 1 5 3 6 8 true 947201975
+  #|palette16 419 1 5 3 9 8 false 4064439336
+  #|palette16 420 1 5 3 9 8 true 1474000975
+  #|palette16 421 1 5 3 12 8 false 4227523453
+  #|palette16 422 1 5 3 12 8 true 2133472058
+  #|palette16 423 1 5 3 13 8 false 1940024269
+  #|palette16 424 1 5 3 13 8 true 4084696390
+  #|palette16 425 1 5 3 2 10 false 841095035
+  #|palette16 426 1 5 3 2 10 true 1263626666
+  #|palette16 427 1 5 3 5 10 false 2874573868
+  #|palette16 428 1 5 3 5 10 true 854169636
+  #|palette16 429 1 5 3 6 10 false 3067369834
+  #|palette16 430 1 5 3 6 10 true 1191421766
+  #|palette16 431 1 5 3 8 10 false 1150211934
+  #|palette16 432 1 5 3 8 10 true 1408361820
+  #|palette16 433 1 5 3 11 10 false 4126072057
+  #|palette16 434 1 5 3 11 10 true 1749784552
+  #|palette16 435 1 5 3 13 10 false 4262174352
+  #|palette16 436 1 5 3 13 10 true 2056661015
+  #|palette16 437 1 5 3 2 16 false 1063536529
+  #|palette16 438 1 5 3 2 16 true 2475383308
+  #|palette16 439 1 5 3 5 16 false 908577302
+  #|palette16 440 1 5 3 5 16 true 2535020859
+  #|palette16 441 1 5 3 6 16 false 3575466103
+  #|palette16 442 1 5 3 6 16 true 231779323
+  #|palette16 443 1 5 3 8 16 false 10932963
+  #|palette16 444 1 5 3 8 16 true 653071765
+  #|palette16 445 1 5 3 11 16 false 4025774505
+  #|palette16 446 1 5 3 11 16 true 474794518
+  #|palette16 447 1 5 3 13 16 false 3645156165
+  #|palette16 448 1 5 3 13 16 true 2744195872
+  #|palette16 449 3 5 3 1 1 false 3403708372
+  #|palette16 450 3 5 3 1 1 true 4090517978
+  #|palette16 451 3 5 3 4 1 false 2985331413
+  #|palette16 452 3 5 3 4 1 true 230034200
+  #|palette16 453 3 5 3 6 1 false 2380030172
+  #|palette16 454 3 5 3 6 1 true 4154314116
+  #|palette16 455 3 5 3 7 1 false 1914249835
+  #|palette16 456 3 5 3 7 1 true 1980517598
+  #|palette16 457 3 5 3 10 1 false 296635064
+  #|palette16 458 3 5 3 10 1 true 3680520507
+  #|palette16 459 3 5 3 13 1 false 361414048
+  #|palette16 460 3 5 3 13 1 true 1153251365
+  #|palette16 461 3 5 3 2 8 false 3334532370
+  #|palette16 462 3 5 3 2 8 true 3656708043
+  #|palette16 463 3 5 3 5 8 false 2353669407
+  #|palette16 464 3 5 3 5 8 true 251201240
+  #|palette16 465 3 5 3 6 8 false 3988013659
+  #|palette16 466 3 5 3 6 8 true 3388116793
+  #|palette16 467 3 5 3 8 8 false 3273169147
+  #|palette16 468 3 5 3 8 8 true 3700822068
+  #|palette16 469 3 5 3 11 8 false 3456956241
+  #|palette16 470 3 5 3 11 8 true 2601436974
+  #|palette16 471 3 5 3 13 8 false 276158197
+  #|palette16 472 3 5 3 13 8 true 1012299902
+  #|palette16 473 3 5 3 1 10 false 1471170744
+  #|palette16 474 3 5 3 1 10 true 3364938943
+  #|palette16 475 3 5 3 4 10 false 2998891593
+  #|palette16 476 3 5 3 4 10 true 4260366632
+  #|palette16 477 3 5 3 6 10 false 399736114
+  #|palette16 478 3 5 3 6 10 true 2797157956
+  #|palette16 479 3 5 3 7 10 false 722702716
+  #|palette16 480 3 5 3 7 10 true 1059802790
+  #|palette16 481 3 5 3 10 10 false 1982595848
+  #|palette16 482 3 5 3 10 10 true 672895458
+  #|palette16 483 3 5 3 13 10 false 2655811041
+  #|palette16 484 3 5 3 13 10 true 2567076916
+  #|palette16 485 3 5 3 1 16 false 982991092
+  #|palette16 486 3 5 3 1 16 true 3650446105
+  #|palette16 487 3 5 3 4 16 false 2302054177
+  #|palette16 488 3 5 3 4 16 true 4120640003
+  #|palette16 489 3 5 3 6 16 false 431384193
+  #|palette16 490 3 5 3 6 16 true 3626194752
+  #|palette16 491 3 5 3 7 16 false 2583222010
+  #|palette16 492 3 5 3 7 16 true 2012966412
+  #|palette16 493 3 5 3 10 16 false 3085489514
+  #|palette16 494 3 5 3 10 16 true 4236130695
+  #|palette16 495 3 5 3 13 16 false 1915051168
+  #|palette16 496 3 5 3 13 16 true 2674067105
+  #|palette16 497 4 5 3 2 1 false 3395062706
+  #|palette16 498 4 5 3 2 1 true 1867744521
+  #|palette16 499 4 5 3 5 1 false 3076489163
+  #|palette16 500 4 5 3 5 1 true 2251369531
+  #|palette16 501 4 5 3 6 1 false 2944492885
+  #|palette16 502 4 5 3 6 1 true 1985067190
+  #|palette16 503 4 5 3 8 1 false 1945625586
+  #|palette16 504 4 5 3 8 1 true 921497207
+  #|palette16 505 4 5 3 11 1 false 1897678188
+  #|palette16 506 4 5 3 11 1 true 85105877
+  #|palette16 507 4 5 3 13 1 false 1789649414
+  #|palette16 508 4 5 3 13 1 true 578314229
+  #|palette16 509 4 5 3 0 8 false 2564198011
+  #|palette16 510 4 5 3 0 8 true 3619411436
+  #|palette16 511 4 5 3 3 8 false 462432051
+  #|palette16 512 4 5 3 3 8 true 49292564
+  #|palette16 513 4 5 3 6 8 false 1207757572
+  #|palette16 514 4 5 3 6 8 true 1344750532
+  #|palette16 515 4 5 3 9 8 false 1287821460
+  #|palette16 516 4 5 3 9 8 true 430242811
+  #|palette16 517 4 5 3 12 8 false 668319746
+  #|palette16 518 4 5 3 12 8 true 2505738761
+  #|palette16 519 4 5 3 13 8 false 2058806579
+  #|palette16 520 4 5 3 13 8 true 2468857466
+  #|palette16 521 4 5 3 2 10 false 1193154385
+  #|palette16 522 4 5 3 2 10 true 256845271
+  #|palette16 523 4 5 3 5 10 false 310172927
+  #|palette16 524 4 5 3 5 10 true 3224825333
+  #|palette16 525 4 5 3 6 10 false 1836178455
+  #|palette16 526 4 5 3 6 10 true 1472812812
+  #|palette16 527 4 5 3 8 10 false 943865517
+  #|palette16 528 4 5 3 8 10 true 86150529
+  #|palette16 529 4 5 3 11 10 false 4138600190
+  #|palette16 530 4 5 3 11 10 true 2890591951
+  #|palette16 531 4 5 3 13 10 false 1601226811
+  #|palette16 532 4 5 3 13 10 true 2786498478
+  #|palette16 533 4 5 3 2 16 false 750973722
+  #|palette16 534 4 5 3 2 16 true 3815140080
+  #|palette16 535 4 5 3 5 16 false 640779264
+  #|palette16 536 4 5 3 5 16 true 1164307070
+  #|palette16 537 4 5 3 6 16 false 3153556789
+  #|palette16 538 4 5 3 6 16 true 1775057845
+  #|palette16 539 4 5 3 8 16 false 1451704156
+  #|palette16 540 4 5 3 8 16 true 2693662164
+  #|palette16 541 4 5 3 11 16 false 4075929420
+  #|palette16 542 4 5 3 11 16 true 2280071003
+  #|palette16 543 4 5 3 13 16 false 326095465
+  #|palette16 544 4 5 3 13 16 true 3470564065
+
+///|
 priv struct Rng {
   mut state : UInt64
 }
@@ -292,14 +543,16 @@ fn rand_grid(
   h : Int32,
   lo : Int32,
   hi : Int32,
+  narrow~ : Bool = false,
 ) -> @grid.Grid[Int32] {
   let g = @grid.Grid::new(w, h, 0)
   for i in 0..<(w * h) {
-    g.buf[i] = if lo == -2147483648 && hi == 2147483647 {
+    let v = if lo == -2147483648 && hi == 2147483647 {
       rng.next().reinterpret_as_int()
     } else {
       rng.range(lo, hi)
     }
+    g.buf[i] = wrap_s(narrow, v)
   }
   g
 }
@@ -380,13 +633,14 @@ fn squeeze_case(
   lo : Int32,
   hi : Int32,
   horizontal : Bool,
+  narrow~ : Bool = false,
 ) -> UInt32 {
   let rng = { state: seed, }
-  let g = rand_grid(rng, w, h, lo, hi)
+  let g = rand_grid(rng, w, h, lo, hi, narrow~)
   if horizontal {
-    inverse_h(g.as_subgrid())
+    inverse_h(g.as_subgrid(), narrow)
   } else {
-    inverse_v(g.as_subgrid())
+    inverse_v(g.as_subgrid(), narrow)
   }
   let hash = { h: 2166136261U, }
   for v in g.buf {
@@ -396,13 +650,22 @@ fn squeeze_case(
 }
 
 ///|
-fn rct_case(seed : UInt64, rct_type : Int32) -> UInt32 {
+fn rct_case(seed : UInt64, rct_type : Int32, narrow~ : Bool = false) -> UInt32 {
   let rng = { state: seed, }
-  let a = rand_grid(rng, 5, 3, -2147483648, 2147483647)
-  let b = rand_grid(rng, 5, 3, -2147483648, 2147483647)
-  let c = rand_grid(rng, 5, 3, -2147483648, 2147483647)
+  let a = rand_grid(rng, 5, 3, -2147483648, 2147483647, narrow~)
+  let b = rand_grid(rng, 5, 3, -2147483648, 2147483647, narrow~)
+  let c = rand_grid(rng, 5, 3, -2147483648, 2147483647, narrow~)
   let grids = [a, b, c].map(fn(g) { TransformedGrid::from(g.as_subgrid()) })
-  Rct::inverse({ begin_c: 0, rct_type, }, grids)
+  Rct::inverse(
+    { begin_c: 0, rct_type, },
+    grids,
+    @threadpool.JxlThreadPool::none(),
+    if narrow {
+      I16
+    } else {
+      I32
+    },
+  )
   let hash = { h: 2166136261U, }
   for g in [a, b, c] {
     for v in g.buf {
@@ -421,6 +684,7 @@ fn palette_case(
   d_pred : Predictor,
   bit_depth : Int32,
   simple : Bool,
+  narrow~ : Bool = false,
 ) -> UInt32 {
   let rng = { state: seed, }
   let pal : Palette = {
@@ -435,7 +699,11 @@ fn palette_case(
       None
     },
   }
-  let palette = rand_grid(rng, nb_colours, num_c, -300, 300)
+  let palette = if narrow {
+    rand_grid(rng, nb_colours, num_c, -32000, 32000, narrow=true)
+  } else {
+    rand_grid(rng, nb_colours, num_c, -300, 300)
+  }
   let grids = Array::makei(num_c, fn(_) { rand_grid(rng, 9, 7, -5, 5) })
   let hi = if simple { nb_colours - 1 } else { nb_colours + 64 + 200 }
   let lo = if simple { 0 } else { -300 }
@@ -446,6 +714,11 @@ fn palette_case(
     palette.as_subgrid(),
     grids.map(fn(g) { g.as_subgrid() }),
     bit_depth,
+    if narrow {
+      I16
+    } else {
+      I32
+    },
   )
   let hash = { h: 2166136261U, }
   for g in grids {
@@ -465,14 +738,25 @@ fn parse_int(s : String) -> Int32 {
 
 ///|
 test "reference hashes from jxl-oxide" {
+  assert_eq(run_reference(reference_data), 254)
+}
+
+///|
+test "reference hashes from jxl-oxide (i16 samples)" {
+  assert_eq(run_reference(reference_data_i16), 246)
+}
+
+///|
+fn run_reference(data : String) -> Int32 raise {
   let mut count = 0
-  for line in reference_data.split("\n") {
+  for line in data.split("\n") {
     let f = line.split(" ").map(fn(s) { s.to_owned() }).collect()
     if f.length() < 2 {
       continue
     }
     let expected = @string.parse_uint(f[f.length() - 1])
     let seed = parse_int(f[1]).to_uint64()
+    let narrow = f[0].has_suffix("16")
     let got = match f[0] {
       "predictor" => {
         let wp = if f[6] == "true" { wp_custom() } else { WpHeader::default() }
@@ -485,7 +769,7 @@ test "reference hashes from jxl-oxide" {
           wp,
         )
       }
-      "squeeze" =>
+      "squeeze" | "squeeze16" =>
         squeeze_case(
           seed,
           parse_int(f[2]),
@@ -493,9 +777,10 @@ test "reference hashes from jxl-oxide" {
           parse_int(f[4]),
           parse_int(f[5]),
           f[6] == "true",
+          narrow~,
         )
-      "rct" => rct_case(seed, parse_int(f[2]))
-      "palette" =>
+      "rct" | "rct16" => rct_case(seed, parse_int(f[2]), narrow~)
+      "palette" | "palette16" =>
         palette_case(
           seed,
           parse_int(f[2]),
@@ -504,11 +789,12 @@ test "reference hashes from jxl-oxide" {
           all_predictors[parse_int(f[5])],
           parse_int(f[6]),
           f[7] == "true",
+          narrow~,
         )
       _ => abort("unknown case")
     }
     assert_eq(got, expected, msg=line.to_owned())
     count += 1
   }
-  assert_eq(count, 254)
+  count
 }

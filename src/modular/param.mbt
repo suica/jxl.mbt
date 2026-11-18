@@ -82,7 +82,7 @@ pub(all) enum ChannelShift {
     has_h_subsample~ : Bool,
     h_subsample~ : Bool,
     has_v_subsample~ : Bool,
-    v_subsample~ : Bool
+    v_subsample~ : Bool,
   )
   Shifts(Int32)
   Raw(Int32, Int32)
@@ -153,7 +153,7 @@ pub fn ChannelShift::shift_size(
       has_h_subsample~,
       has_v_subsample~,
       h_subsample~,
-      v_subsample~
+      v_subsample~,
     ) => {
       let width = if has_h_subsample {
         let size = div_ceil(width, 2)
@@ -177,14 +177,15 @@ pub fn ChannelShift::shift_size(
       }
       (width, height)
     }
+    // Shift amounts are masked to 5 bits like Rust's (release) `u32 << s`.
     Shifts(s) => {
-      let add = (1 << s) - 1
-      (shr_u(width + add, s), shr_u(height + add, s))
+      let add = (1 << (s & 31)) - 1
+      (shr_u(width + add, s & 31), shr_u(height + add, s & 31))
     }
     Raw(h, v) => {
-      let add_h = (1 << h) - 1
-      let add_v = (1 << v) - 1
-      (shr_u(width + add_h, h), shr_u(height + add_v, v))
+      let add_h = (1 << (h & 31)) - 1
+      let add_v = (1 << (v & 31)) - 1
+      (shr_u(width + add_h, h & 31), shr_u(height + add_v, v & 31))
     }
   }
 }

@@ -1,6 +1,5 @@
 ///|
-#derive(Debug)
-pub(all) enum TransformInfo {
+priv enum TransformInfo {
   Rct(Rct)
   Palette(Palette)
   Squeeze(Squeeze)
@@ -26,11 +25,18 @@ fn TransformInfo::prepare_meta_channels(
   self : TransformInfo,
   meta_channels : Array[@grid.Grid[Int32]],
   tracker : @grid.AllocTracker?,
+  sample : Sample,
 ) -> Unit raise @bitstream.JxlError {
   if self is Palette(pal) {
     meta_channels.insert(
       0,
-      @grid.Grid::with_alloc_tracker(pal.nb_colours, pal.num_c, 0, tracker),
+      @grid.Grid::with_alloc_tracker(
+        pal.nb_colours,
+        pal.num_c,
+        0,
+        tracker,
+        elem_size=sample.size(),
+      ),
     )
   }
 }
@@ -55,26 +61,28 @@ fn TransformInfo::inverse(
   self : TransformInfo,
   grids : Array[TransformedGrid],
   bit_depth : Int32,
+  pool : @threadpool.JxlThreadPool,
+  sample : Sample,
 ) -> Unit {
   match self {
-    Rct(rct) => rct.inverse(grids)
-    Palette(pal) => pal.inverse(grids, bit_depth)
-    Squeeze(sq) => sq.inverse(grids)
+    Rct(rct) => rct.inverse(grids, pool, sample)
+    Palette(pal) => pal.inverse(grids, bit_depth, sample)
+    Squeeze(sq) => sq.inverse(grids, pool, sample)
   }
 }
 
 ///|
-pub fn TransformInfo::is_palette(self : TransformInfo) -> Bool {
+fn TransformInfo::is_palette(self : TransformInfo) -> Bool {
   self is Palette(_)
 }
 
 ///|
-pub fn TransformInfo::is_squeeze(self : TransformInfo) -> Bool {
+fn TransformInfo::is_squeeze(self : TransformInfo) -> Bool {
   self is Squeeze(_)
 }
 
 ///|
-pub fn TransformInfo::parse(
+fn TransformInfo::parse(
   bs : @bitstream.Bitstream,
   wp_header : WpHeader,
 ) -> TransformInfo raise @bitstream.JxlError {
@@ -100,14 +108,13 @@ fn read_begin_c(bs : @bitstream.Bitstream) -> Int32 raise @bitstream.JxlError {
 }
 
 ///|
-#derive(Debug)
-pub(all) struct Rct {
+priv struct Rct {
   begin_c : Int32
   rct_type : Int32
 }
 
 ///|
-pub fn Rct::parse(bs : @bitstream.Bitstream) -> Rct raise @bitstream.JxlError {
+fn Rct::parse(bs : @bitstream.Bitstream) -> Rct raise @bitstream.JxlError {
   let begin_c = read_begin_c(bs)
   let rct_type = bs
     .read_u32(
@@ -121,14 +128,12 @@ pub fn Rct::parse(bs : @bitstream.Bitstream) -> Rct raise @bitstream.JxlError {
 }
 
 ///|
-#derive(Debug)
-pub(all) struct Squeeze {
-  num_sq : Int32
+priv struct Squeeze {
   sp : Array[SqueezeParams]
 }
 
 ///|
-pub fn Squeeze::parse(
+fn Squeeze::parse(
   bs : @bitstream.Bitstream,
 ) -> Squeeze raise @bitstream.JxlError {
   let num_sq = bs
@@ -143,12 +148,11 @@ pub fn Squeeze::parse(
   for _ in 0..<num_sq {
     sp.push(SqueezeParams::parse(bs))
   }
-  { num_sq, sp, }
+  { sp, }
 }
 
 ///|
-#derive(Debug)
-pub(all) struct SqueezeParams {
+priv struct SqueezeParams {
   horizontal : Bool
   in_place : Bool
   begin_c : Int32
@@ -156,7 +160,7 @@ pub(all) struct SqueezeParams {
 }
 
 ///|
-pub fn SqueezeParams::parse(
+fn SqueezeParams::parse(
   bs : @bitstream.Bitstream,
 ) -> SqueezeParams raise @bitstream.JxlError {
   let horizontal = bs.read_bool()
@@ -174,8 +178,7 @@ pub fn SqueezeParams::parse(
 }
 
 ///|
-#derive(Debug)
-pub(all) struct Palette {
+priv struct Palette {
   begin_c : Int32
   num_c : Int32
   nb_colours : Int32
@@ -185,7 +188,7 @@ pub(all) struct Palette {
 }
 
 ///|
-pub fn Palette::parse(
+fn Palette::parse(
   bs : @bitstream.Bitstream,
   wp_header : WpHeader,
 ) -> Palette raise @bitstream.JxlError {
@@ -249,14 +252,19 @@ fn Rct::transform_channel_info(
 }
 
 ///|
-fn Rct::inverse(self : Rct, grids : Array[TransformedGrid]) -> Unit {
+fn Rct::inverse(
+  self : Rct,
+  grids : Array[TransformedGrid],
+  pool : @threadpool.JxlThreadPool,
+  sample : Sample,
+) -> Unit {
   let permutation = self.rct_type / 7
   let ty = self.rct_type % 7
   let begin_c = self.begin_c
-  let a = grids[begin_c].grid
-  let b = grids[begin_c + 1].grid
-  let c = grids[begin_c + 2].grid
-  inverse_rct(ty, permutation, a, b, c)
+  let a = grids[begin_c].grid()
+  let b = grids[begin_c + 1].grid()
+  let c = grids[begin_c + 2].grid()
+  inverse_rct(ty, permutation, a, b, c, pool, sample is I16)
 }
 
 ///|
@@ -293,7 +301,7 @@ fn Palette::transform_channel_info(
   )
   if grids is Some(grids) {
     let members = grids.drain(begin_c + 1, end_c)
-    grids[begin_c].merge(members)
+    grids[begin_c] = grids[begin_c].merge(members)
     let palette_grid = meta_channel_grids.pop().unwrap()
     grids.insert(0, TransformedGrid::from(palette_grid))
   }
@@ -304,17 +312,18 @@ fn Palette::inverse(
   self : Palette,
   grids : Array[TransformedGrid],
   bit_depth : Int32,
+  sample : Sample,
 ) -> Unit {
   let begin_c = self.begin_c
   let num_c = self.num_c
   let palette_grid = grids.remove(0)
-  let leader = grids[begin_c]
-  let members = leader.unmerge(num_c - 1)
-  let targets = [leader.grid]
+  let (leader, members) = grids[begin_c].unmerge(num_c - 1)
+  grids[begin_c] = leader
+  let targets = [leader.grid()]
   for m in members {
-    targets.push(m.grid)
+    targets.push(m.grid())
   }
-  self.inverse_inner(palette_grid.grid, targets, bit_depth)
+  self.inverse_inner(palette_grid.grid(), targets, bit_depth, sample)
   for i, grid in members {
     grids.insert(begin_c + 1 + i, grid)
   }
@@ -423,13 +432,13 @@ fn Squeeze::transform_channel_info(
       }
       if grids is Some(grids) {
         let g = grids[begin + idx]
-        let gg = g.grid
+        let gg = g.grid()
         let (kept, residu_grid) = if horizontal {
           gg.split_horizontal(div_ceil(gg.width, 2))
         } else {
           gg.split_vertical(div_ceil(gg.height, 2))
         }
-        g.grid = kept
+        grids[begin + idx] = g.with_grid(kept)
         residu_grids.push(TransformedGrid::from(residu_grid))
       }
     }
@@ -447,7 +456,12 @@ fn Squeeze::transform_channel_info(
 }
 
 ///|
-fn Squeeze::inverse(self : Squeeze, grids : Array[TransformedGrid]) -> Unit {
+fn Squeeze::inverse(
+  self : Squeeze,
+  grids : Array[TransformedGrid],
+  pool : @threadpool.JxlThreadPool,
+  sample : Sample,
+) -> Unit {
   for i = self.sp.length() - 1; i >= 0; i = i - 1 {
     let sp = self.sp[i]
     let begin = sp.begin_c
@@ -459,27 +473,37 @@ fn Squeeze::inverse(self : Squeeze, grids : Array[TransformedGrid]) -> Unit {
       grids.drain(grids.length() - channel_count, grids.length())
     }
     for j in 0..<channel_count {
-      sp.inverse(grids[begin + j], residual_channels[j])
+      grids[begin + j] = sp.inverse(
+        grids[begin + j],
+        residual_channels[j],
+        pool,
+        sample,
+      )
     }
   }
 }
 
 ///|
+/// Merges the residual into `i0` and runs the inverse squeeze; returns the
+/// new value of `i0`.
 fn SqueezeParams::inverse(
   self : SqueezeParams,
   i0 : TransformedGrid,
   i1 : TransformedGrid,
-) -> Unit {
-  guard i1.members.is_empty() else {
+  pool : @threadpool.JxlThreadPool,
+  sample : Sample,
+) -> TransformedGrid {
+  guard i1 is Single(b) else {
     abort("residual channel should be Single channel")
   }
-  let a = i0.grid
-  let b = i1.grid
+  let a = i0.grid()
+  let narrow = sample is I16
   if self.horizontal {
     // merge_horizontal_in_place
     guard a.stride == b.stride &&
       a.height == b.height &&
-      (b.height == 0 || a.offset + a.width == b.offset) else {
+      a.stride >= a.width + b.width &&
+      a.offset + a.width == b.offset else {
       abort("cannot merge subgrids")
     }
     let merged = @grid.SubGrid::from_buf(
@@ -489,13 +513,21 @@ fn SqueezeParams::inverse(
       a.height,
       a.stride,
     )
-    i0.grid = merged
-    inverse_h(merged)
+    let width = merged.width
+    let height = merged.height
+    if height > 16 {
+      pool.for_each_vec(merged.into_groups(width, 16), fn(group) {
+        inverse_h(group, narrow)
+      })
+    } else {
+      inverse_h(merged, narrow)
+    }
+    i0.with_grid(merged)
   } else {
     // merge_vertical_in_place
     guard a.stride == b.stride &&
       a.width == b.width &&
-      (b.width == 0 || a.offset + a.height * a.stride == b.offset) else {
+      a.offset + a.height * a.stride == b.offset else {
       abort("cannot merge subgrids")
     }
     let merged = @grid.SubGrid::from_buf(
@@ -505,7 +537,15 @@ fn SqueezeParams::inverse(
       a.height + b.height,
       a.stride,
     )
-    i0.grid = merged
-    inverse_v(merged)
+    let width = merged.width
+    let height = merged.height
+    if width > 16 {
+      pool.for_each_vec(merged.into_groups(16, height), fn(group) {
+        inverse_v(group, narrow)
+      })
+    } else {
+      inverse_v(merged, narrow)
+    }
+    i0.with_grid(merged)
   }
 }

@@ -13,6 +13,7 @@
 //     (a standalone Modular image of VarDCT: LF quant, HF metadata, raw
 //     dequant matrices; Modular::parse, prepare_subimage, decode, finish)
 //   W n w:h:hash ...                (channels of the last V image)
+//   T i16|i32                       (sample type of the next G or V image)
 
 ///|
 fn hex_to_bytes(s : StringView) -> Bytes {
@@ -68,6 +69,7 @@ fn replay_dump(dump : String) -> Int32 raise {
   let mut groups : TransformedGlobalModular? = None
   let mut image : ModularImageDestination? = None
   let mut standalone : Modular? = None
+  let mut sample : Sample = I32
   let mut checked = 0
   for line in dump.split("\n") {
     let f = line.split(" ").collect()
@@ -75,6 +77,7 @@ fn replay_dump(dump : String) -> Int32 raise {
       continue
     }
     match f[0] {
+      "T" => sample = if f[1] == "i16" { I16 } else { I32 }
       "G" => {
         let node_limit = parse_int(f[1].to_owned())
         let group_dim = parse_int(f[2].to_owned())
@@ -103,7 +106,8 @@ fn replay_dump(dump : String) -> Int32 raise {
           config,
           None,
         )
-        let modular = Modular::parse(bs, params)
+        let modular = Modular::parse(bs, params, sample~)
+        sample = I32
         if modular.image_mut() is Some(img) {
           let gmodular = img.prepare_gmodular()
           gmodular.decode(bs, 0, allow_partial)
@@ -137,7 +141,7 @@ fn replay_dump(dump : String) -> Int32 raise {
             let rec = sub.recursive(bs, ma_config, None)
             let s = rec.prepare_subimage()
             s.decode(bs, stream, allow_partial)
-            s.finish() |> ignore
+            s.finish(@threadpool.JxlThreadPool::none()) |> ignore
           }
         }
       "P" =>
@@ -151,11 +155,12 @@ fn replay_dump(dump : String) -> Int32 raise {
           let rec = sub.recursive(bs, ma_config, None)
           let s = rec.prepare_subimage()
           s.decode(bs, stream, allow_partial)
-          s.finish() |> ignore
+          s.finish(@threadpool.JxlThreadPool::none()) |> ignore
         }
       "F" => {
         let img = image.unwrap()
-        img.prepare_subimage().finish() |> ignore
+        img.prepare_subimage().finish(@threadpool.JxlThreadPool::none())
+        |> ignore
         check_channels(img.image_channels(), f)
         checked += 1
         groups = None
@@ -178,10 +183,11 @@ fn replay_dump(dump : String) -> Int32 raise {
           ma_config,
           None,
         )
-        let modular = Modular::parse(bs, params)
+        let modular = Modular::parse(bs, params, sample~)
+        sample = I32
         let s = modular.image_mut().unwrap().prepare_subimage()
         s.decode(bs, stream, allow_partial)
-        s.finish() |> ignore
+        s.finish(@threadpool.JxlThreadPool::none()) |> ignore
         standalone = Some(modular)
       }
       "W" => {

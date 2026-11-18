@@ -1,12 +1,63 @@
 ///|
-/// Sample type of Modular images.
+/// Type of Modular image samples (upstream trait `Sample`, implemented by
+/// `i32` and `i16`).
 ///
-/// Upstream `Sample` is generic over `i32` and `i16`; this port always uses
-/// `Int` (32-bit, wrapping), which is what the `i32` instantiation does.
-/// The helpers below mirror the `Sealed` trait methods for `i32`.
+/// MoonBit grids always hold `Int`; with `I16` every stored sample is kept
+/// as a sign-extended 16-bit value and all sample arithmetic wraps at 16
+/// bits exactly like upstream's `i16` instantiation, so the stored values
+/// are the same as upstream's. Allocation tracking counts 2 bytes per `I16`
+/// sample.
+#derive(Debug, Eq)
+pub(all) enum Sample {
+  I32
+  I16
+}
 
 ///|
-/// `Sealed::unpack_signed_u32` for `i32`.
+/// `size_of::<S>()`.
+pub fn Sample::size(self : Sample) -> Int32 {
+  match self {
+    I32 => 4
+    I16 => 2
+  }
+}
+
+///|
+/// `S::from_i32` (`value as i16` truncates).
+pub fn Sample::from_i32(self : Sample, value : Int32) -> Int32 {
+  match self {
+    I32 => value
+    I16 => wrap_i16(value)
+  }
+}
+
+///|
+/// `S::from_u32` (`value as i32` / `value as i16`).
+pub fn Sample::from_u32(self : Sample, value : UInt32) -> Int32 {
+  self.from_i32(value.reinterpret_as_int())
+}
+
+///|
+/// `value as i16 as i32`.
+#inline
+fn wrap_i16(value : Int32) -> Int32 {
+  value << 16 >> 16
+}
+
+///|
+/// Wraps to 16 bits when `narrow` (`i16`), identity otherwise (`i32`).
+#inline
+fn wrap_s(narrow : Bool, value : Int32) -> Int32 {
+  if narrow {
+    value << 16 >> 16
+  } else {
+    value
+  }
+}
+
+///|
+/// `Sealed::unpack_signed_u32` for `i32` (the `i16` version is this value
+/// truncated to 16 bits).
 #inline
 fn unpack_signed_u32(value : UInt32) -> Int32 {
   (value >> 1).reinterpret_as_int() ^ -(value & 1).reinterpret_as_int()

@@ -20,7 +20,9 @@ fn Palette::inverse_inner(
   palette : @grid.SubGrid[Int32],
   targets : Array[@grid.SubGrid[Int32]],
   bit_depth : Int32,
+  sample : Sample,
 ) -> Unit {
+  let narrow = sample is I16
   let nb_deltas = self.nb_deltas
   let nb_colors = self.nb_colours
   let index_grid = targets[0]
@@ -58,7 +60,7 @@ fn Palette::inverse_inner(
   } else {
     0
   }
-  let base_offset = 1 << (if bit_depth > 3 { bit_depth - 3 } else { 0 })
+  let base_offset = 1 << ((if bit_depth > 3 { bit_depth - 3 } else { 0 }) & 31)
   for y in 0..<height {
     for x in 0..<width {
       let index = index_grid.get(x, y)
@@ -76,13 +78,16 @@ fn Palette::inverse_inner(
             targets[c].set(
               x,
               y,
-              (index >> ((2 * c) & 31)) % 4 * max_value / 4 + base_offset,
+              wrap_s(
+                narrow,
+                (index >> ((2 * c) & 31)) % 4 * max_value / 4 + base_offset,
+              ),
             )
           }
         } else {
           let mut index = index - 64
           for c in 0..<channels {
-            targets[c].set(x, y, index % 5 * max_value / 4)
+            targets[c].set(x, y, wrap_s(narrow, index % 5 * max_value / 4))
             index = index / 5
           }
         }
@@ -101,7 +106,7 @@ fn Palette::inverse_inner(
           if bit_depth > 8 {
             temp_sample = temp_sample << delta_shift
           }
-          targets[c].set(x, y, temp_sample)
+          targets[c].set(x, y, wrap_s(narrow, temp_sample))
         }
       }
     }
@@ -126,7 +131,9 @@ fn Palette::inverse_inner(
         if dx == x && dy == y {
           let diff = d_pred.predict(predictor)
           sample_value = sample_value + diff
-          buf[off + x] = sample_value
+          // `*sample = S::from_i32(sample_value)`; the untruncated value is
+          // what gets recorded below, as upstream does.
+          buf[off + x] = wrap_s(narrow, sample_value)
           idx += 1
           if idx >= need_delta.length() {
             done = true

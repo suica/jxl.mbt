@@ -146,7 +146,11 @@ test "flattened MA tree matches upstream" {
           state.prop_cache[p] = rng.range(-9, 9)
         }
         let leaf = flat.get_leaf(state)
-        if leaf != naive_eval(tree, channel, stream_idx, state) {
+        let naive = naive_eval(tree, channel, stream_idx, state)
+        if leaf.cluster != naive.cluster ||
+          leaf.predictor != naive.predictor ||
+          leaf.offset != naive.offset ||
+          leaf.multiplier != naive.multiplier {
           mismatches += 1
         }
         hash.add(leaf.cluster)
@@ -189,7 +193,7 @@ test "default squeeze params and channel info" {
     ],
     nb_meta_channels: 0,
   }
-  let sq : Squeeze = { num_sq: 0, sp: [], }
+  let sq : Squeeze = { sp: [], }
   sq.set_default_params(channels)
   let grids = Array::makei(3, fn(_) {
     TransformedGrid::from(@grid.Grid::new(40, 20, 0).as_subgrid())
@@ -197,8 +201,8 @@ test "default squeeze params and channel info" {
   sq.transform_channel_info(channels, Some(grids))
   assert_eq(channels.info.length(), grids.length())
   for i, info in channels.info {
-    assert_eq(info.width, grids[i].grid.width)
-    assert_eq(info.height, grids[i].grid.height)
+    assert_eq(info.width, grids[i].grid().width)
+    assert_eq(info.height, grids[i].grid().height)
   }
   // first channel squeezed 3 times horizontally and 2 times vertically
   assert_eq(channels.info[0].width, 5)
@@ -207,11 +211,11 @@ test "default squeeze params and channel info" {
   assert_eq(channels.info[0].vshift, 2)
   assert_eq(sq.sp.length(), 7)
   // forward-squeeze + inverse round trip of zeros keeps zeros and sizes
-  sq.inverse(grids)
+  sq.inverse(grids, @threadpool.JxlThreadPool::none(), I32)
   assert_eq(grids.length(), 3)
   for g in grids {
-    assert_eq(g.grid.width, 40)
-    assert_eq(g.grid.height, 20)
+    assert_eq(g.grid().width, 40)
+    assert_eq(g.grid().height, 20)
   }
 }
 

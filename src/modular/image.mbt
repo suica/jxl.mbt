@@ -1,49 +1,82 @@
 ///|
-/// A channel grid view after transforms (upstream `TransformedGrid`).
-///
-/// Upstream is `Single(grid)` or `Merged { leader, members }`; here `members`
-/// is empty for `Single`.
-pub struct TransformedGrid {
-  priv mut grid : @grid.SubGrid[Int32]
-  priv members : Array[TransformedGrid]
+/// A channel grid view after transforms.
+pub(all) enum TransformedGrid {
+  Single(@grid.SubGrid[Int32])
+  Merged(leader~ : @grid.SubGrid[Int32], members~ : Array[TransformedGrid])
 }
 
 ///|
+/// `From<MutableSubgrid>`.
 pub fn TransformedGrid::from(grid : @grid.SubGrid[Int32]) -> TransformedGrid {
-  { grid, members: [], }
+  Single(grid)
 }
 
 ///|
 fn TransformedGrid::reborrow(self : TransformedGrid) -> TransformedGrid {
-  TransformedGrid::from(self.grid)
+  Single(self.grid())
 }
 
 ///|
-pub fn TransformedGrid::grid(self : TransformedGrid) -> @grid.SubGrid[Int32] {
-  self.grid
+/// `grid()` / `grid_mut()`: the single grid or the leader.
+fn TransformedGrid::grid(self : TransformedGrid) -> @grid.SubGrid[Int32] {
+  match self {
+    Single(g) => g
+    Merged(leader~, ..) => leader
+  }
 }
 
 ///|
+/// Replaces the grid returned by `grid_mut()` (the leader), keeping members.
+fn TransformedGrid::with_grid(
+  self : TransformedGrid,
+  g : @grid.SubGrid[Int32],
+) -> TransformedGrid {
+  match self {
+    Single(_) => Single(g)
+    Merged(members~, ..) => Merged(leader=g, members~)
+  }
+}
+
+///|
+/// `merge(&mut self, members)`; returns the new value of `self`.
 fn TransformedGrid::merge(
   self : TransformedGrid,
   members : Array[TransformedGrid],
-) -> Unit {
-  self.members.append(members)
+) -> TransformedGrid {
+  if members.is_empty() {
+    return self
+  }
+  match self {
+    Single(leader) => Merged(leader~, members~)
+    Merged(members=original_members, ..) => {
+      original_members.append(members)
+      self
+    }
+  }
 }
 
 ///|
+/// `unmerge(&mut self, count)`; returns the new value of `self` and the
+/// removed members.
 fn TransformedGrid::unmerge(
   self : TransformedGrid,
   count : Int32,
-) -> Array[TransformedGrid] {
+) -> (TransformedGrid, Array[TransformedGrid]) {
   if count == 0 {
-    return []
+    return (self, [])
   }
-  if self.members.is_empty() {
-    abort("cannot unmerge TransformedGrid::Single")
+  match self {
+    Single(_) => abort("cannot unmerge TransformedGrid::Single")
+    Merged(leader~, members~) => {
+      let len = members.length()
+      let drained = members.drain(len - count, len)
+      if len == count {
+        (Single(leader), drained)
+      } else {
+        (self, drained)
+      }
+    }
   }
-  let len = self.members.length()
-  self.members.drain(len - count, len)
 }
 
 ///|
@@ -55,6 +88,9 @@ pub struct ModularImageDestination {
   priv channels : ModularChannels
   priv meta_channels : Array[@grid.Grid[Int32]]
   priv image_channels : Array[@grid.Grid[Int32]]
+  priv sample : Sample
+  /// The tracker the grids were allocated with (`AlignedGrid::tracker`).
+  priv tracker : @grid.AllocTracker?
 }
 
 ///|
@@ -65,15 +101,22 @@ fn ModularImageDestination::new(
   bit_depth : Int32,
   channels : ModularChannels,
   tracker : @grid.AllocTracker?,
+  sample : Sample,
 ) -> ModularImageDestination raise @bitstream.JxlError {
   let meta_channels = []
   for tr in header.transform {
-    tr.prepare_meta_channels(meta_channels, tracker)
+    tr.prepare_meta_channels(meta_channels, tracker, sample)
   }
   let image_channels = []
   for ch in channels.info {
     image_channels.push(
-      @grid.Grid::with_alloc_tracker(ch.width, ch.height, 0, tracker),
+      @grid.Grid::with_alloc_tracker(
+        ch.width,
+        ch.height,
+        0,
+        tracker,
+        elem_size=sample.size(),
+      ),
     )
   }
   {
@@ -84,21 +127,54 @@ fn ModularImageDestination::new(
     channels,
     meta_channels,
     image_channels,
+    sample,
+    tracker,
   }
+}
+
+///|
+/// `AlignedGrid::try_clone`: allocates through the grid's tracker.
+fn try_clone_grid(
+  g : @grid.Grid[Int32],
+  tracker : @grid.AllocTracker?,
+  sample : Sample,
+) -> @grid.Grid[Int32] raise @bitstream.JxlError {
+  let out = @grid.Grid::with_alloc_tracker(
+    g.width,
+    g.height,
+    0,
+    tracker,
+    elem_size=sample.size(),
+  )
+  let n = g.width * g.height
+  if n > 0 {
+    FixedArray::blit_to(g.buf, out.buf, len=n)
+  }
+  out
 }
 
 ///|
 pub fn ModularImageDestination::try_clone(
   self : ModularImageDestination,
-) -> ModularImageDestination {
+) -> ModularImageDestination raise @bitstream.JxlError {
+  let meta_channels = []
+  for g in self.meta_channels {
+    meta_channels.push(try_clone_grid(g, self.tracker, self.sample))
+  }
+  let image_channels = []
+  for g in self.image_channels {
+    image_channels.push(try_clone_grid(g, self.tracker, self.sample))
+  }
   {
     header: self.header,
     ma_ctx: self.ma_ctx,
     group_dim: self.group_dim,
     bit_depth: self.bit_depth,
     channels: self.channels.clone(),
-    meta_channels: self.meta_channels.map(fn(g) { g.clone() }),
-    image_channels: self.image_channels.map(fn(g) { g.clone() }),
+    meta_channels,
+    image_channels,
+    sample: self.sample,
+    tracker: self.tracker,
   }
 }
 
@@ -170,6 +246,7 @@ pub fn ModularImageDestination::prepare_gmodular(
     header: subimage.header,
     ma_ctx: subimage.ma_ctx,
     bit_depth: subimage.bit_depth,
+    sample: subimage.sample,
     nb_meta_channels: subimage.nb_meta_channels,
     channel_info,
     channel_indices,
@@ -240,7 +317,7 @@ pub fn ModularImageDestination::prepare_groups(
     guard hshift >= 0 && vshift >= 0 else {
       abort("assertion failed: hshift >= 0 && vshift >= 0")
     }
-    let grid = subimage.grid[i].grid
+    let grid = subimage.grid[i].grid()
     let (groups, grids) = if hshift < 3 || vshift < 3 {
       let shift = @cmp.minimum(hshift, vshift)
       let mut pass_idx = -1
@@ -288,6 +365,7 @@ pub fn ModularImageDestination::prepare_groups(
             subimage.header,
             subimage.ma_ctx,
             bit_depth,
+            subimage.sample,
           ),
         )
       }
@@ -336,6 +414,7 @@ pub fn ModularImageDestination::prepare_subimage(
     header: self.header,
     ma_ctx: self.ma_ctx,
     bit_depth: self.bit_depth,
+    sample: self.sample,
     nb_meta_channels: channels.nb_meta_channels,
     channel_info,
     channel_indices,
@@ -355,6 +434,7 @@ pub struct TransformedModularSubimage {
   priv header : ModularHeader
   priv ma_ctx : MaConfig
   priv bit_depth : Int32
+  priv sample : Sample
   priv nb_meta_channels : Int32
   priv channel_info : Array[ModularChannelInfo]
   priv channel_indices : Array[Int32]
@@ -367,11 +447,13 @@ fn TransformedModularSubimage::empty(
   header : ModularHeader,
   ma_ctx : MaConfig,
   bit_depth : Int32,
+  sample : Sample,
 ) -> TransformedModularSubimage {
   {
     header,
     ma_ctx,
     bit_depth,
+    sample,
     nb_meta_channels: 0,
     channel_info: [],
     channel_indices: [],
@@ -395,14 +477,6 @@ pub fn TransformedModularSubimage::is_partial(
 }
 
 ///|
-/// Indices of the channels of this subimage in the parent image.
-pub fn TransformedModularSubimage::channel_indices(
-  self : TransformedModularSubimage,
-) -> Array[Int32] {
-  self.channel_indices
-}
-
-///|
 /// Reads the local Modular header of a group and returns the group image.
 pub fn TransformedModularSubimage::recursive(
   self : TransformedModularSubimage,
@@ -419,12 +493,13 @@ pub fn TransformedModularSubimage::recursive(
   )
   let meta_channels = []
   for tr in header.transform {
-    tr.prepare_meta_channels(meta_channels, tracker)
+    tr.prepare_meta_channels(meta_channels, tracker, self.sample)
   }
   {
     header,
     ma_ctx,
     bit_depth: self.bit_depth,
+    sample: self.sample,
     channels,
     meta_channels,
     image_channels: self.grid,
@@ -435,9 +510,15 @@ pub fn TransformedModularSubimage::recursive(
 /// Applies inverse transforms. Returns whether the image was fully decoded.
 pub fn TransformedModularSubimage::finish(
   self : TransformedModularSubimage,
+  pool : @threadpool.JxlThreadPool,
 ) -> Bool {
   for i = self.header.transform.length() - 1; i >= 0; i = i - 1 {
-    self.header.transform[i].inverse(self.grid, self.bit_depth)
+    self.header.transform[i].inverse(
+      self.grid,
+      self.bit_depth,
+      pool,
+      self.sample,
+    )
   }
   !self.partial
 }
@@ -448,6 +529,7 @@ fn TransformedModularSubimage::decode_inner(
   bs : @bitstream.Bitstream,
   stream_index : Int32,
 ) -> Unit raise @bitstream.JxlError {
+  let narrow = self.sample is I16
   let mut dist_multiplier = 0
   for info in self.channel_info {
     if info.width > dist_multiplier {
@@ -491,16 +573,17 @@ fn TransformedModularSubimage::decode_inner(
         }
       })
     if is_fast_lossless {
-      let rle_state = RleState::new()
+      let rle_state = RleState::new(narrow)
       for i, ma_tree in ma_tree_list {
         guard ma_tree is Some(ma_tree) else { continue }
         let node = ma_tree.single_node().unwrap()
         decode_fast_lossless(
+          narrow,
           bs,
           rle_decoder,
           rle_state,
           node.cluster,
-          self.grid[i].grid,
+          self.grid[i].grid(),
         )
       }
       rle_state.check_error()
@@ -529,14 +612,14 @@ fn TransformedModularSubimage::decode_inner(
       prev_keys.push(key)
       prev_lists.push(filtered_prev)
     }
-    let grid = self.grid[i].grid
+    let grid = self.grid[i].grid()
     if ma_tree.single_node() is Some(node) {
       decode_single_node(
-        bs, decoder, dist_multiplier, predictor, wp_header, grid, node,
+        narrow, bs, decoder, dist_multiplier, predictor, wp_header, grid, node,
       )
     } else if ma_tree.simple_table() is Some(table) {
       decode_simple_table(
-        bs, decoder, dist_multiplier, predictor, wp_header, grid, table,
+        narrow, bs, decoder, dist_multiplier, predictor, wp_header, grid, table,
       )
     } else {
       let depth = ma_tree.max_prev_channel_depth()
@@ -546,7 +629,9 @@ fn TransformedModularSubimage::decode_inner(
         None
       }
       predictor.reset(grid.width, filtered_prev[0:depth], wp_header)
-      decode_slow(bs, decoder, dist_multiplier, ma_tree, predictor, grid)
+      decode_slow(
+        narrow, bs, decoder, dist_multiplier, ma_tree, predictor, grid,
+      )
     }
     filtered_prev.insert(0, grid)
   }
@@ -575,6 +660,7 @@ pub struct RecursiveModularImage {
   priv header : ModularHeader
   priv ma_ctx : MaConfig
   priv bit_depth : Int32
+  priv sample : Sample
   priv channels : ModularChannels
   priv meta_channels : Array[@grid.Grid[Int32]]
   priv image_channels : Array[TransformedGrid]
@@ -596,6 +682,7 @@ pub fn RecursiveModularImage::prepare_subimage(
     header: self.header,
     ma_ctx: self.ma_ctx,
     bit_depth: self.bit_depth,
+    sample: self.sample,
     nb_meta_channels: channels.nb_meta_channels,
     channel_info,
     channel_indices,

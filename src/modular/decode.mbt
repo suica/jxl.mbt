@@ -5,11 +5,12 @@ priv struct RleState {
   mut value : Int32
   mut repeat : UInt32
   mut error : @bitstream.JxlError?
+  narrow : Bool
 }
 
 ///|
-fn RleState::new() -> RleState {
-  { value: 0, repeat: 0, error: None, }
+fn RleState::new(narrow : Bool) -> RleState {
+  { value: 0, repeat: 0, error: None, narrow, }
 }
 
 ///|
@@ -25,7 +26,7 @@ fn RleState::decode(
       e => if self.error is None { self.error = Some(e) }
     } noraise {
       Value(v) => {
-        self.value = unpack_signed_u32(v)
+        self.value = wrap_s(self.narrow, unpack_signed_u32(v))
         self.repeat = 1
       }
       Repeat(len) => self.repeat = len
@@ -46,6 +47,7 @@ fn RleState::check_error(self : RleState) -> Unit raise @bitstream.JxlError {
 
 ///|
 fn decode_single_node(
+  narrow : Bool,
   bs : @bitstream.Bitstream,
   decoder : @coding.Decoder,
   dist_multiplier : Int32,
@@ -61,10 +63,9 @@ fn decode_single_node(
   match (predictor, decoder.single_token(cluster)) {
     (Zero, Some(token)) => {
       // Single token in cluster, Zero predictor: hyper fast path
-      let value = wrapping_muladd_i32(
-        unpack_signed_u32(token),
-        multiplier,
-        offset,
+      let value = wrap_s(
+        narrow,
+        wrapping_muladd_i32(unpack_signed_u32(token), multiplier, offset),
       )
       for y in 0..<height {
         let off = grid.row_offset(y)
@@ -81,16 +82,15 @@ fn decode_single_node(
           let token = decoder.read_varint_with_multiplier_clustered(
             bs, cluster, dist_multiplier,
           )
-          buf[off + x] = wrapping_muladd_i32(
-            unpack_signed_u32(token),
-            multiplier,
-            offset,
+          buf[off + x] = wrap_s(
+            narrow,
+            wrapping_muladd_i32(unpack_signed_u32(token), multiplier, offset),
           )
         }
       }
     (Gradient, _) if offset == 0 && multiplier == 1 =>
       // Simple gradient: quite fast path
-      decode_simple_grad(bs, decoder, cluster, dist_multiplier, grid)
+      decode_simple_grad(narrow, bs, decoder, cluster, dist_multiplier, grid)
     _ => {
       let wp_header = if predictor == SelfCorrecting {
         Some(wp_header)
@@ -99,7 +99,7 @@ fn decode_single_node(
       }
       predictor_state.reset(grid.width, [], wp_header)
       decode_single_node_slow(
-        bs, decoder, dist_multiplier, node, predictor_state, grid,
+        narrow, bs, decoder, dist_multiplier, node, predictor_state, grid,
       )
     }
   }
@@ -107,6 +107,7 @@ fn decode_single_node(
 
 ///|
 fn decode_fast_lossless(
+  narrow : Bool,
   bs : @bitstream.Bitstream,
   decoder : @coding.DecoderRleMode,
   rle_state : RleState,
@@ -123,7 +124,7 @@ fn decode_fast_lossless(
   let off = grid.row_offset(0)
   for x in 0..<width {
     let token = rle_state.decode(bs, decoder, cluster)
-    w = w + token
+    w = wrap_s(narrow, w + token)
     buf[off + x] = w
   }
   for y in 1..<height {
@@ -133,14 +134,14 @@ fn decode_fast_lossless(
       continue
     }
     let token = rle_state.decode(bs, decoder, cluster)
-    let mut w = token + buf[prev]
+    let mut w = wrap_s(narrow, token + buf[prev])
     buf[out] = w
     for x in 1..<width {
       let nw = buf[prev + x - 1]
       let n = buf[prev + x]
       let pred = grad_clamped(n, w, nw)
       let token = rle_state.decode(bs, decoder, cluster)
-      w = token + pred
+      w = wrap_s(narrow, token + pred)
       buf[out + x] = w
     }
   }
@@ -148,6 +149,7 @@ fn decode_fast_lossless(
 
 ///|
 fn decode_simple_grad(
+  narrow : Bool,
   bs : @bitstream.Bitstream,
   decoder : @coding.Decoder,
   cluster : Int32,
@@ -166,7 +168,7 @@ fn decode_simple_grad(
     let token = decoder.read_varint_with_multiplier_clustered(
       bs, cluster, dist_multiplier,
     )
-    w = unpack_signed_u32(token) + w
+    w = wrap_s(narrow, unpack_signed_u32(token) + w)
     buf[off + x] = w
   }
   for y in 1..<height {
@@ -178,7 +180,7 @@ fn decode_simple_grad(
     let token = decoder.read_varint_with_multiplier_clustered(
       bs, cluster, dist_multiplier,
     )
-    let mut w = unpack_signed_u32(token) + buf[prev]
+    let mut w = wrap_s(narrow, unpack_signed_u32(token) + buf[prev])
     buf[out] = w
     for x in 1..<width {
       let nw = buf[prev + x - 1]
@@ -187,7 +189,7 @@ fn decode_simple_grad(
       let token = decoder.read_varint_with_multiplier_clustered(
         bs, cluster, dist_multiplier,
       )
-      w = unpack_signed_u32(token) + pred
+      w = wrap_s(narrow, unpack_signed_u32(token) + pred)
       buf[out + x] = w
     }
   }
@@ -196,6 +198,7 @@ fn decode_simple_grad(
 ///|
 #inline
 fn decode_one(
+  narrow : Bool,
   bs : @bitstream.Bitstream,
   decoder : @coding.Decoder,
   dist_multiplier : Int32,
@@ -210,11 +213,12 @@ fn decode_one(
     ),
   )
   let diff = wrapping_muladd_i32(diff, leaf.multiplier, leaf.offset)
-  diff + leaf.predictor.predict(properties)
+  wrap_s(narrow, diff + leaf.predictor.predict(properties))
 }
 
 ///|
 fn decode_single_node_slow(
+  narrow : Bool,
   bs : @bitstream.Bitstream,
   decoder : @coding.Decoder,
   dist_multiplier : Int32,
@@ -229,7 +233,9 @@ fn decode_single_node_slow(
     let off = grid.row_offset(y)
     for x in 0..<width {
       predictor.properties()
-      let true_value = decode_one(bs, decoder, dist_multiplier, leaf, predictor)
+      let true_value = decode_one(
+        narrow, bs, decoder, dist_multiplier, leaf, predictor,
+      )
       buf[off + x] = true_value
       predictor.record(true_value)
     }
@@ -238,6 +244,7 @@ fn decode_single_node_slow(
 
 ///|
 fn decode_simple_table(
+  narrow : Bool,
   bs : @bitstream.Bitstream,
   decoder : @coding.Decoder,
   dist_multiplier : Int32,
@@ -251,6 +258,7 @@ fn decode_simple_table(
     table.decision_prop == 9 &&
     table.predictor == Gradient {
     return decode_gradient_table(
+      narrow,
       bs,
       decoder,
       dist_multiplier,
@@ -260,7 +268,7 @@ fn decode_simple_table(
     )
   }
   decode_simple_table_slow(
-    bs, decoder, dist_multiplier, predictor_state, wp_header, grid, table,
+    narrow, bs, decoder, dist_multiplier, predictor_state, wp_header, grid, table,
   )
 }
 
@@ -276,6 +284,7 @@ fn cluster_from_table(
 
 ///|
 fn decode_gradient_table(
+  narrow : Bool,
   bs : @bitstream.Bitstream,
   decoder : @coding.Decoder,
   dist_multiplier : Int32,
@@ -296,7 +305,7 @@ fn decode_gradient_table(
     let token = decoder.read_varint_with_multiplier_clustered(
       bs, cluster, dist_multiplier,
     )
-    w = unpack_signed_u32(token) + w
+    w = wrap_s(narrow, unpack_signed_u32(token) + w)
     buf[off + x] = w
   }
   for y in 1..<height {
@@ -309,7 +318,7 @@ fn decode_gradient_table(
     let token = decoder.read_varint_with_multiplier_clustered(
       bs, cluster, dist_multiplier,
     )
-    let mut w = unpack_signed_u32(token) + buf[prev]
+    let mut w = wrap_s(narrow, unpack_signed_u32(token) + buf[prev])
     buf[out] = w
     for x in 1..<width {
       let nw = buf[prev + x - 1]
@@ -320,7 +329,7 @@ fn decode_gradient_table(
       let token = decoder.read_varint_with_multiplier_clustered(
         bs, cluster, dist_multiplier,
       )
-      w = unpack_signed_u32(token) + pred
+      w = wrap_s(narrow, unpack_signed_u32(token) + pred)
       buf[out + x] = w
     }
   }
@@ -329,6 +338,7 @@ fn decode_gradient_table(
 ///|
 #inline
 fn decode_table_one(
+  narrow : Bool,
   bs : @bitstream.Bitstream,
   decoder : @coding.Decoder,
   dist_multiplier : Int32,
@@ -345,11 +355,12 @@ fn decode_table_one(
     decoder.read_varint_with_multiplier_clustered(bs, cluster, dist_multiplier),
   )
   let diff = wrapping_muladd_i32(diff, table.multiplier, table.offset)
-  diff + table.predictor.predict(properties)
+  wrap_s(narrow, diff + table.predictor.predict(properties))
 }
 
 ///|
 fn decode_simple_table_slow(
+  narrow : Bool,
   bs : @bitstream.Bitstream,
   decoder : @coding.Decoder,
   dist_multiplier : Int32,
@@ -370,7 +381,7 @@ fn decode_simple_table_slow(
     for x in 0..<width {
       predictor_state.properties()
       let true_value = decode_table_one(
-        bs, decoder, dist_multiplier, table, predictor_state,
+        narrow, bs, decoder, dist_multiplier, table, predictor_state,
       )
       buf[off + x] = true_value
       predictor_state.record(true_value)
@@ -380,6 +391,7 @@ fn decode_simple_table_slow(
 
 ///|
 fn decode_slow(
+  narrow : Bool,
   bs : @bitstream.Bitstream,
   decoder : @coding.Decoder,
   dist_multiplier : Int32,
@@ -395,7 +407,9 @@ fn decode_slow(
     for x in 0..<width {
       predictor.properties()
       let leaf = ma_tree.get_leaf(predictor)
-      let true_value = decode_one(bs, decoder, dist_multiplier, leaf, predictor)
+      let true_value = decode_one(
+        narrow, bs, decoder, dist_multiplier, leaf, predictor,
+      )
       buf[off + x] = true_value
       predictor.record(true_value)
     }

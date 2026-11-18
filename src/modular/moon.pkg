@@ -2,6 +2,7 @@ import {
   "suica/jxl/bitstream",
   "suica/jxl/grid",
   "suica/jxl/coding",
+  "suica/jxl/threadpool",
   "moonbitlang/core/cmp",
   "moonbitlang/core/sorted_map",
 }

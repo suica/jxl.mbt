@@ -7,7 +7,8 @@
 ///    - creating a subimage of existing image.
 /// 2. Decode pixels.
 ///
-/// Samples are always `Int` (upstream's `Sample = i32`).
+/// Upstream's type parameter `S: Sample` is the `sample` argument of
+/// `parse` (`Modular::<i16>::parse` is `Modular::parse(.., sample=I16)`).
 pub struct Modular {
   priv inner : ModularImageDestination?
 }
@@ -16,6 +17,7 @@ pub struct Modular {
 pub fn Modular::parse(
   bs : @bitstream.Bitstream,
   params : ModularParams,
+  sample~ : Sample = I32,
 ) -> Modular raise @bitstream.JxlError {
   let inner = if params.channels.is_empty() {
     None
@@ -35,6 +37,7 @@ pub fn Modular::parse(
         params.bit_depth,
         channels,
         params.tracker,
+        sample,
       ),
     )
   }
@@ -48,7 +51,7 @@ pub fn Modular::empty() -> Modular {
 }
 
 ///|
-pub fn Modular::try_clone(self : Modular) -> Modular {
+pub fn Modular::try_clone(self : Modular) -> Modular raise @bitstream.JxlError {
   let inner = match self.inner {
     Some(image) => Some(image.try_clone())
     None => None
@@ -89,8 +92,7 @@ pub fn Modular::into_image(self : Modular) -> ModularImageDestination? {
 }
 
 ///|
-#derive(Debug)
-pub(all) struct ModularHeader {
+priv struct ModularHeader {
   use_global_tree : Bool
   wp_params : WpHeader
   nb_transforms : Int32
@@ -98,7 +100,7 @@ pub(all) struct ModularHeader {
 }
 
 ///|
-pub fn ModularHeader::parse(
+fn ModularHeader::parse(
   bs : @bitstream.Bitstream,
 ) -> ModularHeader raise @bitstream.JxlError {
   let use_global_tree = bs.read_bool()
