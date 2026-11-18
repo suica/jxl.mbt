@@ -198,7 +198,7 @@ let ref_dequant : Array[(Int32, Int32, UInt32, UInt32)] = [
 ]
 
 ///|
-test "dct_2d matches jxl-oxide bit-exactly" {
+test "dct_2d_generic matches jxl-oxide generic::dct_2d bit-exactly" {
   for entry in ref_dct_2d {
     let (w, h, fwd, inv) = entry
     for dir_idx in 0..<2 {
@@ -208,7 +208,7 @@ test "dct_2d matches jxl-oxide bit-exactly" {
         buf[i] = rng.next()
       }
       let dir = if dir_idx == 0 { Forward } else { Inverse }
-      dct_2d(@grid.SubGrid::from_buf(buf, 0, w, h, w), dir)
+      dct_2d_generic(@grid.SubGrid::from_buf(buf, 0, w, h, w), dir)
       let expected = if dir_idx == 0 { fwd } else { inv }
       assert_eq(hash_floats(buf), expected, msg="dct_2d \{w}x\{h} \{dir_idx}")
     }
@@ -216,7 +216,7 @@ test "dct_2d matches jxl-oxide bit-exactly" {
 }
 
 ///|
-test "transform matches jxl-oxide bit-exactly" {
+test "generic transforms match jxl-oxide generic::transform bit-exactly" {
   for entry in ref_transform {
     let (t, h1, h2) = entry
     let ty = TransformType::try_from(t)
@@ -227,7 +227,10 @@ test "transform matches jxl-oxide bit-exactly" {
     for i in 0..<n {
       buf[i] = rng.next()
     }
-    transform(@grid.SubGrid::from_buf(buf, 0, bw * 8, bh * 8, bw * 8), ty)
+    transform_generic(
+      @grid.SubGrid::from_buf(buf, 0, bw * 8, bh * 8, bw * 8),
+      ty,
+    )
     assert_eq(hash_floats(buf), h1, msg="transform \{t}")
     let rng = { state: (177 + t).reinterpret_as_uint(), }
     let buf = FixedArray::make(n, (0.0 : Float))
@@ -238,12 +241,14 @@ test "transform matches jxl-oxide bit-exactly" {
     for i in 0..<(bw * bh) {
       lf[i] = rng.next() * 4.0
     }
-    transform_varblock(
+    transform_varblock_inner(
       @grid.SubGrid::from_buf(lf, 0, bw, bh, bw),
       @grid.SubGrid::from_buf(buf, 0, bw * 8, bh * 8, bw * 8),
       0,
       0,
       ty,
+      dct_2d_generic,
+      transform_generic,
     )
     assert_eq(hash_floats(buf), h2, msg="transform_varblock \{t}")
   }
@@ -333,5 +338,175 @@ test "parametrised dequant matrices match jxl-oxide" {
     let ty = dct_select_list[i]
     assert_eq(hash_floats(set.get(c, ty)), h, msg="\{i} \{c}")
     assert_eq(hash_floats(set.get_transposed(c, ty)), h_tr, msg="tr \{i} \{c}")
+  }
+}
+
+// Hashes from jxl-oxide's x86_64 SSE2 path (`dct_2d_x86_64_sse2`,
+// `transform_x86_64_sse41`, LLF via `transform_varblocks_inner`), same inputs.
+
+///|
+let ref_dct_2d_x86_64 : Array[(Int32, Int32, UInt32, UInt32)] = [
+  (1, 2, 1609993509U, 3472264485U),
+  (1, 4, 3897988089U, 1385922036U),
+  (1, 8, 167823037U, 578883774U),
+  (1, 16, 1165153366U, 359890433U),
+  (1, 32, 2482617530U, 1385470704U),
+  (1, 64, 1114639303U, 831809924U),
+  (1, 128, 597835719U, 2225609450U),
+  (1, 256, 2429187698U, 511675953U),
+  (2, 1, 1255012877U, 1607334413U),
+  (2, 2, 3179688201U, 897986825U),
+  (2, 4, 3003031501U, 2970416502U),
+  (2, 8, 982251450U, 1984844490U),
+  (2, 16, 2105748103U, 1045827466U),
+  (2, 32, 985854135U, 3923033105U),
+  (2, 64, 158693201U, 2262166791U),
+  (2, 128, 16977510U, 3674155706U),
+  (2, 256, 2309451537U, 3033347060U),
+  (4, 1, 3419417500U, 3912134411U),
+  (4, 2, 2864517524U, 198133235U),
+  (4, 4, 1832783800U, 3328458832U),
+  (4, 8, 439419448U, 3251299054U),
+  (4, 16, 2080402397U, 1444009050U),
+  (4, 32, 3911098926U, 1443623467U),
+  (4, 64, 3110216785U, 1891731664U),
+  (4, 128, 1501629707U, 3776124130U),
+  (4, 256, 1185609304U, 3641521301U),
+  (8, 1, 3605974499U, 3475090815U),
+  (8, 2, 4170129829U, 514247176U),
+  (8, 4, 2009832232U, 2557816675U),
+  (8, 8, 3937608325U, 517031944U),
+  (8, 16, 1468695769U, 4242745374U),
+  (8, 32, 2142614694U, 1075326356U),
+  (8, 64, 2218602329U, 2953863763U),
+  (8, 128, 4245521024U, 2335961877U),
+  (8, 256, 1694990120U, 448683619U),
+  (16, 1, 1314746775U, 4024598959U),
+  (16, 2, 1827081346U, 1834945096U),
+  (16, 4, 3108236943U, 1474380399U),
+  (16, 8, 3617292194U, 3913087491U),
+  (16, 16, 3337697100U, 2224272481U),
+  (16, 32, 121481352U, 4039406908U),
+  (16, 64, 4060853691U, 1081785751U),
+  (16, 128, 264824839U, 557996726U),
+  (16, 256, 3435537370U, 472844006U),
+  (32, 1, 2309573921U, 804130006U),
+  (32, 2, 2513057370U, 729984477U),
+  (32, 4, 2809168037U, 1290895703U),
+  (32, 8, 687388779U, 1362465315U),
+  (32, 16, 392900627U, 641295905U),
+  (32, 32, 212788630U, 1757935988U),
+  (32, 64, 1119421381U, 2908028933U),
+  (32, 128, 3859078847U, 1525850216U),
+  (32, 256, 3332394360U, 256808036U),
+  (64, 1, 1601901028U, 315960820U),
+  (64, 2, 2027869962U, 1213748649U),
+  (64, 4, 3717211272U, 2360590044U),
+  (64, 8, 2721873452U, 3323456796U),
+  (64, 16, 3193659527U, 3415204047U),
+  (64, 32, 689729885U, 2940615544U),
+  (64, 64, 3665275693U, 811493099U),
+  (64, 128, 2152462214U, 3864204137U),
+  (64, 256, 2893659438U, 579275025U),
+  (128, 1, 3004998412U, 2339462209U),
+  (128, 2, 259907525U, 2373893926U),
+  (128, 4, 1195632058U, 1179182025U),
+  (128, 8, 2224438756U, 1892822485U),
+  (128, 16, 1729615653U, 3765832292U),
+  (128, 32, 1005178598U, 3500829198U),
+  (128, 64, 1479431988U, 49075824U),
+  (128, 128, 2777025426U, 561532272U),
+  (128, 256, 4123135492U, 3124259218U),
+  (256, 1, 355904350U, 1490990629U),
+  (256, 2, 2822773163U, 2287746518U),
+  (256, 4, 3830916853U, 3821767918U),
+  (256, 8, 2613587475U, 906554072U),
+  (256, 16, 1346181073U, 1330955213U),
+  (256, 32, 1054581917U, 4204427550U),
+  (256, 64, 3323823710U, 1538994562U),
+  (256, 128, 756540765U, 730886867U),
+  (256, 256, 3707707094U, 1381907965U),
+]
+
+///|
+let ref_transform_x86_64 : Array[(Int32, UInt32, UInt32)] = [
+  (0, 3091885079U, 3659097560U),
+  (1, 353595599U, 1739643042U),
+  (2, 541933227U, 3591654790U),
+  (3, 1385013121U, 4233664060U),
+  (4, 1697833375U, 1402866643U),
+  (5, 1976300096U, 3666117604U),
+  (6, 2269901282U, 3293366494U),
+  (7, 450721841U, 513496695U),
+  (8, 2514512061U, 3843656857U),
+  (9, 570650323U, 1931763479U),
+  (10, 3305286195U, 749000146U),
+  (11, 1472016169U, 1416028671U),
+  (12, 370335553U, 2712882839U),
+  (13, 3753025768U, 2941386391U),
+  (14, 981083714U, 676316890U),
+  (15, 2487162569U, 783525001U),
+  (16, 2196036299U, 1990900606U),
+  (17, 4199535446U, 907347493U),
+  (18, 4139186793U, 472548865U),
+  (19, 3865164576U, 635270644U),
+  (20, 1570032994U, 1333690620U),
+  (21, 825404666U, 177809645U),
+  (22, 3802950317U, 1274228641U),
+  (23, 1649569396U, 3673344993U),
+  (24, 1861152049U, 2237992694U),
+  (25, 2269254387U, 1306897940U),
+  (26, 2070234637U, 4214571610U),
+]
+
+///|
+test "dct_2d matches jxl-oxide x86_64 dct_2d_x86_64_sse2 bit-exactly" {
+  for entry in ref_dct_2d_x86_64 {
+    let (w, h, fwd, inv) = entry
+    for dir_idx in 0..<2 {
+      let rng = { state: (w * 1000 + h).reinterpret_as_uint(), }
+      let buf = FixedArray::make(w * h, (0.0 : Float))
+      for i in 0..<(w * h) {
+        buf[i] = rng.next()
+      }
+      let dir = if dir_idx == 0 { Forward } else { Inverse }
+      dct_2d(@grid.SubGrid::from_buf(buf, 0, w, h, w), dir)
+      let expected = if dir_idx == 0 { fwd } else { inv }
+      assert_eq(hash_floats(buf), expected, msg="dct_2d \{w}x\{h} \{dir_idx}")
+    }
+  }
+}
+
+///|
+test "transform matches jxl-oxide x86_64 transform bit-exactly" {
+  for entry in ref_transform_x86_64 {
+    let (t, h1, h2) = entry
+    let ty = TransformType::try_from(t)
+    let (bw, bh) = ty.dct_select_size()
+    let n = bw * bh * 64
+    let rng = { state: (77 + t).reinterpret_as_uint(), }
+    let buf = FixedArray::make(n, (0.0 : Float))
+    for i in 0..<n {
+      buf[i] = rng.next()
+    }
+    transform(@grid.SubGrid::from_buf(buf, 0, bw * 8, bh * 8, bw * 8), ty)
+    assert_eq(hash_floats(buf), h1, msg="transform \{t}")
+    let rng = { state: (177 + t).reinterpret_as_uint(), }
+    let buf = FixedArray::make(n, (0.0 : Float))
+    for i in 0..<n {
+      buf[i] = rng.next()
+    }
+    let lf = FixedArray::make(bw * bh, (0.0 : Float))
+    for i in 0..<(bw * bh) {
+      lf[i] = rng.next() * 4.0
+    }
+    transform_varblock(
+      @grid.SubGrid::from_buf(lf, 0, bw, bh, bw),
+      @grid.SubGrid::from_buf(buf, 0, bw * 8, bh * 8, bw * 8),
+      0,
+      0,
+      ty,
+    )
+    assert_eq(hash_floats(buf), h2, msg="transform_varblock \{t}")
   }
 }

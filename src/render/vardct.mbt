@@ -614,13 +614,7 @@ fn transform_with_lf_grouped(
     .as_subgrid()
     .subgrid(left_in_lf, top_in_lf, lf_width, lf_height)
   }
-  @vardct.transform_varblocks(
-    lf_views,
-    coeff_out,
-    FixedArray::makei(3, c => shifts_cbycr[c].hshift()),
-    FixedArray::makei(3, c => shifts_cbycr[c].vshift()),
-    block_info,
-  )
+  @vardct.transform_varblocks(lf_views, coeff_out, shifts_cbycr, block_info)
 }
 
 ///|

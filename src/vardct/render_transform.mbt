@@ -72,7 +72,7 @@ fn transform_dct4(coeff : @grid.SubGrid[Float]) -> Unit {
           sub.set(iy, ix, coeff.get(x + ix * 2, y + iy * 2))
         }
       }
-      dct_2d(sub, Inverse)
+      dct_2d_generic(sub, Inverse)
     }
   }
   for y in 0..<2 {
@@ -138,7 +138,7 @@ fn transform_dct4x8(coeff : @grid.SubGrid[Float], tr : Bool) -> Unit {
         sub.set(ix, iy, coeff.get(ix, iy * 2 + idx))
       }
     }
-    dct_2d(sub, Inverse)
+    dct_2d_generic(sub, Inverse)
   }
   if tr {
     for y in 0..<8 {
@@ -190,7 +190,7 @@ fn transform_afv(coeff : @grid.SubGrid[Float], n : Int32) -> Unit {
       scratch_4x4[ix * 4 + iy] = coeff.get(2 * ix + 1, 2 * iy)
     }
   }
-  dct_2d(@grid.SubGrid::from_buf(scratch_4x4, 0, 4, 4, 4), Inverse)
+  dct_2d_generic(@grid.SubGrid::from_buf(scratch_4x4, 0, 4, 4, 4), Inverse)
   scratch_4x8[0] = coeff.get(0, 0) - coeff.get(0, 1)
   for iy in 0..<4 {
     for ix in 0..<8 {
@@ -200,7 +200,7 @@ fn transform_afv(coeff : @grid.SubGrid[Float], n : Int32) -> Unit {
       scratch_4x8[iy * 8 + ix] = coeff.get(ix, 2 * iy + 1)
     }
   }
-  dct_2d(@grid.SubGrid::from_buf(scratch_4x8, 0, 8, 4, 8), Inverse)
+  dct_2d_generic(@grid.SubGrid::from_buf(scratch_4x8, 0, 8, 4, 8), Inverse)
   for iy in 0..<4 {
     let afv_y = if flip_y == 0 { iy } else { 3 - iy }
     for ix in 0..<4 {
@@ -233,13 +233,13 @@ fn transform_afv(coeff : @grid.SubGrid[Float], n : Int32) -> Unit {
 
 ///|
 fn transform_dct(coeff : @grid.SubGrid[Float]) -> Unit {
-  dct_2d(coeff, Inverse)
+  dct_2d_generic(coeff, Inverse)
 }
 
 ///|
-/// Inverse transform of a varblock, given its coefficients with the LLF
-/// coefficients already in place (`transform`).
-pub fn transform(
+/// `generic::transform`: inverse transform of a varblock with the generic
+/// kernels.
+fn transform_generic(
   coeff : @grid.SubGrid[Float],
   dct_select : TransformType,
 ) -> Unit {
@@ -258,18 +258,40 @@ pub fn transform(
 }
 
 ///|
-/// Computes the LLF coefficients of a varblock from the LF image and runs the
-/// inverse transform (the body of `transform_varblocks_inner` for one block).
-///
-/// `coeff` is the channel's coefficient grid, `lf` the channel's LF grid
-/// (one sample per 8x8 block); `shifted_bx`/`shifted_by` are block coordinates
-/// in both.
-pub fn transform_varblock(
+/// Inverse transform of a varblock, given its coefficients with the LLF
+/// coefficients already in place. This is upstream's x86_64 dispatch
+/// (`transform_x86_64_sse41` / `transform_x86_64_sse2`, which compute the same
+/// values): DCT4 and DCT4x8 use the SSE kernels, DCTs of 8x8 and larger use
+/// `dct_2d` (`dct_2d_x86_64_sse2`), the others the generic kernels.
+pub fn transform(
+  coeff : @grid.SubGrid[Float],
+  dct_select : TransformType,
+) -> Unit {
+  match dct_select {
+    Dct2 => transform_dct2(coeff)
+    Dct4 => transform_dct4_x86_64(coeff)
+    Hornuss => transform_hornuss(coeff)
+    Dct4x8 => transform_dct4x8_x86_64(coeff, false)
+    Dct8x4 => transform_dct4x8_x86_64(coeff, true)
+    Afv0 => transform_afv(coeff, 0)
+    Afv1 => transform_afv(coeff, 1)
+    Afv2 => transform_afv(coeff, 2)
+    Afv3 => transform_afv(coeff, 3)
+    _ => dct_2d(coeff, Inverse)
+  }
+}
+
+///|
+/// LLF from LF and inverse transform of one varblock (the closure body of
+/// `transform_varblocks_inner`), with the given DCT and transform functions.
+fn transform_varblock_inner(
   lf : @grid.SubGrid[Float],
   coeff : @grid.SubGrid[Float],
   shifted_bx : Int32,
   shifted_by : Int32,
   dct_select : TransformType,
+  dct : (@grid.SubGrid[Float], DctDirection) -> Unit,
+  transform : (@grid.SubGrid[Float], TransformType) -> Unit,
 ) -> Unit {
   let (bw, bh) = dct_select.dct_select_size()
   let left = shifted_bx * 8
@@ -294,7 +316,7 @@ pub fn transform_varblock(
           out.set(x, y, lf.get(shifted_bx + x, shifted_by + y))
         }
       }
-      dct_2d(out, Forward)
+      dct(out, Forward)
       for y in 0..<bh {
         for x in 0..<bw {
           out.set(
@@ -311,23 +333,38 @@ pub fn transform_varblock(
 }
 
 ///|
-/// `transform_varblocks`: LLF computation and inverse transform of every
-/// varblock of a group, for each of the three channels.
+/// Computes the LLF coefficients of a varblock from the LF image and runs the
+/// inverse transform, with the x86_64 kernels used by `transform_varblocks`.
 ///
-/// `hshifts`/`vshifts` are the channel shifts (`ChannelShift::hshift`/`vshift`)
-/// of the X, Y, B channels.
+/// `coeff` is the channel's coefficient grid, `lf` the channel's LF grid
+/// (one sample per 8x8 block); `shifted_bx`/`shifted_by` are block coordinates
+/// in both.
+pub fn transform_varblock(
+  lf : @grid.SubGrid[Float],
+  coeff : @grid.SubGrid[Float],
+  shifted_bx : Int32,
+  shifted_by : Int32,
+  dct_select : TransformType,
+) -> Unit {
+  transform_varblock_inner(
+    lf, coeff, shifted_bx, shifted_by, dct_select, dct_2d, transform,
+  )
+}
+
+///|
+/// `transform_varblocks`: LLF computation and inverse transform of every
+/// varblock of a group, for each of the three channels (X, Y, B).
 pub fn transform_varblocks(
   lf : FixedArray[@grid.SubGrid[Float]],
   coeff_out : FixedArray[@grid.SubGrid[Float]],
-  hshifts : FixedArray[Int32],
-  vshifts : FixedArray[Int32],
+  shifts_cbycr : FixedArray[@modular.ChannelShift],
   block_info : @grid.SubGrid[BlockInfo],
 ) -> Unit {
   for channel in 0..<3 {
     let coeff = coeff_out[channel]
     let lf = lf[channel]
-    let hshift = hshifts[channel]
-    let vshift = vshifts[channel]
+    let hshift = shifts_cbycr[channel].hshift()
+    let vshift = shifts_cbycr[channel].vshift()
     let w8 = block_info.width
     let h8 = block_info.height
     for by in 0..<h8 {
@@ -346,7 +383,7 @@ pub fn transform_varblocks(
 /// One step of `for_each_varblocks`: returns
 /// `(shifted_bx, shifted_by, dct_select, hf_mul)` if a varblock of the shifted
 /// channel starts at block `(bx, by)`.
-pub fn varblock_at(
+fn varblock_at(
   block_info : @grid.SubGrid[BlockInfo],
   bx : Int32,
   by : Int32,

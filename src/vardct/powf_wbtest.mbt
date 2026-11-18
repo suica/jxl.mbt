@@ -43,3 +43,27 @@ test "powf special values" {
   assert_eq(powf(5.0, 0.0), 1.0)
   assert_eq(powf(1.0, Float::reinterpret_from_uint(0x7fc00000)), 1.0)
 }
+
+///|
+/// Hashes of `f32::cos` results computed by Rust (glibc 2.35, x86_64 with
+/// FMA/AVX2) for LCG-generated arguments.
+test "cosf matches glibc bit-exactly" {
+  let expected : FixedArray[UInt32] = [1187592922U, 1221407395U, 3138746231U]
+  let state = { state: 777U, }
+  for mode in 0..<3 {
+    let mut h = 2166136261U
+    for _ in 0..<300000 {
+      let x = match mode {
+        0 => Float::from_uint(state.next_raw() >> 8) / 16777216.0 * 1.6
+        1 =>
+          Float::from_uint(state.next_raw() >> 8) / 16777216.0 * 240.0 - 120.0
+        _ => Float::reinterpret_from_uint(state.next_raw())
+      }
+      let r = cosf(x)
+      let b = if r.is_nan() { 0x7fc00000U } else { r.reinterpret_as_uint() }
+      h = h ^ b
+      h = h * 16777619U
+    }
+    assert_eq(h, expected[mode], msg="mode \{mode}")
+  }
+}

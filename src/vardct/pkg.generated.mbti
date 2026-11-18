@@ -13,17 +13,19 @@ pub let dct8_natural_order : FixedArray[(Int32, Int32)]
 
 pub fn dct_2d(@grid.SubGrid[Float], DctDirection) -> Unit
 
+pub fn dct_2d_generic(@grid.SubGrid[Float], DctDirection) -> Unit
+
 pub fn scale_f(Int32, Int32) -> Float
 
 pub fn sec_half(Int32) -> FixedArray[Float]
+
+pub fn sec_half_small(Int32) -> FixedArray[Float]
 
 pub fn transform(@grid.SubGrid[Float], TransformType) -> Unit
 
 pub fn transform_varblock(@grid.SubGrid[Float], @grid.SubGrid[Float], Int32, Int32, TransformType) -> Unit
 
-pub fn transform_varblocks(FixedArray[@grid.SubGrid[Float]], FixedArray[@grid.SubGrid[Float]], FixedArray[Int32], FixedArray[Int32], @grid.SubGrid[BlockInfo]) -> Unit
-
-pub fn varblock_at(@grid.SubGrid[BlockInfo], Int32, Int32, Int32, Int32) -> (Int32, Int32, TransformType, Int32)?
+pub fn transform_varblocks(FixedArray[@grid.SubGrid[Float]], FixedArray[@grid.SubGrid[Float]], FixedArray[@modular.ChannelShift], @grid.SubGrid[BlockInfo]) -> Unit
 
 pub fn write_hf_coeff(@bitstream.Bitstream, HfCoeffParams, FixedArray[@grid.SubGrid[Int32]]) -> Unit raise @bitstream.JxlError
 

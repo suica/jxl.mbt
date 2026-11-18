@@ -39,79 +39,45 @@ let sec_half_small_table : FixedArray[FixedArray[Float]] = [
 ]
 
 ///|
-/// Bit patterns of `sec_half(n)` for n = 64, 128, 256, as computed by jxl-oxide:
-/// `((2k + 1) as f32 / (2n) as f32 * PI).cos().recip() / 2.0` with the
-/// platform's `cosf` (glibc). Hard-coded so that all targets agree bit-exactly.
-let sec_half_large_bits : FixedArray[FixedArray[UInt32]] = [
-  // n = 64
-  [
-    0x3F0009DFU, 0x3F005907U, 0x3F00F84CU, 0x3F01E9A1U, 0x3F033005U, 0x3F04CF9AU,
-    0x3F06CDC6U, 0x3F093163U, 0x3F0C02FBU, 0x3F0F4D13U, 0x3F131C9AU, 0x3F17816BU,
-    0x3F1C8F06U, 0x3F225D7CU, 0x3F290AB8U, 0x3F30BC3AU, 0x3F39A180U, 0x3F43F76EU,
-    0x3F500D3FU, 0x3F5E4BD7U, 0x3F6F40DEU, 0x3F81D822U, 0x3F8E585DU, 0x3F9DEE3CU,
-    0x3FB1D465U, 0x3FCC074CU, 0x3FEFF562U, 0x40120D1CU, 0x403B2D1FU, 0x4082B526U,
-    0x40D97F09U, 0x41A2FDDCU,
-  ],
-  // n = 128
-  [
-    0x3F000278U, 0x3F001638U, 0x3F003DC8U, 0x3F007946U, 0x3F00C8E1U, 0x3F012CD7U,
-    0x3F01A576U, 0x3F02331DU, 0x3F02D63EU, 0x3F038F5DU, 0x3F045F12U, 0x3F054609U,
-    0x3F064503U, 0x3F075CDDU, 0x3F088E89U, 0x3F09DB19U, 0x3F0B43BBU, 0x3F0CC9BFU,
-    0x3F0E6E97U, 0x3F1033E2U, 0x3F121B66U, 0x3F14271EU, 0x3F165939U, 0x3F18B425U,
-    0x3F1B3A92U, 0x3F1DEF80U, 0x3F20D644U, 0x3F23F296U, 0x3F2748A0U, 0x3F2ADD09U,
-    0x3F2EB50DU, 0x3F32D694U, 0x3F374845U, 0x3F3C11AFU, 0x3F413B6CU, 0x3F46CF4DU,
-    0x3F4CD898U, 0x3F536446U, 0x3F5A8163U, 0x3F624170U, 0x3F6AB8F1U, 0x3F74000FU,
-    0x3F7E3378U, 0x3F84BAC0U, 0x3F8AF7BAU, 0x3F91E9D8U, 0x3F99AFFDU, 0x3FA2709BU,
-    0x3FAC5C01U, 0x3FB7AFE3U, 0x3FC4BC3BU, 0x3FD3EA96U, 0x3FE5C94CU, 0x3FFB1CDAU,
-    0x400A7E48U, 0x401A819BU, 0x402ED346U, 0x4049700BU, 0x406DC68CU, 0x40912953U,
-    0x40BA7C72U, 0x41027628U, 0x41595957U, 0x4222FA98U,
-  ],
-  // n = 256
-  [
-    0x3F00009EU, 0x3F00058DU, 0x3F000F6DU, 0x3F001E40U, 0x3F003208U, 0x3F004AC8U,
-    0x3F006887U, 0x3F008B48U, 0x3F00B315U, 0x3F00DFF4U, 0x3F0111EDU, 0x3F01490BU,
-    0x3F018559U, 0x3F01C6E2U, 0x3F020DB5U, 0x3F0259DDU, 0x3F02AB6BU, 0x3F030271U,
-    0x3F035EFEU, 0x3F03C126U, 0x3F0428FEU, 0x3F04969AU, 0x3F050A12U, 0x3F05837FU,
-    0x3F0602F8U, 0x3F06889BU, 0x3F071485U, 0x3F07A6D2U, 0x3F083FA4U, 0x3F08DF1DU,
-    0x3F098560U, 0x3F0A3294U, 0x3F0AE6DFU, 0x3F0BA26DU, 0x3F0C6569U, 0x3F0D3001U,
-    0x3F0E0268U, 0x3F0EDCCFU, 0x3F0FBF6CU, 0x3F10AA7BU, 0x3F119E35U, 0x3F129ADBU,
-    0x3F13A0AEU, 0x3F14AFF5U, 0x3F15C8F8U, 0x3F16EC07U, 0x3F181971U, 0x3F195190U,
-    0x3F1A94BAU, 0x3F1BE352U, 0x3F1D3DBCU, 0x3F1EA461U, 0x3F2017B5U, 0x3F21982CU,
-    0x3F232644U, 0x3F24C284U, 0x3F266D75U, 0x3F2827B0U, 0x3F29F1CEU, 0x3F2BCC7CU,
-    0x3F2DB866U, 0x3F2FB64CU, 0x3F31C6F4U, 0x3F33EB34U, 0x3F3623EFU, 0x3F387215U,
-    0x3F3AD6A8U, 0x3F3D52BAU, 0x3F3FE771U, 0x3F429607U, 0x3F455FCBU, 0x3F484625U,
-    0x3F4B4A95U, 0x3F4E6EBEU, 0x3F51B458U, 0x3F551D48U, 0x3F58AB90U, 0x3F5C6161U,
-    0x3F604117U, 0x3F644D3EU, 0x3F68889EU, 0x3F6CF637U, 0x3F719955U, 0x3F767587U,
-    0x3F7B8EB6U, 0x3F807491U, 0x3F8344C0U, 0x3F863A7AU, 0x3F895892U, 0x3F8CA22EU,
-    0x3F901AC1U, 0x3F93C625U, 0x3F97A89FU, 0x3F9BC6F8U, 0x3FA02686U, 0x3FA4CD49U,
-    0x3FA9C209U, 0x3FAF0C6BU, 0x3FB4B521U, 0x3FBAC60FU, 0x3FC14A9AU, 0x3FC84FCFU,
-    0x3FCFE4C9U, 0x3FD81B28U, 0x3FE1077DU, 0x3FEAC206U, 0x3FF56782U, 0x40008D2CU,
-    0x400701F8U, 0x400E2B51U, 0x40162830U, 0x401F1F07U, 0x4029402BU, 0x4034C963U,
-    0x40420AA8U, 0x40516D95U, 0x40638074U, 0x407907EDU, 0x40898DA4U, 0x4099AA9AU,
-    0x40AE15DAU, 0x40C8CC16U, 0x40ED3C04U, 0x4110F0A6U, 0x413A5070U, 0x41826688U,
-    0x41D94FCEU, 0x42A2F9F5U,
-  ],
-]
-
-///|
-let sec_half_large_table : FixedArray[FixedArray[Float]] = FixedArray::makei(
-  3,
-  i => {
-    let bits = sec_half_large_bits[i]
-    FixedArray::makei(bits.length(), k => Float::reinterpret_from_uint(bits[k]))
-  },
-)
+/// Lazily computed `sec_half` tables for n >= 64 (upstream `SEC_HALF_LARGE`).
+let sec_half_large : Map[Int32, FixedArray[Float]] = Map([])
 
 ///|
 /// Table of `1 / (2 cos((2k + 1) / 2n * pi))`, `k < n / 2`.
+///
+/// Tables for n >= 64 are computed on first use with `f32` arithmetic and
+/// `cosf`, like upstream.
 pub fn sec_half(n : Int32) -> FixedArray[Float] {
   let idx = n.ctz() - 2
   if idx >= 4 {
-    sec_half_large_table[idx - 4]
+    match sec_half_large.get(idx - 4) {
+      Some(table) => table
+      None => {
+        let table = FixedArray::make(n / 2, (0.0 : Float))
+        for k in 0..<(n / 2) {
+          let theta = Float::from_int(2 * k + 1) /
+            Float::from_int(2 * n) *
+            pi_f32
+          table[k] = (1.0 : Float) / cosf(theta) / 2.0
+        }
+        sec_half_large.set(idx - 4, table)
+        table
+      }
+    }
   } else {
     sec_half_small_table[idx]
   }
 }
+
+///|
+/// `sec_half` for n <= 32 (precomputed).
+pub fn sec_half_small(n : Int32) -> FixedArray[Float] {
+  sec_half_small_table[n.ctz() - 2]
+}
+
+///|
+/// `std::f32::consts::PI`.
+let pi_f32 : Float = Float::reinterpret_from_uint(0x40490FDB)
 
 ///|
 let scale_f_table : FixedArray[Float] = [
@@ -132,8 +98,12 @@ pub fn scale_f(c : Int32, logb : Int32) -> Float {
 }
 
 ///|
-/// In-place 2D DCT of `io` (`dct_2d`).
-pub fn dct_2d(io : @grid.SubGrid[Float], direction : DctDirection) -> Unit {
+/// In-place 2D DCT of `io`, generic (scalar) implementation
+/// (`generic::dct_2d`).
+pub fn dct_2d_generic(
+  io : @grid.SubGrid[Float],
+  direction : DctDirection,
+) -> Unit {
   let width = io.width
   let height = io.height
   if width * height <= 1 {
