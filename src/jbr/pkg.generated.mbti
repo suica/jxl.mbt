@@ -1,0 +1,155 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/jbr"
+
+import {
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/hashset",
+  "suica/jxl/bitstream",
+  "suica/jxl/grid",
+}
+
+// Values
+pub fn integer_cfl(JpegFrameInfo, Array[FixedArray[Int32]], Array[@grid.Grid[Int32]], Array[@grid.Grid[Int32]], Array[FixedArray[@grid.Grid[Int32]]]) -> Unit
+
+// Errors
+
+// Types and methods
+pub(all) struct AppMarker {
+  ty : Int32
+  length : Int32
+}
+pub fn AppMarker::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub struct BitWriter {
+  // private fields
+}
+pub fn BitWriter::finalize(Self) -> Array[Byte]
+pub fn BitWriter::new() -> Self
+pub fn BitWriter::padding_bits(Self) -> Int32
+pub fn BitWriter::write_huffman(Self, UInt64, Int32) -> Unit
+pub fn BitWriter::write_raw(Self, UInt64, Int32) -> Unit
+
+pub struct BuiltHuffmanTable {
+  // private fields
+}
+pub fn BuiltHuffmanTable::lookup(Self, Int32) -> (Int32, UInt64) raise @bitstream.JxlError
+
+pub(all) struct Component {
+  id : Int32
+  q_idx : Int32
+}
+
+pub(all) struct ExtraZeroRun {
+  num_runs : Int32
+  run_length : Int32
+}
+pub fn ExtraZeroRun::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub(all) struct HuffmanCode {
+  is_ac : Bool
+  id : Int32
+  is_last : Bool
+  counts : FixedArray[Int32]
+  values : Array[Int32]
+}
+pub fn HuffmanCode::build(Self) -> BuiltHuffmanTable
+pub fn HuffmanCode::encoded_len(Self) -> Int32
+pub fn HuffmanCode::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub struct JpegBitstreamData {
+  header : JpegBitstreamHeader
+  // private fields
+}
+pub fn JpegBitstreamData::data(Self) -> Bytes
+pub fn JpegBitstreamData::feed_bytes(Self, Bytes) -> Unit
+pub fn JpegBitstreamData::finalize(Self) -> Unit raise @bitstream.JxlError
+pub fn JpegBitstreamData::header(Self) -> JpegBitstreamHeader
+pub fn JpegBitstreamData::try_parse(Bytes) -> Self? raise @bitstream.JxlError
+
+pub(all) struct JpegBitstreamHeader {
+  is_gray : Bool
+  markers : Array[Int32]
+  app_markers : Array[AppMarker]
+  com_lengths : Array[Int32]
+  quant_tables : Array[QuantTable]
+  components : Array[Component]
+  huffman_codes : Array[HuffmanCode]
+  scan_info : Array[ScanInfo]
+  restart_interval : Int32
+  scan_more_info : Array[ScanMoreInfo]
+  intermarker_lengths : Array[Int32]
+  tail_data_length : Int32
+  padding_bits : Padding?
+}
+pub fn JpegBitstreamHeader::expected_data_len(Self) -> Int32
+pub fn JpegBitstreamHeader::expected_exif_len(Self) -> Int32
+pub fn JpegBitstreamHeader::expected_icc_len(Self) -> Int32
+pub fn JpegBitstreamHeader::expected_xmp_len(Self) -> Int32
+pub fn JpegBitstreamHeader::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub struct JpegBitstreamReconstructor {
+  // private fields
+}
+pub fn JpegBitstreamReconstructor::from_parsed(JpegBitstreamHeader, Bytes, JpegFrameInfo, ParsedFrameData, Bytes, Bytes, Bytes) -> Self raise @bitstream.JxlError
+pub fn JpegBitstreamReconstructor::to_bytes(Self) -> Bytes raise @bitstream.JxlError
+pub fn JpegBitstreamReconstructor::write(Self, @buffer.Buffer) -> Unit raise @bitstream.JxlError
+
+pub(all) struct JpegFrameInfo {
+  image_width : Int32
+  image_height : Int32
+  width : Int32
+  height : Int32
+  color_sample_width : Int32
+  color_sample_height : Int32
+  jpeg_upsampling : FixedArray[Int32]
+  do_ycbcr : Bool
+  group_size_shift : Int32
+}
+
+pub(all) struct Padding {
+  bits : Array[Byte]
+}
+pub fn Padding::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub(all) struct ParsedFrameData {
+  lf_quant : Array[FixedArray[@grid.Grid[Int32]]]
+  pass_groups : Array[FixedArray[@grid.Grid[Int32]]]
+  jpeg_quant_values : Array[FixedArray[Int32]]
+  dc_offset : FixedArray[Int32]
+}
+
+pub(all) struct QuantTable {
+  precision : Int32
+  index : Int32
+  is_last : Bool
+}
+pub fn QuantTable::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub(all) struct ScanComponentInfo {
+  comp_idx : Int32
+  ac_tbl_idx : Int32
+  dc_tbl_idx : Int32
+}
+pub fn ScanComponentInfo::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub(all) struct ScanInfo {
+  ss : Int32
+  se : Int32
+  al : Int32
+  ah : Int32
+  component_info : Array[ScanComponentInfo]
+  last_needed_pass : Int32
+}
+pub fn ScanInfo::num_comps(Self) -> Int32
+pub fn ScanInfo::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub(all) struct ScanMoreInfo {
+  reset_points : @hashset.HashSet[Int32]
+  extra_zero_runs : @hashmap.HashMap[Int32, Int32]
+}
+pub fn ScanMoreInfo::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+// Type aliases
+
+// Traits
