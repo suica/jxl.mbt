@@ -263,9 +263,9 @@ fn check_case(name : String) -> (Bool, String) raise {
   for k in 0..<frames {
     let image = ctx.render_keyframe(k)
     let fh = ctx.keyframe(k).unwrap().header()
-    if image.channels() < channels {
+    if image.channels() != channels {
       all_ok = false
-      msg += " | f\{k}: \{image.channels()} channels < \{channels}"
+      msg += " | f\{k}: \{image.channels()} channels, expected \{channels}"
       continue
     }
     let errors = compare_frame(
@@ -279,15 +279,17 @@ fn check_case(name : String) -> (Bool, String) raise {
       fh.x0,
       fh.y0,
     )
-    // As libjxl's conformance script: peak and RMS error over all samples
-    // of the frame, against the frame's tolerances in test.json.
+    // As `CompareNPY` of libjxl's conformance/scripts/conformance.py:
+    // peak = max abs error over all samples, RMSE = max over channels of the
+    // per-channel RMS. The image is rendered directly into `reference.icc`
+    // (requested output encoding), so decoded ICC == reference ICC and the
+    // script's lcms conversion step does not apply.
     let mut peak = 0.0
-    let mut sum_sq = 0.0
+    let mut rms = 0.0
     for e in errors {
       peak = if e.0 > peak { e.0 } else { peak }
-      sum_sq += e.1 * e.1
+      rms = if e.1 > rms { e.1 } else { rms }
     }
-    let rms = (sum_sq / errors.length().to_double()).sqrt()
     let (tp, tr) = tol[k]
     let ok = peak <= tp && rms <= tr
     if !ok {
