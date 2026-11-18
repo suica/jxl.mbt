@@ -247,6 +247,6 @@ pub fn LfCoeff::parse(
   let image = lf_quant.image_mut().unwrap()
   let subimage = image.prepare_subimage()
   subimage.decode(bitstream, 1 + params.lf_group_idx, params.allow_partial)
-  let complete = subimage.finish()
+  let complete = subimage.finish(@threadpool.JxlThreadPool::none())
   { extra_precision, lf_quant, partial: !complete, }
 }

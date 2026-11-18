@@ -108,7 +108,7 @@ pub fn HfMetadata::parse(
     1 + 2 * params.num_lf_groups + params.lf_group_idx,
     false,
   )
-  ignore(subimage.finish())
+  ignore(subimage.finish(@threadpool.JxlThreadPool::none()))
   let image = modular.into_image().unwrap().into_image_channels()
   let x_from_y = image[0]
   let b_from_y = image[1]

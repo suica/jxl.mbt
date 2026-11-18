@@ -55,7 +55,7 @@ fn decode_raw_dequant_matrix(
   let image = modular.image_mut().unwrap()
   let subimage = image.prepare_subimage()
   subimage.decode(bitstream, params.stream_index, false)
-  ignore(subimage.finish())
+  ignore(subimage.finish(@threadpool.JxlThreadPool::none()))
   let channels = modular.into_image().unwrap().into_image_channels()
   FixedArray::makei(3, c => channels[c].buf())
 }

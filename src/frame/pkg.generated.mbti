@@ -198,7 +198,7 @@ pub fn GlobalModular::extra_channel_from(Self) -> Int32
 pub fn GlobalModular::is_partial(Self) -> Bool
 pub fn GlobalModular::ma_config(Self) -> @modular.MaConfig?
 pub fn GlobalModular::parse(@bitstream.Bitstream, LfGlobalParams) -> Self raise @bitstream.JxlError
-pub fn GlobalModular::try_clone(Self) -> Self
+pub fn GlobalModular::try_clone(Self) -> Self raise @bitstream.JxlError
 
 pub(all) struct HfGlobal {
   dequant_matrices : @vardct.DequantMatrixSet

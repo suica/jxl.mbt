@@ -59,7 +59,7 @@ pub fn LfGroup::parse(
       1 + frame_header.num_lf_groups() + lf_group_idx,
       allow_partial,
     )
-    is_mlf_complete = subimage.finish()
+    is_mlf_complete = subimage.finish(@threadpool.JxlThreadPool::none())
   }
   let hf_meta = if frame_header.encoding == VarDct && is_mlf_complete {
     let hf_meta_params : @vardct.HfMetadataParams = {

@@ -83,7 +83,11 @@ pub fn render_modular(
     raise e
   }
   // Inverse Modular transform
-  ignore(modular_image.prepare_subimage().finish())
+  ignore(
+    modular_image
+    .prepare_subimage()
+    .finish(@threadpool.JxlThreadPool::none()),
+  )
   let fb = ImageWithRegion::new(frame_header.encoded_color_channels(), tracker)
   fb.extend_from_gmodular(gmodular)
   if xyb_encoded {

@@ -137,5 +137,5 @@ pub fn decode_pass_group_modular(
     group_idx,
     allow_partial,
   )
-  subimage.finish() |> ignore
+  subimage.finish(@threadpool.JxlThreadPool::none()) |> ignore
 }

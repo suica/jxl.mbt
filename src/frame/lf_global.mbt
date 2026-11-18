@@ -125,7 +125,9 @@ pub struct GlobalModular {
 }
 
 ///|
-pub fn GlobalModular::try_clone(self : GlobalModular) -> GlobalModular {
+pub fn GlobalModular::try_clone(
+  self : GlobalModular,
+) -> GlobalModular raise @bitstream.JxlError {
   {
     ma_config: self.ma_config,
     modular: self.modular.try_clone(),

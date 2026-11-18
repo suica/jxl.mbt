@@ -293,7 +293,11 @@ fn render_vardct(
   }
   if modular_image is Some(modular_image) {
     // Extra channel inverse transform
-    ignore(modular_image.prepare_subimage().finish())
+    ignore(
+      modular_image
+      .prepare_subimage()
+      .finish(@threadpool.JxlThreadPool::none()),
+    )
     fb.extend_from_gmodular(gmodular)
   }
   fb

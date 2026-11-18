@@ -1,4 +1,5 @@
 import {
+  "suica/jxl/threadpool",
   "suica/jxl/bitstream",
   "suica/jxl/grid",
   "suica/jxl/coding",
