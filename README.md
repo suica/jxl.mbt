@@ -17,3 +17,10 @@ Like jxl-oxide, this project is dual-licensed under either of
 
 at your option. The copyright of the original jxl-oxide code belongs to
 Wonwoo Choi and the jxl-oxide contributors.
+
+### Third-party code
+
+- `src/brotli` is a port of Google's Brotli C decoder
+  ([google/brotli](https://github.com/google/brotli) v1.1.0, `c/dec` and `c/common`),
+  Copyright 2013 Google Inc., MIT License. Its test vectors come from google/brotli
+  `tests/testdata` (MIT).

@@ -1,0 +1,10 @@
+[package]
+name = "fuzzgen"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+jxl-coding = { path = "../../../../jxl-oxide/crates/jxl-coding" }
+jxl-bitstream = { path = "../../../../jxl-oxide/crates/jxl-bitstream" }
+
+[workspace]
