@@ -8,16 +8,16 @@ priv enum DequantMatrixParamsEncoding {
   Dct2(FixedArray[FixedArray[Float]])
   Dct4(
     params~ : FixedArray[FixedArray[Float]],
-    dct_params~ : FixedArray[FixedArray[Float]],
+    dct_params~ : FixedArray[FixedArray[Float]]
   )
   Dct4x8(
     params~ : FixedArray[FixedArray[Float]],
-    dct_params~ : FixedArray[FixedArray[Float]],
+    dct_params~ : FixedArray[FixedArray[Float]]
   )
   Afv(
     params~ : FixedArray[FixedArray[Float]],
     dct_params~ : FixedArray[FixedArray[Float]],
-    dct4x4_params~ : FixedArray[FixedArray[Float]],
+    dct4x4_params~ : FixedArray[FixedArray[Float]]
   )
   Dct(FixedArray[FixedArray[Float]])
   /// `params` holds the decoded channels of the Modular image (row-major,

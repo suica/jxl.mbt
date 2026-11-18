@@ -1,4 +1,5 @@
 import {
+  "suica/jxl_tests/harness",
   "suica/jxl/bitstream",
   "suica/jxl/coding",
   "suica/jxl/container",

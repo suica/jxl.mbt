@@ -5,8 +5,7 @@
 // target colour space) using the per-frame peak/RMS tolerances of
 // `test.json`.
 //
-// Conformance directory: `JXL_OXIDE_CONFORMANCE_TESTCASES`, default
-// `../fixtures/cache/conformance` (relative to `tests/`).
+// Conformance directory: `@harness.conformance_testcases_dir()`.
 
 ///|
 fn conformance_dir() -> String {

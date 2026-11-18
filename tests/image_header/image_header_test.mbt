@@ -2,16 +2,7 @@
 // reference: image size from the reference image (PNG/APNG IHDR, GIF screen descriptor or
 // NPY shape) and bit depth, extra channel types and tone mapping from `test.json`.
 //
-// Conformance directory: `JXL_OXIDE_CONFORMANCE_TESTCASES`, default
-// `../fixtures/cache/conformance` (relative to `tests/`).
-
-///|
-fn conformance_dir() -> String {
-  match @env.get_env_var("JXL_OXIDE_CONFORMANCE_TESTCASES") {
-    Some(v) if v != "" => v
-    _ => "../fixtures/cache/conformance"
-  }
-}
+// Conformance directory: `@harness.conformance_testcases_dir()`.
 
 ///|
 fn be32(b : Bytes, i : Int32) -> Int32 {
@@ -128,9 +119,8 @@ fn json_num(j : Json) -> Double {
 
 ///|
 test "conformance image headers" {
-  let root = conformance_dir()
-  if !@fs.path_exists(root) {
-    println("conformance testcases not found at \{root}; skipped")
+  guard @harness.fixture_dir(@harness.conformance_testcases_dir(), "cafe")
+    is Some(root) else {
     return
   }
   let names = @fs.read_dir(root).iter().collect()
@@ -212,9 +202,8 @@ test "conformance image headers" {
 
 ///|
 test "conformance embedded ICC profiles" {
-  let root = conformance_dir()
-  if !@fs.path_exists(root) {
-    println("conformance testcases not found at \{root}; skipped")
+  guard @harness.fixture_dir(@harness.conformance_testcases_dir(), "cafe")
+    is Some(root) else {
     return
   }
   let names : Array[String] = @fs.read_dir(root).iter().collect()

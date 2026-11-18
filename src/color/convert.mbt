@@ -596,18 +596,18 @@ enum ColorTransformOp {
   TransferFunction(
     tf~ : TransferFunction,
     hdr_params~ : HdrParams,
-    inverse~ : Bool,
+    inverse~ : Bool
   )
   HlgInverseOotf(HdrParams)
   ToneMapRec2408(
     hdr_params~ : HdrParams,
     target_display_luminance~ : Float,
-    detect_peak~ : Bool,
+    detect_peak~ : Bool
   )
   ToneMapLumaRec2408(
     hdr_params~ : HdrParams,
     target_display_luminance~ : Float,
-    detect_peak~ : Bool,
+    detect_peak~ : Bool
   )
   GamutMap(luminances~ : FixedArray[Float], saturation_factor~ : Float)
   Clip

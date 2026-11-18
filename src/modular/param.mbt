@@ -82,7 +82,7 @@ pub(all) enum ChannelShift {
     has_h_subsample~ : Bool,
     h_subsample~ : Bool,
     has_v_subsample~ : Bool,
-    v_subsample~ : Bool,
+    v_subsample~ : Bool
   )
   Shifts(Int32)
   Raw(Int32, Int32)
@@ -153,7 +153,7 @@ pub fn ChannelShift::shift_size(
       has_h_subsample~,
       has_v_subsample~,
       h_subsample~,
-      v_subsample~,
+      v_subsample~
     ) => {
       let width = if has_h_subsample {
         let size = div_ceil(width, 2)

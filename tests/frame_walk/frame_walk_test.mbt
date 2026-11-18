@@ -4,24 +4,11 @@
 // the end of the codestream and that the number of keyframes equals the number of
 // frames listed in `test.json`.
 //
-// Conformance directory: `JXL_OXIDE_CONFORMANCE_TESTCASES` (the `testcases` directory),
-// or `conformance/testcases` next to the repository checkout.
+// Conformance directory: `@harness.conformance_testcases_dir()`.
 
 ///|
-fn testcases_dir() -> String? {
-  let candidates = []
-  if @env.get_env_var("JXL_OXIDE_CONFORMANCE_TESTCASES") is Some(d) && d != "" {
-    candidates.push(d)
-  }
-  candidates.push("../fixtures/cache/conformance")
-  candidates.push("../../conformance/testcases")
-  candidates.push("../../../conformance/testcases")
-  for d in candidates {
-    if @fs.path_exists(d + "/cafe") {
-      return Some(d)
-    }
-  }
-  None
+fn testcases_dir() -> String? raise Failure {
+  @harness.fixture_dir(@harness.conformance_testcases_dir(), "cafe")
 }
 
 ///|
@@ -146,10 +133,7 @@ fn walk(
 
 ///|
 test "conformance frame walk" {
-  guard testcases_dir() is Some(dir) else {
-    println("conformance suite not found; skipping")
-    return
-  }
+  guard testcases_dir() is Some(dir) else { return }
   let cases = @fs.read_dir(dir).to_owned()
   cases.sort()
   let lines = []
@@ -322,10 +306,7 @@ fn decode_frame_data(frame : @frame.Frame) -> Unit raise {
 
 ///|
 test "conformance frame data decode" {
-  guard testcases_dir() is Some(dir) else {
-    println("conformance suite not found; skipping")
-    return
-  }
+  guard testcases_dir() is Some(dir) else { return }
   let only = @env.get_env_var("JXL_FRAME_WALK_ONLY")
   let cases = @fs.read_dir(dir).to_owned()
   cases.sort()

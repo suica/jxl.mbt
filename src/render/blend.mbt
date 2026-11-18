@@ -476,7 +476,7 @@ fn blend_single(
         }
       }
     Blend(
-      { base: base_alpha, new: Some(new_alpha), clamp, swapped, premultiplied, },
+      { base: base_alpha, new: Some(new_alpha), clamp, swapped, premultiplied, }
     ) =>
       for dy in 0..<height {
         let base_buf_y = base_y + dy

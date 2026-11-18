@@ -269,7 +269,7 @@ pub(all) enum ParseEvent {
   AuxBoxStart(
     ty~ : ContainerBoxType,
     brotli_compressed~ : Bool,
-    last_box~ : Bool,
+    last_box~ : Bool
   )
   /// Auxiliary box data is read.
   ///

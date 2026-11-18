@@ -23,12 +23,12 @@ priv enum DetectState {
   InAuxBox(
     header~ : ContainerBoxHeader,
     brotli_box_type~ : ContainerBoxType?,
-    bytes_left~ : Int64?,
+    bytes_left~ : Int64?
   )
   InCodestream(
     kind~ : BitstreamKind,
     bytes_left~ : Int64?,
-    pending_no_more_aux_box~ : Bool,
+    pending_no_more_aux_box~ : Bool
   )
 }
 

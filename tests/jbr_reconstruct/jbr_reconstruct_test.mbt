@@ -2,28 +2,8 @@
 // the reconstructed JPEG must equal the original byte for byte (hence also by
 // SHA-256). Exercises container parsing, ICC decoding, frame decoding and jbr.
 //
-// Conformance directory: `JXL_OXIDE_CONFORMANCE_TESTCASES` or
-// `conformance/testcases` next to the repository checkout; jxl-oxide test data:
-// `JXL_OXIDE_TEST_DATA` (the `decode` directory) or `jxl-oxide/crates/jxl-oxide-tests/decode`.
-
-///|
-fn find_dir(
-  env : String,
-  probe : String,
-  candidates : Array[String],
-) -> String? {
-  let all = []
-  if @env.get_env_var(env) is Some(d) && d != "" {
-    all.push(d)
-  }
-  all.append(candidates)
-  for d in all {
-    if @fs.path_exists(d + "/" + probe) {
-      return Some(d)
-    }
-  }
-  None
-}
+// Data: `@harness.conformance_testcases_dir()` and
+// `@harness.decode_testcases_dir()` (jxl-oxide test data with `ref.jpg`).
 
 ///|
 priv struct Parsed {
@@ -109,11 +89,11 @@ fn check(input : String, expected : String) -> Unit raise {
 
 ///|
 test "jbrd conformance" {
-  guard find_dir("JXL_OXIDE_CONFORMANCE_TESTCASES", "cafe", [
-      "../fixtures/cache/conformance", "../../conformance/testcases", "../../../conformance/testcases",
-    ])
+  guard @harness.fixture_dir(
+      @harness.conformance_testcases_dir(),
+      "cafe/reconstructed.jpg",
+    )
     is Some(dir) else {
-    println("conformance suite not found; skipping")
     return
   }
   for name in ["bench_oriented_brg", "cafe", "grayscale_jpeg"] {
@@ -126,11 +106,11 @@ test "jbrd conformance" {
 
 ///|
 test "jbrd jxl-oxide test images" {
-  guard find_dir("JXL_OXIDE_TEST_DATA", "issue_425", [
-      "../../jxl-oxide/crates/jxl-oxide-tests/decode", "../../../jxl-oxide/crates/jxl-oxide-tests/decode",
-    ])
+  guard @harness.fixture_dir(
+      @harness.decode_testcases_dir(),
+      "issue_425/ref.jpg",
+    )
     is Some(dir) else {
-    println("jxl-oxide test data not found; skipping")
     return
   }
   for name in ["genshin_ycbcr_420", "issue_425", "starrail_jpegli_xyb"] {

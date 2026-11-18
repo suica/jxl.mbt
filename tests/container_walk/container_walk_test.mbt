@@ -1,19 +1,8 @@
 ///|
-/// Locates the libjxl conformance suite: `$JXL_CONFORMANCE_DIR`, or a
-/// `conformance` directory next to the repository checkout.
-fn conformance_dir() -> String? {
-  let candidates = []
-  if @env.get_env_vars().get("JXL_CONFORMANCE_DIR") is Some(d) {
-    candidates.push(d)
-  }
-  candidates.push("../../conformance")
-  candidates.push("../../../conformance")
-  for d in candidates {
-    if @fs.path_exists(d + "/testcases") {
-      return Some(d)
-    }
-  }
-  None
+/// The libjxl conformance `testcases` directory
+/// (`@harness.conformance_testcases_dir()`).
+fn conformance_dir() -> String? raise Failure {
+  @harness.fixture_dir(@harness.conformance_testcases_dir(), "cafe")
 }
 
 ///|
@@ -37,16 +26,13 @@ fn extract_codestream(
 
 ///|
 test "conformance container parsing" {
-  guard conformance_dir() is Some(dir) else {
-    println("conformance suite not found; skipping")
-    return
-  }
-  let cases = @fs.read_dir(dir + "/testcases").to_owned()
+  guard conformance_dir() is Some(dir) else { return }
+  let cases = @fs.read_dir(dir).to_owned()
   cases.sort()
   let mut n = 0
   let summary = []
   for name in cases {
-    let path = dir + "/testcases/" + name + "/input.jxl"
+    let path = dir + "/" + name + "/input.jxl"
     if !@fs.path_exists(path) {
       continue
     }

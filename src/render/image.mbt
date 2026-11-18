@@ -605,7 +605,7 @@ pub fn ImageWithRegion::prepare_color_upsampling(
         has_h_subsample=false,
         h_subsample=false,
         has_v_subsample=false,
-        v_subsample=false,
+        v_subsample=false
       ) => Shifts(upsampling_factor)
       JpegUpsampling(..) => abort("unexpected chroma subsampling")
     }

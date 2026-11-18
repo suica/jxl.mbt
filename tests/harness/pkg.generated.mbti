@@ -28,6 +28,8 @@ pub fn decode_testcases_dir() -> String
 
 pub fn file_exists(String) -> Bool
 
+pub fn fixture_dir(String, String) -> String? raise Failure
+
 pub fn format_errors(ChannelError) -> String
 
 pub fn read_file(String) -> Bytes raise Failure

@@ -86,6 +86,22 @@ pub fn read_text(path : String) -> String raise Failure {
 }
 
 ///|
+/// Returns `Some(dir)` if `dir/probe` exists. Otherwise prints a SKIP line and
+/// returns `None`, or fails if `JXL_TESTS_REQUIRE_FIXTURES` is set.
+pub fn fixture_dir(dir : String, probe : String) -> String? raise Failure {
+  if @fs.path_exists(dir + "/" + probe) {
+    return Some(dir)
+  }
+  if require_fixtures() {
+    fail("fixture missing: \{dir}/\{probe} (run scripts/fetch_fixtures.sh)")
+  }
+  println(
+    "SKIP: fixture missing: \{dir}/\{probe} (run scripts/fetch_fixtures.sh)",
+  )
+  None
+}
+
+///|
 /// Reads a fixture file. Returns `None` (after printing a SKIP line) if it is
 /// missing, unless `JXL_TESTS_REQUIRE_FIXTURES` is set, then fails.
 pub fn read_fixture(path : String) -> Bytes? raise Failure {

@@ -4,7 +4,7 @@
 #
 #   fixtures/cache/conformance/<case>/{input.jxl,reference_image.npy,reference.icc,test.json}
 #       libjxl conformance testcases (incl. the *_5 level-5 variants)
-#   fixtures/cache/decode/<case>/{input.jxl,output.buf}
+#   fixtures/cache/decode/<case>/{input.jxl,output.buf[,ref.jpg]}
 #       jxl-oxide decode test data; output.buf is the decompressed output.buf.zst
 #   fixtures/cache/cms/cmyk_layers.{lcms2,moxcms}.npy   (step `cms`, not in `all`)
 #       tests/data/cms/cmyk_layers.jxl rendered to linear sRGB by jxl-oxide with
@@ -17,6 +17,8 @@
 #       reference.icc (f32 npy, 1x1024x1024x4, 16 MB): reference of the
 #       render_conformance test "alpha_premultiplied vs jxl-oxide". Needs the
 #       conformance step and the jxl-oxide CLI (as for `cms`).
+#
+# The cache directory is $JXL_FIXTURES_CACHE if set (as for the tests).
 #
 # Sources (override with environment variables):
 #   CONFORMANCE_DIR   existing checkout of https://github.com/libjxl/conformance
@@ -32,7 +34,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CACHE="$ROOT/fixtures/cache"
+CACHE="${JXL_FIXTURES_CACHE:-$ROOT/fixtures/cache}"
 mkdir -p "$CACHE"
 what="${1:-all}"
 
@@ -85,6 +87,8 @@ fetch_decode() {
     [ -f "$d/input.jxl" ] || continue
     mkdir -p "$out/$name"
     ln -sfn "$d/input.jxl" "$out/$name/input.jxl"
+    # jbrd test images also carry the original JPEG.
+    [ -f "$d/ref.jpg" ] && ln -sfn "$d/ref.jpg" "$out/$name/ref.jpg"
     local zst=""
     if [ -f "$d/output.buf.zst" ]; then
       zst="$d/output.buf.zst"

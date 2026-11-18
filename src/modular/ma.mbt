@@ -217,7 +217,7 @@ priv enum FlatMaTreeNode {
     prop_r~ : Int32,
     value_l~ : Int32,
     value_r~ : Int32,
-    index_base~ : Int32,
+    index_base~ : Int32
   )
   Table(prop~ : Int32, value_base~ : Int32, indices~ : FixedArray[Int32])
   Leaf(MaTreeLeafClustered)
@@ -308,7 +308,7 @@ pub fn FlatMaTree::get_leaf(
         prop_r=pr,
         value_l=vl,
         value_r=vr,
-        index_base~,
+        index_base~
       ) => {
         let next_node = if properties.get_property(p) <= v {
           index_base + (if properties.get_property(pr) <= vr { 3 } else { 2 })
@@ -415,7 +415,7 @@ priv enum MaTreeNode {
     property~ : Int32,
     value~ : Int32,
     left~ : MaTreeNode,
-    right~ : MaTreeNode,
+    right~ : MaTreeNode
   )
   Leaf(MaTreeLeafClustered)
 }

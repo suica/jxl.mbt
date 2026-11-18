@@ -48,6 +48,11 @@ transform path) does not support:
 
 None of these occur in the libjxl conformance suite or jxl-oxide's test images.
 
+The decoder API also leaves out two parts of jxl-oxide: the thread pool
+(decoding is sequential) and `JxlImage::open(path)` (the package does no file
+I/O; pass the bytes with `read` or `feed_bytes`). jxl-oxide's lcms2 and moxcms
+backends are replaced by the pure MoonBit CMS in `src/cms`.
+
 ## License
 
 Like jxl-oxide, this project is dual-licensed under either of
