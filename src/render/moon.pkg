@@ -1,0 +1,9 @@
+import {
+  "suica/jxl/bitstream",
+  "suica/jxl/grid",
+  "suica/jxl/image",
+  "suica/jxl/modular",
+  "suica/jxl/frame",
+  "suica/jxl/color",
+  "suica/jxl/vardct",
+}
