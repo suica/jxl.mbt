@@ -200,7 +200,7 @@ pub fn UninitializedJxlImage::try_init(
   }
   bitstream.zero_pad_to_byte()
   let skip_bytes = if image_header.metadata.preview is Some(_) {
-    let frame = @frame.Frame::parse(bitstream, image_header, self.tracker) catch {
+    let frame = @frame.Frame::parse(bitstream, image_header, tracker=self.tracker) catch {
       e if e.unexpected_eof() => return NeedMoreData(self)
       e => raise e
     }
