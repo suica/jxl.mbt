@@ -1,0 +1,9 @@
+import {
+  "suica/jxl/bitstream",
+  "suica/jxl/image",
+  "suica/jxl/color",
+  "suica/jxl/grid",
+  "suica/jxl/render",
+  "moonbitlang/core/env",
+  "moonbitlang/x/fs",
+} for "test"
