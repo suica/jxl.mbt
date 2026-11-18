@@ -1,7 +1,6 @@
 import {
   "suica/jxl/bitstream",
   "suica/jxl/coding",
-  "suica/jxl/grid",
   "suica/jxl/image",
   "moonbitlang/core/math",
 }

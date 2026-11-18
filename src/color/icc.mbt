@@ -5,7 +5,8 @@
 //   image file, or to be used by the color management system for various purposes.
 
 ///|
-pub(all) struct IccHeader {
+/// `#[non_exhaustive]` upstream: readable outside, not constructible.
+pub struct IccHeader {
   color_space : Bytes
   rendering_intent : RenderingIntent
 }

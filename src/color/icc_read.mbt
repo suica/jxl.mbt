@@ -29,7 +29,8 @@ pub fn read_icc(bs : @bitstream.Bitstream) -> Bytes raise @bitstream.JxlError {
   let output_size = varint(tmp_cursor)
   let commands_size = varint(tmp_cursor)
   let stream_offset = tmp_cursor.pos.to_uint64()
-  if commands_size > enc_size || stream_offset + commands_size > enc_size {
+  // Wrapping `u64` add, as upstream (release build).
+  if stream_offset + commands_size > enc_size {
     raise invalid_icc_stream("invalid commands_size")
   }
   if output_size > 1UL << 28 {

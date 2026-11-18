@@ -23,7 +23,7 @@ pub let illuminant_dci : FixedArray[Float] = [0.314, 0.351]
 /// CIE illuminant D50.
 ///
 /// xy-chromaticity value is computed so that the resulting `chad` tag matches that of libjxl.
-pub let illuminant_d50 : FixedArray[Float] = [0.345669, 0.358496]
+let illuminant_d50 : FixedArray[Float] = [0.345669, 0.358496]
 
 ///|
 /// Primaries used by the sRGB colorspace.

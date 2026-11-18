@@ -57,10 +57,7 @@ pub impl AsPrimaries for Primaries with fn as_primaries(self) {
 }
 
 ///|
-pub fn matmul3(
-  a : FixedArray[Float],
-  b : FixedArray[Float],
-) -> FixedArray[Float] {
+fn matmul3(a : FixedArray[Float], b : FixedArray[Float]) -> FixedArray[Float] {
   let bcol0 : FixedArray[Float] = [b[0], b[3], b[6]]
   let bcol1 : FixedArray[Float] = [b[1], b[4], b[7]]
   let bcol2 : FixedArray[Float] = [b[2], b[5], b[8]]
@@ -78,7 +75,7 @@ pub fn matmul3(
 }
 
 ///|
-pub fn matmul3vec(
+fn matmul3vec(
   a : FixedArray[Float],
   b : FixedArray[Float],
 ) -> FixedArray[Float] {
@@ -90,7 +87,7 @@ pub fn matmul3vec(
 }
 
 ///|
-pub fn matinv(mat : FixedArray[Float]) -> FixedArray[Float] {
+fn matinv(mat : FixedArray[Float]) -> FixedArray[Float] {
   let det = mat[0] * (mat[4] * mat[8] - mat[5] * mat[7]) +
     mat[1] * (mat[5] * mat[6] - mat[3] * mat[8]) +
     mat[2] * (mat[3] * mat[7] - mat[4] * mat[6])
@@ -108,7 +105,7 @@ pub fn matinv(mat : FixedArray[Float]) -> FixedArray[Float] {
 }
 
 ///|
-pub fn[I : AsIlluminant] illuminant_to_xyz(illuminant : I) -> FixedArray[Float] {
+fn[I : AsIlluminant] illuminant_to_xyz(illuminant : I) -> FixedArray[Float] {
   let xy = illuminant.as_illuminant()
   let x = xy[0]
   let y = xy[1]
@@ -116,7 +113,7 @@ pub fn[I : AsIlluminant] illuminant_to_xyz(illuminant : I) -> FixedArray[Float] 
 }
 
 ///|
-pub fn[F : AsIlluminant, T : AsIlluminant] adapt_mat(
+fn[F : AsIlluminant, T : AsIlluminant] adapt_mat(
   from_illuminant : F,
   to_illuminant : T,
 ) -> FixedArray[Float] {
@@ -152,7 +149,7 @@ fn primaries_matrix(p : FixedArray[FixedArray[Float]]) -> FixedArray[Float] {
 }
 
 ///|
-pub fn[P : AsPrimaries, W : AsIlluminant] primaries_to_xyz_mat(
+fn[P : AsPrimaries, W : AsIlluminant] primaries_to_xyz_mat(
   primaries : P,
   wp : W,
 ) -> FixedArray[Float] {
@@ -167,7 +164,7 @@ pub fn[P : AsPrimaries, W : AsIlluminant] primaries_to_xyz_mat(
 }
 
 ///|
-pub fn[P : AsPrimaries, W : AsIlluminant] xyz_to_primaries_mat(
+fn[P : AsPrimaries, W : AsIlluminant] xyz_to_primaries_mat(
   primaries : P,
   wp : W,
 ) -> FixedArray[Float] {

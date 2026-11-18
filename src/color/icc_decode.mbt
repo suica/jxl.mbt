@@ -142,13 +142,17 @@ pub fn decode_icc(stream : Bytes) -> Bytes raise @bitstream.JxlError {
   let output_size = varint(tmp_cursor)
   let commands_size = varint(tmp_cursor)
   let stream_offset = tmp_cursor.pos.to_uint64()
-  // Rust: `stream_offset + commands_size > stream.len()` (no overflow for sane sizes)
-  if commands_size > stream.length().to_uint64() ||
-    stream_offset + commands_size > stream.length().to_uint64() {
+  // `stream_offset + commands_size` is a wrapping `u64` add upstream (release build).
+  if stream_offset + commands_size > stream.length().to_uint64() {
     raise invalid_icc_stream("invalid commands_size")
   }
   if output_size > 1UL << 28 {
     raise @bitstream.ProfileConformance("ICC output_size too large")
+  }
+  // `stream[stream_offset..].split_at(commands_size as usize)` panics when the wrapped
+  // check above let an oversized `commands_size` through.
+  if commands_size > stream.length().to_uint64() - stream_offset {
+    abort("mid > len")
   }
   let stream_offset = stream_offset.to_int()
   let commands_size = commands_size.to_int()

@@ -8,8 +8,6 @@ import {
 }
 
 // Values
-pub fn[F : AsIlluminant, T : AsIlluminant] adapt_mat(F, T) -> FixedArray[Float]
-
 pub fn apply_gamma(FixedArray[Float], Float, start? : Int32, len? : Int32) -> Unit
 
 pub fn bt709_to_linear(FixedArray[Float], start? : Int32, len? : Int32) -> Unit
@@ -17,8 +15,6 @@ pub fn bt709_to_linear(FixedArray[Float], start? : Int32, len? : Int32) -> Unit
 pub fn colour_encoding_to_icc(@image.EnumColourEncoding) -> Bytes
 
 pub fn decode_icc(Bytes) -> Bytes raise @bitstream.JxlError
-
-pub fn detect_profile_info(Bytes) -> IccProfileInfo raise @bitstream.JxlError
 
 pub fn fast_powf_generic(Float, Float) -> Float
 
@@ -32,15 +28,11 @@ pub fn hlg_to_linear(FixedArray[Float], start? : Int32, len? : Int32) -> Unit
 
 pub fn icc_tf(Bytes) -> @image.TransferFunction?
 
-pub let illuminant_d50 : FixedArray[Float]
-
 pub let illuminant_d65 : FixedArray[Float]
 
 pub let illuminant_dci : FixedArray[Float]
 
 pub let illuminant_e : FixedArray[Float]
-
-pub fn[I : AsIlluminant] illuminant_to_xyz(I) -> FixedArray[Float]
 
 pub fn linear_to_bt709(FixedArray[Float], start? : Int32, len? : Int32) -> Unit
 
@@ -49,12 +41,6 @@ pub fn linear_to_hlg(FixedArray[Float], start? : Int32, len? : Int32) -> Unit
 pub fn linear_to_pq(FixedArray[Float], Float, start? : Int32, len? : Int32) -> Unit
 
 pub fn linear_to_srgb(FixedArray[Float], start? : Int32, len? : Int32) -> Unit
-
-pub fn matinv(FixedArray[Float]) -> FixedArray[Float]
-
-pub fn matmul3(FixedArray[Float], FixedArray[Float]) -> FixedArray[Float]
-
-pub fn matmul3vec(FixedArray[Float], FixedArray[Float]) -> FixedArray[Float]
 
 pub fn pq_table(Int32) -> Array[Int32]
 
@@ -66,13 +52,9 @@ pub let primaries_p3 : FixedArray[FixedArray[Float]]
 
 pub let primaries_srgb : FixedArray[FixedArray[Float]]
 
-pub fn[P : AsPrimaries, W : AsIlluminant] primaries_to_xyz_mat(P, W) -> FixedArray[Float]
-
 pub fn read_icc(@bitstream.Bitstream) -> Bytes raise @bitstream.JxlError
 
 pub fn srgb_to_linear(FixedArray[Float], start? : Int32, len? : Int32) -> Unit
-
-pub fn[P : AsPrimaries, W : AsIlluminant] xyz_to_primaries_mat(P, W) -> FixedArray[Float]
 
 pub fn ycbcr_to_rgb(FixedArray[Float], FixedArray[Float], FixedArray[Float], start? : Int32, len? : Int32) -> Unit
 
@@ -113,23 +95,10 @@ pub fn ColorTransformBuilder::set_srgb_icc(Self, Bool) -> Self
 
 type ColorTransformOp
 
-pub(all) struct IccHeader {
+pub struct IccHeader {
   color_space : Bytes
   rendering_intent : @image.RenderingIntent
 }
-
-#derive(@debug.Debug)
-pub struct IccProfileInfo {
-  // private fields
-}
-pub fn IccProfileInfo::is_cmyk(Self) -> Bool
-pub fn IccProfileInfo::is_grayscale(Self) -> Bool
-pub fn IccProfileInfo::is_rgb(Self) -> Bool
-pub fn IccProfileInfo::primaries(Self) -> @image.Primaries?
-pub fn IccProfileInfo::rendering_intent(Self) -> @image.RenderingIntent
-pub fn IccProfileInfo::trc_color(Self) -> @image.TransferFunction?
-pub fn IccProfileInfo::trc_gray(Self) -> @image.TransferFunction?
-pub fn IccProfileInfo::white_point(Self) -> @image.WhitePoint
 
 #derive(@debug.Debug)
 pub(all) struct NullCms {

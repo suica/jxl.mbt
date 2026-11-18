@@ -1,41 +1,38 @@
 // Port of jxl-color/src/icc/parse.rs.
 
 ///|
-#derive(Debug)
-pub struct IccProfileInfo {
-  priv color_space : Bytes
-  priv rendering_intent : RenderingIntent
-  priv chad : FixedArray[Int32]
-  priv wtpt : FixedArray[Int32]
-  priv trc_k : KnownIccTrc?
-  priv trc_rgb : FixedArray[KnownIccTrc]?
-  priv xyz_rgb : FixedArray[FixedArray[Int32]]?
+priv struct IccProfileInfo {
+  color_space : Bytes
+  rendering_intent : RenderingIntent
+  chad : FixedArray[Int32]
+  wtpt : FixedArray[Int32]
+  trc_k : KnownIccTrc?
+  trc_rgb : FixedArray[KnownIccTrc]?
+  xyz_rgb : FixedArray[FixedArray[Int32]]?
 }
 
 ///|
-pub fn IccProfileInfo::is_rgb(self : IccProfileInfo) -> Bool {
+fn IccProfileInfo::is_rgb(self : IccProfileInfo) -> Bool {
   self.color_space == b"RGB "
 }
 
 ///|
-pub fn IccProfileInfo::is_cmyk(self : IccProfileInfo) -> Bool {
+fn IccProfileInfo::is_cmyk(self : IccProfileInfo) -> Bool {
   self.color_space == b"CMYK"
 }
 
 ///|
-pub fn IccProfileInfo::is_grayscale(self : IccProfileInfo) -> Bool {
+fn IccProfileInfo::is_grayscale(self : IccProfileInfo) -> Bool {
   self.color_space == b"GRAY"
 }
 
 ///|
-pub fn IccProfileInfo::rendering_intent(
-  self : IccProfileInfo,
-) -> RenderingIntent {
+fn IccProfileInfo::rendering_intent(self : IccProfileInfo) -> RenderingIntent {
   self.rendering_intent
 }
 
 ///|
-pub fn IccProfileInfo::trc_color(self : IccProfileInfo) -> TransferFunction? {
+fn IccProfileInfo::trc_color(self : IccProfileInfo) -> TransferFunction? {
   guard self.trc_rgb is Some(trc) else { return None }
   let r = trc[0]
   let g = trc[1]
@@ -48,7 +45,7 @@ pub fn IccProfileInfo::trc_color(self : IccProfileInfo) -> TransferFunction? {
 }
 
 ///|
-pub fn IccProfileInfo::trc_gray(self : IccProfileInfo) -> TransferFunction? {
+fn IccProfileInfo::trc_gray(self : IccProfileInfo) -> TransferFunction? {
   self.trc_k.map(KnownIccTrc::to_transfer_function)
 }
 
@@ -70,7 +67,7 @@ fn to_customxy_component(f : Float) -> Int32 {
 }
 
 ///|
-pub fn IccProfileInfo::primaries(self : IccProfileInfo) -> Primaries? {
+fn IccProfileInfo::primaries(self : IccProfileInfo) -> Primaries? {
   let primaries_to_enum : Array[(FixedArray[FixedArray[Float]], Primaries)] = [
     (primaries_srgb, Srgb),
     (primaries_p3, P3),
@@ -132,7 +129,7 @@ fn IccProfileInfo::media_white(self : IccProfileInfo) -> FixedArray[Float] {
 }
 
 ///|
-pub fn IccProfileInfo::white_point(self : IccProfileInfo) -> WhitePoint {
+fn IccProfileInfo::white_point(self : IccProfileInfo) -> WhitePoint {
   let wp_to_enum : Array[(FixedArray[Float], WhitePoint)] = [
     (illuminant_d65, D65),
     (illuminant_dci, Dci),
@@ -165,7 +162,7 @@ pub fn IccProfileInfo::white_point(self : IccProfileInfo) -> WhitePoint {
 }
 
 ///|
-#derive(Debug, Eq)
+#derive(Eq)
 priv enum KnownIccTrc {
   ParametricGamma(UInt32)
   Linear
@@ -266,23 +263,37 @@ fn parse_icc_raw(profile : Bytes) -> IccProfile raise @bitstream.JxlError {
   if size < 0x84 {
     return { header, tags: [], }
   }
-  let tag_count = read_be32_u(p, 0x80).to_uint64()
-  if size < 0x84UL + 12UL * tag_count {
+  // Upstream computes these in `u32`; overflow wraps (release build semantics), and a
+  // wrapped check that passes then makes the slice index panic, as reproduced here.
+  let size = size.to_uint()
+  let tag_count = read_be32_u(p, 0x80)
+  if size < 0x84U + 12U * tag_count {
     raise icc_parse_failure("unexpected end of profile while reading tag list")
   }
+  // `&profile[0x84..][..12 * tag_count as usize]` (no wrap in usize)
+  if 12UL * tag_count.to_uint64() > (profile.length() - 0x84).to_uint64() {
+    abort("range end index out of range for slice")
+  }
   let tags = []
-  for i in 0..<tag_count.to_int() {
+  for i in 0..<tag_count.reinterpret_as_int() {
     let base = 0x84 + 12 * i
     let tag = profile[base:base + 4].to_owned()
-    let offset = read_be32_u(p, base + 4).to_uint64()
-    let tag_size = read_be32_u(p, base + 8).to_uint64()
+    let offset = read_be32_u(p, base + 4)
+    let tag_size = read_be32_u(p, base + 8)
     let tag_end = offset + tag_size
     if size < tag_end {
       raise icc_parse_failure(
         "unexpected end of profile while reading tag data",
       )
     }
-    tags.push({ tag, data: profile[offset.to_int():tag_end.to_int()], })
+    // `&profile[offset as usize..tag_end as usize]`
+    if offset > tag_end {
+      abort("slice index starts at \{offset} but ends at \{tag_end}")
+    }
+    tags.push({
+      tag,
+      data: profile[offset.reinterpret_as_int():tag_end.reinterpret_as_int()],
+    })
   }
   { header, tags, }
 }
@@ -390,7 +401,7 @@ fn is_unsupported_tag(tag : Bytes) -> Bool {
 }
 
 ///|
-pub fn detect_profile_info(
+fn detect_profile_info(
   profile : Bytes,
 ) -> IccProfileInfo raise @bitstream.JxlError {
   let profile = parse_icc_raw(profile)
