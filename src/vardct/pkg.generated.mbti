@@ -1,0 +1,79 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/vardct"
+
+import {
+  "moonbitlang/core/debug",
+  "suica/jxl/bitstream",
+  "suica/jxl/grid",
+}
+
+// Values
+pub fn dct_2d(@grid.SubGrid[Float], DctDirection) -> Unit
+
+pub fn scale_f(Int32, Int32) -> Float
+
+pub fn sec_half(Int32) -> FixedArray[Float]
+
+pub fn transform(@grid.SubGrid[Float], TransformType) -> Unit
+
+pub fn transform_varblock(@grid.SubGrid[Float], @grid.SubGrid[Float], Int32, Int32, TransformType) -> Unit
+
+pub fn transform_varblocks(FixedArray[@grid.SubGrid[Float]], FixedArray[@grid.SubGrid[Float]], FixedArray[Int32], FixedArray[Int32], @grid.SubGrid[BlockInfo]) -> Unit
+
+pub fn varblock_at(@grid.SubGrid[BlockInfo], Int32, Int32, Int32, Int32) -> (Int32, Int32, TransformType, Int32)?
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum BlockInfo {
+  Uninit
+  Occupied
+  Data(dct_select~ : TransformType, hf_mul~ : Int32)
+}
+pub impl Default for BlockInfo
+
+#derive(Eq, @debug.Debug)
+pub(all) enum DctDirection {
+  Forward
+  Inverse
+}
+
+#derive(Eq, Hash, @debug.Debug)
+pub(all) enum TransformType {
+  Dct8
+  Hornuss
+  Dct2
+  Dct4
+  Dct16
+  Dct32
+  Dct16x8
+  Dct8x16
+  Dct32x8
+  Dct8x32
+  Dct32x16
+  Dct16x32
+  Dct4x8
+  Dct8x4
+  Afv0
+  Afv1
+  Afv2
+  Afv3
+  Dct64
+  Dct64x32
+  Dct32x64
+  Dct128
+  Dct128x64
+  Dct64x128
+  Dct256
+  Dct256x128
+  Dct128x256
+}
+pub fn TransformType::dct_select_size(Self) -> (Int32, Int32)
+pub fn TransformType::need_transpose(Self) -> Bool
+pub fn TransformType::to_int(Self) -> Int32
+pub fn TransformType::try_from(Int32) -> Self raise @bitstream.JxlError
+
+// Type aliases
+
+// Traits
