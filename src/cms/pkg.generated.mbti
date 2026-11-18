@@ -4,6 +4,8 @@ package "suica/jxl/cms"
 import {
   "moonbitlang/core/debug",
   "suica/jxl/bitstream",
+  "suica/jxl/color",
+  "suica/jxl/image",
 }
 
 // Values
@@ -11,6 +13,11 @@ import {
 // Errors
 
 // Types and methods
+#derive(@debug.Debug)
+pub(all) struct MoonCms {
+}
+pub impl @color.ColorManagementSystem for MoonCms
+
 pub struct Profile {
   version : UInt32
   device_class : UInt32
@@ -46,6 +53,8 @@ pub fn Transform::new(Profile, Profile, RenderingIntent) -> Self raise @bitstrea
 pub fn Transform::transform_interleaved(Self, FixedArray[Float], FixedArray[Float], Int32) -> Unit
 pub fn Transform::transform_pixel(Self, FixedArray[Float], FixedArray[Float]) -> Unit
 pub fn Transform::transform_planar(Self, Array[FixedArray[Float]]) -> Unit
+pub fn Transform::transform_planar_range(Self, Array[FixedArray[Float]], Int32, Int32) -> Unit
+pub impl @color.PreparedTransform for Transform
 
 // Type aliases
 

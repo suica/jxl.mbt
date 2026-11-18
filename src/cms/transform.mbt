@@ -130,3 +130,31 @@ pub fn Transform::transform_planar(
     }
   }
 }
+
+///|
+/// Transforms samples `start..start + len` of planar channels in place (the
+/// `@color.PreparedTransform::transform` contract).
+pub fn Transform::transform_planar_range(
+  self : Transform,
+  channels : Array[FixedArray[Float]],
+  start : Int32,
+  len : Int32,
+) -> Unit {
+  let nin = self.num_input_channels
+  let nout = self.num_output_channels
+  for i in start..<(start + len) {
+    for c in 0..<nin {
+      self.buf_in[c] = channels[c][i]
+    }
+    self.lut.eval_float(
+      self.buf_in,
+      self.buf_out,
+      self.buf0,
+      self.buf1,
+      self.scratch,
+    )
+    for c in 0..<nout {
+      channels[c][i] = self.buf_out[c]
+    }
+  }
+}
