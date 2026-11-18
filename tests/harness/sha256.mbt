@@ -118,3 +118,27 @@ pub fn to_hex(data : BytesView) -> String {
 pub fn sha256_hex(data : BytesView) -> String {
   to_hex(sha256(data))
 }
+
+///|
+/// `ring::test::from_hex`.
+pub fn from_hex(hex : String) -> Bytes raise Failure {
+  guard hex.length() % 2 == 0 else { fail("odd hex length") }
+  let digit = fn(c : Int) raise Failure {
+    if c >= '0'.to_int() && c <= '9'.to_int() {
+      c - '0'.to_int()
+    } else if c >= 'a'.to_int() && c <= 'f'.to_int() {
+      c - 'a'.to_int() + 10
+    } else if c >= 'A'.to_int() && c <= 'F'.to_int() {
+      c - 'A'.to_int() + 10
+    } else {
+      fail("invalid hex digit")
+    }
+  }
+  let out = FixedArray::make(hex.length() / 2, b'\x00')
+  for i in 0..<out.length() {
+    let hi = digit(hex.code_unit_at(2 * i).to_int())
+    let lo = digit(hex.code_unit_at(2 * i + 1).to_int())
+    out[i] = ((hi << 4) | lo).to_byte()
+  }
+  Bytes::from_array(out[:])
+}

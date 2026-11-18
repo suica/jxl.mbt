@@ -748,15 +748,17 @@ pub fn JxlImage::jpeg_reconstruction_status(
 }
 
 ///|
-/// Reconstructs JPEG bitstream and returns the JPEG file.
+/// Reconstructs JPEG bitstream and writes the image to writer.
 ///
-/// Raises if the reconstruction data is not available, incomplete or invalid.
+/// Raises if the reconstruction data is not available, incomplete or invalid,
+/// or if there was an error writing the image.
 ///
 /// Note that reconstruction may fail even if `jpeg_reconstruction_status`
 /// returned `Available`.
 pub fn JxlImage::reconstruct_jpeg(
   self : JxlImage,
-) -> Bytes raise @bitstream.JxlError {
+  jpeg_output : &Write,
+) -> Unit raise @bitstream.JxlError {
   let aux_boxes = self.inner.aux_boxes
   let jbrd = match aux_boxes.jbrd() {
     Data(jbrd) => jbrd
@@ -791,7 +793,7 @@ pub fn JxlImage::reconstruct_jpeg(
   let frame = self.frame(0).unwrap()
   let out = Buffer()
   jbrd.reconstruct(frame.frame(), icc, exif, xmp).write(out)
-  out.to_bytes()
+  jpeg_output.write_all(out.to_bytes()[:])
 }
 
 // # Private methods

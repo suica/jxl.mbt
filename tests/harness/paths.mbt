@@ -1,69 +1,108 @@
-// Locating test data.
+// Port of jxl-oxide-tests/src/lib.rs: locating test data.
 //
-// Port of jxl-oxide-tests/src/lib.rs. `moon test` runs test executables with
-// the current directory set to the root of the `suica/jxl_tests` module
-// (`tests/` in the repository) on both `native` and `wasm-gc` (moonrun), so
-// the defaults below are relative to that directory. Each location can be
-// overridden by an environment variable (absolute path recommended).
+// `CARGO_MANIFEST_DIR` (the root of the jxl-oxide-tests crate) is the root of
+// this module, `tests/` in the repository: `moon test` runs test executables
+// with the current directory set to it on both `native` and `wasm-gc`
+// (moonrun), so `manifest_dir()` is ".". The layout mirrors the crate:
+//
+//   tests/conformance/        the libjxl conformance repository (git submodule
+//                             upstream; created by scripts/fetch_fixtures.sh)
+//   tests/decode/             jxl-oxide-testdata (submodule upstream; ditto)
+//   tests/tests/<test>/       the ported integration tests (`tests/<test>/mod.rs`)
+//   tests/tests/cache/        downloaded objects (`JXL_OXIDE_CACHE`)
+//
+// The `net` feature is off: MoonBit tests have no HTTP client, so a fixture
+// missing from the cache fails the test with upstream's message;
+// scripts/fetch_fixtures.sh downloads the same URLs to the same file names.
 
 ///|
-/// Root of downloaded/decompressed fixtures (`fixtures/cache` at the repo root).
-/// Override: `JXL_FIXTURES_CACHE`.
-pub fn cache_dir() -> String {
-  env_or("JXL_FIXTURES_CACHE", "../fixtures/cache")
+/// `env!("CARGO_MANIFEST_DIR")`.
+pub fn manifest_dir() -> String {
+  "."
 }
 
 ///|
-/// libjxl conformance `testcases` directory.
-/// Override: `JXL_OXIDE_CONFORMANCE_TESTCASES` (same name as upstream).
-pub fn conformance_testcases_dir() -> String {
-  env_or("JXL_OXIDE_CONFORMANCE_TESTCASES", cache_dir() + "/conformance")
-}
-
-///|
-pub fn conformance_case_dir(name : String) -> String {
-  conformance_testcases_dir() + "/" + name
-}
-
-///|
-pub fn conformance_path(name : String) -> String {
-  conformance_case_dir(name) + "/input.jxl"
-}
-
-///|
-/// jxl-oxide decode test data (`<name>/input.jxl`, `<name>/output.buf`).
-/// Override: `JXL_OXIDE_DECODE_TESTCASES` (same name as upstream).
-pub fn decode_testcases_dir() -> String {
-  env_or("JXL_OXIDE_DECODE_TESTCASES", cache_dir() + "/decode")
-}
-
-///|
-/// Data committed in the tests module (fuzz findings, cmyk_layers.jxl, ...),
-/// relative to the module root. Override: `JXL_TESTS_DATA`.
-pub fn data_dir() -> String {
-  env_or("JXL_TESTS_DATA", "data")
+/// `std::env::var(name)`: `Some` when set (to valid Unicode).
+fn env_var(name : String) -> String? {
+  @env.get_env_var(name)
 }
 
 ///|
 pub fn debug_enabled() -> Bool {
-  @env.get_env_var("JXL_OXIDE_DEBUG") is Some(_)
+  env_var("JXL_OXIDE_DEBUG") is Some(_)
 }
 
 ///|
-/// When set, a missing fixture fails the test instead of skipping it.
-pub fn require_fixtures() -> Bool {
-  match @env.get_env_var("JXL_TESTS_REQUIRE_FIXTURES") {
-    Some(v) => v != "" && v != "0"
-    None => false
+pub fn conformance_testcases_dir() -> String {
+  match env_var("JXL_OXIDE_CONFORMANCE_TESTCASES") {
+    Some(testcases_dir) if testcases_dir != "" => testcases_dir
+    _ => manifest_dir() + "/conformance/testcases"
   }
 }
 
 ///|
-fn env_or(name : String, default : String) -> String {
-  match @env.get_env_var(name) {
-    Some(v) if v != "" => v
-    _ => default
+pub fn conformance_path(name : String) -> String {
+  conformance_testcases_dir() + "/" + name + "/input.jxl"
+}
+
+///|
+pub fn decode_testcases_dir() -> String {
+  match env_var("JXL_OXIDE_DECODE_TESTCASES") {
+    Some(testcases_dir) if testcases_dir != "" => testcases_dir
+    _ => manifest_dir() + "/decode"
   }
+}
+
+///|
+pub fn cache_dir() -> String {
+  match env_var("JXL_OXIDE_CACHE") {
+    Some(cache_dir) if cache_dir != "" => cache_dir
+    _ => manifest_dir() + "/tests/cache"
+  }
+}
+
+///|
+pub fn download_object_with_cache(hash : String, ext : String) -> Bytes raise {
+  let url = "https://storage.googleapis.com/storage/v1/b/jxl-conformance/o/objects%2F\{hash}?alt=media"
+  let name = "\{hash}.\{ext}"
+  download_url_with_cache(url, name)
+}
+
+///|
+/// Reads `name` from the cache. Without the `net` feature (always, here) a
+/// missing file panics with upstream's message; scripts/fetch_fixtures.sh
+/// fills the cache.
+pub fn download_url_with_cache(url : String, name : String) -> Bytes raise {
+  let cache_dir = cache_dir()
+  let path = cache_file_path(cache_dir, name)
+  if @fs.path_exists(path) {
+    if read_file_opt(path) is Some(buf) {
+      return buf
+    }
+  }
+  fail(
+    "Fixture \{name} (\{url}) not found in \{cache_dir}, but network is disabled",
+  )
+}
+
+///|
+pub fn cache_file_path(cache_dir : String, name : String) -> String {
+  cache_dir + "/" + name
+}
+
+///|
+fn read_file_opt(path : String) -> Bytes? {
+  Some(@fs.read_file_to_bytes(path)) catch {
+    _ => None
+  }
+}
+
+// Helpers used by the tests (`std::fs::read` and friends).
+
+///|
+/// The conformance testcase directory of `name`.
+pub fn conformance_case_dir(name : String) -> String {
+  conformance_testcases_dir() + "/" + name
 }
 
 ///|
@@ -72,45 +111,59 @@ pub fn file_exists(path : String) -> Bool {
 }
 
 ///|
+/// `std::fs::read(path).expect(..)`: fails when the file cannot be read.
 pub fn read_file(path : String) -> Bytes raise Failure {
   @fs.read_file_to_bytes(path) catch {
-    IOError(msg) => fail("cannot read \{path}: \{msg}")
+    IOError(msg) => fail("Failed to read file \{path}: \{msg}")
   }
 }
 
 ///|
 pub fn read_text(path : String) -> String raise Failure {
   @fs.read_file_to_string(path) catch {
-    IOError(msg) => fail("cannot read \{path}: \{msg}")
+    IOError(msg) => fail("Failed to read file \{path}: \{msg}")
   }
 }
 
 ///|
-/// Returns `Some(dir)` if `dir/probe` exists. Otherwise prints a SKIP line and
-/// returns `None`, or fails if `JXL_TESTS_REQUIRE_FIXTURES` is set.
-pub fn fixture_dir(dir : String, probe : String) -> String? raise Failure {
-  if @fs.path_exists(dir + "/" + probe) {
-    return Some(dir)
+/// Reads a fixture file; fails naming scripts/fetch_fixtures.sh when it is
+/// missing.
+pub fn read_fixture(path : String) -> Bytes raise Failure {
+  if !@fs.path_exists(path) {
+    fail("fixture missing: \{path} (run scripts/fetch_fixtures.sh)")
   }
-  if require_fixtures() {
+  read_file(path)
+}
+
+///|
+/// Returns `dir` if `dir/probe` exists; fails naming
+/// scripts/fetch_fixtures.sh otherwise.
+pub fn fixture_dir(dir : String, probe : String) -> String raise Failure {
+  if !@fs.path_exists(dir + "/" + probe) {
     fail("fixture missing: \{dir}/\{probe} (run scripts/fetch_fixtures.sh)")
   }
-  println(
-    "SKIP: fixture missing: \{dir}/\{probe} (run scripts/fetch_fixtures.sh)",
-  )
-  None
+  dir
 }
 
 ///|
-/// Reads a fixture file. Returns `None` (after printing a SKIP line) if it is
-/// missing, unless `JXL_TESTS_REQUIRE_FIXTURES` is set, then fails.
-pub fn read_fixture(path : String) -> Bytes? raise Failure {
-  if !@fs.path_exists(path) {
-    if require_fixtures() {
-      fail("fixture missing: \{path} (run scripts/fetch_fixtures.sh)")
-    }
-    println("SKIP: fixture missing: \{path} (run scripts/fetch_fixtures.sh)")
-    return None
+/// Writes a file (crop failure artifacts).
+pub fn write_file(path : String, data : Bytes) -> Unit raise Failure {
+  @fs.write_bytes_to_file(path, data) catch {
+    IOError(msg) => fail("Failed to write \{path}: \{msg}")
   }
-  Some(read_file(path))
+}
+
+///|
+/// `std::fs::create_dir_all`.
+pub fn create_dir_all(path : String) -> Unit raise Failure {
+  let parts = path.split("/").collect()
+  let mut cur = ""
+  for i, p in parts {
+    cur = if i == 0 { p.to_string() } else { cur + "/" + p.to_string() }
+    if cur != "" && cur != "." && !@fs.path_exists(cur) {
+      @fs.create_dir(cur) catch {
+        IOError(msg) => fail("Failed to create \{cur}: \{msg}")
+      }
+    }
+  }
 }

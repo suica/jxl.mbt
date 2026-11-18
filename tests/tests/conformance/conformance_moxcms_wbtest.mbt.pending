@@ -1,0 +1,87 @@
+// `mod moxcms` of upstream's conformance/mod.rs; pending src/moxcms (rename
+// to conformance_moxcms_wbtest.mbt when `@jxl.Moxcms` exists).
+
+///|
+test "conformance/moxcms/bench_oriented_brg" {
+  conformance_test(
+    @jxl.Moxcms::{  },
+    "bench_oriented_brg",
+    npy_hash="eac8c30907e41e53a73a0c002bc39e998e0ceb021bd523f5bff4580b455579e6",
+    icc_hash="6603ae12a4ac1ac742cacd887e9b35552a12c354ff25a00cae069ad4b932e6cc",
+    frames=1,
+    channels=3,
+    [
+      (0.004, 0.00001),
+      (0.004, 0.00001),
+      (0.004, 0.00001),
+    ],
+  )
+}
+
+///|
+test "conformance/moxcms/bike" {
+  conformance_test(
+    @jxl.Moxcms::{  },
+    "bike",
+    npy_hash="815c89d1fe0bf67b6a1c8139d0af86b6e3f11d55c5a0ed9396256fb05744469e",
+    icc_hash="809e189d1bf1fadb66f130ed0463d0de374b46497d299997e7c84619cbd35ed3",
+    frames=1,
+    channels=3,
+    [
+      (0.007, 0.0001),
+      (0.007, 0.0001),
+      (0.007, 0.0001),
+    ],
+  )
+}
+
+///|
+test "conformance/moxcms/cafe" {
+  conformance_test(
+    @jxl.Moxcms::{  },
+    "cafe",
+    npy_hash="4aaea4e1bda3771e62643fcdf2003ffe6048ee2870c93f67d34d6cc16cb7da4b",
+    icc_hash="bef95ce5cdb139325f2a299b943158e00e39a7ca3cf597ab3dfa3098e42fc707",
+    frames=1,
+    channels=3,
+    [
+      (0.004, 0.00001),
+      (0.004, 0.00001),
+      (0.004, 0.00001),
+    ],
+  )
+}
+
+///|
+test "conformance/moxcms/cmyk_layers" {
+  conformance_test(
+    @jxl.Moxcms::{  },
+    "cmyk_layers",
+    npy_hash="a01913d4e4b1a89bd96e5de82a5dfb9925c7827ee6380ad60c0b1c4becb53880",
+    icc_hash="4855b8fabb96bdc6495d45d089bb8c8efb1ae18389e0dc9e75a5f701a9c0b662",
+    frames=1,
+    channels=5,
+    [
+      (0.000976562, 0.000976562),
+      (0.000976562, 0.000976562),
+      (0.000976562, 0.000976562),
+      (0.000976562, 0.000976562),
+      (0.000976562, 0.000976562),
+    ],
+  )
+}
+
+///|
+test "conformance/moxcms/grayscale_public_university" {
+  conformance_test(
+    @jxl.Moxcms::{  },
+    "grayscale_public_university",
+    npy_hash="851abd36b93948cfaeabeb65c8bb8727ebca4bb1d2697bce73461e05ccf24c1e",
+    icc_hash="48d006762d583f6e354a3223c0a5aeaff7f45a324e229d237d69630bcc170241",
+    frames=1,
+    channels=1,
+    [
+      (0.000976562, 0.000976562),
+    ],
+  )
+}

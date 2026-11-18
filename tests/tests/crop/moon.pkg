@@ -1,6 +1,7 @@
 import {
+  "moonbitlang/core/cmp",
   "moonbitlang/core/env",
-  "moonbitlang/x/fs",
+  "moonbitlang/core/string",
   "suica/jxl",
   "suica/jxl_tests/harness",
 }

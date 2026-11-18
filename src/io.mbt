@@ -39,3 +39,15 @@ pub impl Read for Cursor with read(self, buf, start, end) {
   self.pos += n
   n
 }
+
+///|
+/// `std::io::Write` as used by jxl-oxide (`JxlImage::reconstruct_jpeg`).
+pub(open) trait Write {
+  write_all(Self, BytesView) -> Unit raise @bitstream.JxlError
+}
+
+///|
+/// `Vec<u8>` as a writer.
+pub impl Write for Buffer with write_all(self, data) {
+  self.write_bytesview(data)
+}
