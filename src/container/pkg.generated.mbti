@@ -1,0 +1,85 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/container"
+
+import {
+  "moonbitlang/core/debug",
+  "suica/jxl/bitstream",
+}
+
+// Values
+pub let codestream_sig : Bytes
+
+pub let container_sig : Bytes
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum BitstreamKind {
+  Unknown
+  BareCodestream
+  Container
+  Invalid
+}
+pub impl Show for BitstreamKind
+
+#derive(@debug.Debug)
+pub(all) struct ContainerBoxHeader {
+  ty : ContainerBoxType
+  box_size : UInt64?
+  is_last : Bool
+}
+pub fn ContainerBoxHeader::box_size(Self) -> UInt64?
+pub fn ContainerBoxHeader::box_type(Self) -> ContainerBoxType
+pub fn ContainerBoxHeader::is_last(Self) -> Bool
+pub fn ContainerBoxHeader::parse(BytesView) -> HeaderParseResult raise @bitstream.JxlError
+
+#derive(Eq, Hash, @debug.Debug)
+pub(all) struct ContainerBoxType(Bytes)
+pub fn ContainerBoxType::brotli_compressed() -> Self
+pub fn ContainerBoxType::bytes(Self) -> Bytes
+pub fn ContainerBoxType::codestream() -> Self
+pub fn ContainerBoxType::exif() -> Self
+pub fn ContainerBoxType::file_type() -> Self
+pub fn ContainerBoxType::frame_index() -> Self
+pub fn ContainerBoxType::hdr_gain_map() -> Self
+pub fn ContainerBoxType::jpeg_reconstruction() -> Self
+pub fn ContainerBoxType::jumbf() -> Self
+pub fn ContainerBoxType::jxl() -> Self
+pub fn ContainerBoxType::jxl_level() -> Self
+pub fn ContainerBoxType::partial_codestream() -> Self
+pub fn ContainerBoxType::xml() -> Self
+pub impl Show for ContainerBoxType
+
+pub struct ContainerParser {
+  // private fields
+}
+pub fn ContainerParser::feed_bytes(Self, BytesView) -> ParseEvents
+pub fn ContainerParser::kind(Self) -> BitstreamKind
+pub fn ContainerParser::new() -> Self
+pub fn ContainerParser::previous_consumed_bytes(Self) -> Int32
+
+#derive(@debug.Debug)
+pub(all) enum HeaderParseResult {
+  Done(header~ : ContainerBoxHeader, header_size~ : Int32)
+  NeedMoreData
+}
+
+pub(all) enum ParseEvent {
+  BitstreamKind(BitstreamKind)
+  Codestream(BytesView)
+  NoMoreAuxBox
+  AuxBoxStart(ty~ : ContainerBoxType, brotli_compressed~ : Bool, last_box~ : Bool)
+  AuxBoxData(ContainerBoxType, BytesView)
+  AuxBoxEnd(ContainerBoxType)
+}
+pub impl Show for ParseEvent
+
+pub struct ParseEvents {
+  // private fields
+}
+pub fn ParseEvents::next(Self) -> ParseEvent? raise @bitstream.JxlError
+
+// Type aliases
+
+// Traits

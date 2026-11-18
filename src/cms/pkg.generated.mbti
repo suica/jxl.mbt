@@ -1,0 +1,61 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/cms"
+
+import {
+  "moonbitlang/core/debug",
+  "suica/jxl/bitstream",
+  "suica/jxl/color",
+  "suica/jxl/image",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+#derive(@debug.Debug)
+pub(all) struct MoonCms {
+}
+pub impl @color.ColorManagementSystem for MoonCms
+
+pub struct Profile {
+  version : UInt32
+  device_class : UInt32
+  color_space : UInt32
+  pcs : UInt32
+  rendering_intent : UInt32
+  // private fields
+}
+pub fn Profile::bytes(Self) -> Bytes
+pub fn Profile::is_cmyk(Self) -> Bool
+pub fn Profile::is_gray(Self) -> Bool
+pub fn Profile::num_channels(Self) -> Int32
+pub fn Profile::parse(Bytes) -> Self raise @bitstream.JxlError
+
+#derive(Eq, @debug.Debug)
+pub(all) enum RenderingIntent {
+  Perceptual
+  Relative
+  Saturation
+  Absolute
+}
+
+#derive(Eq)
+type StageSig
+
+pub struct Transform {
+  num_input_channels : Int32
+  num_output_channels : Int32
+  // private fields
+}
+pub fn Transform::from_icc(Bytes, Bytes, RenderingIntent) -> Self raise @bitstream.JxlError
+pub fn Transform::new(Profile, Profile, RenderingIntent) -> Self raise @bitstream.JxlError
+pub fn Transform::transform_interleaved(Self, FixedArray[Float], FixedArray[Float], Int32) -> Unit
+pub fn Transform::transform_pixel(Self, FixedArray[Float], FixedArray[Float]) -> Unit
+pub fn Transform::transform_planar(Self, Array[FixedArray[Float]]) -> Unit
+pub fn Transform::transform_planar_range(Self, Array[FixedArray[Float]], Int32, Int32) -> Unit
+pub impl @color.PreparedTransform for Transform
+
+// Type aliases
+
+// Traits
