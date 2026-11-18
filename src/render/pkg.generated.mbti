@@ -1,0 +1,40 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/render"
+
+import {
+  "suica/jxl/bitstream",
+  "suica/jxl/grid",
+}
+
+// Values
+pub fn apply_epf_grids(Array[@grid.SubGrid[Float]], Array[@grid.Grid[Float]], Int32, Int32, Int32, Int32, Int32, Int32, Array[@grid.Grid[Float]?], EpfKernelParams) -> Bool
+
+pub fn apply_gabor_like_grids(Array[@grid.SubGrid[Float]], Array[@grid.Grid[Float]], FixedArray[FixedArray[Float]]) -> Unit
+
+pub fn apply_jpeg_upsampling_single_raw(@grid.SubGrid[Float], Int32, Int32, Int32, Int32, @grid.AllocTracker?) -> @grid.Grid[Float] raise @bitstream.JxlError
+
+pub fn epf_step(Int32, Array[@grid.SubGrid[Float]], Array[@grid.SubGrid[Float]], Int32, Int32, Int32, Int32, Int32, Int32, Array[@grid.Grid[Float]?], EpfKernelParams) -> Unit
+
+pub fn render_noise_raw(Int32, Int32, Int32, Int32, Int32, (Float, Float)?, @grid.Grid[Float], @grid.Grid[Float], @grid.Grid[Float], Int32, Int32, Int32, Int32, FixedArray[Float], @grid.AllocTracker?) -> Unit raise @bitstream.JxlError
+
+pub fn render_spline_raw(Int32, Int32, Array[@grid.Grid[Float]], Int32, Int32, Array[(Int64, Int64)], FixedArray[FixedArray[Int32]], FixedArray[Int32], Int32, (Float, Float)?) -> Unit
+
+pub fn render_spot_color_raw(Array[@grid.Grid[Float]], @grid.Grid[Float], Float, Float, Float, Float) -> Unit
+
+pub fn upsample_raw(@grid.SubGrid[Float], FixedArray[Float], FixedArray[Float], FixedArray[Float], Int32, @grid.AllocTracker?) -> @grid.Grid[Float]? raise @bitstream.JxlError
+
+// Errors
+
+// Types and methods
+pub(all) struct EpfKernelParams {
+  iters : Int32
+  channel_scale : FixedArray[Float]
+  pass0_sigma_scale : Float
+  pass2_sigma_scale : Float
+  border_sad_mul : Float
+  sigma_for_modular : Float
+}
+
+// Type aliases
+
+// Traits
