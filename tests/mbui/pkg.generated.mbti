@@ -10,6 +10,8 @@ pub fn check_pixels(String, Int32) -> Unit raise
 
 pub fn check_size(String) -> Unit raise
 
+pub fn check_trickle(String, Int32) -> Unit raise
+
 pub fn load_case(String) -> (Bytes, @harness.Npy) raise
 
 // Errors

@@ -16,5 +16,8 @@ import {
 
 options(
   "native-stub": [ "open_native.c" ],
-  targets: { "open_native.mbt": [ "native" ] },
+  targets: {
+    "open_native.mbt": [ "native" ],
+    "open_native_test.mbt": [ "native" ],
+  },
 )

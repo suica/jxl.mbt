@@ -247,3 +247,13 @@ test "mbui/decode_jxl/fuzz findings do not crash" {
     @jxl.decode_jxl(data) |> ignore
   }
 }
+
+///|
+test "reader/trickle 1 byte (container, jxlp)" {
+  check_trickle("alpha_triangles", 1)
+}
+
+///|
+test "reader/trickle 1000 bytes" {
+  check_trickle("lz77_flower", 1000)
+}
