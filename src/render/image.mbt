@@ -1,17 +1,33 @@
 ///|
 /// A sample buffer of one channel (jxl-render `ImageBuffer`).
 ///
-/// Upstream also has an `I16` variant for "narrow" (16-bit) modular buffers;
-/// modular buffers are always `Int` in this port, so only `F32` and `I32`
-/// exist.
+/// `I16` holds "narrow" modular buffers (`modular_16bit_buffers` and not
+/// `force_wide_buffers`; `Sample = i16` upstream).
 pub(all) enum ImageBuffer {
   F32(@grid.Grid[Float])
   I32(@grid.Grid[Int32])
+  I16(@grid.Grid[Int16])
 }
 
 ///|
-pub fn ImageBuffer::from_modular_channel(g : @grid.Grid[Int32]) -> ImageBuffer {
-  I32(g)
+/// `ImageBuffer::from_modular_channel::<S>`: `narrow` selects `S = i16`
+/// (samples are converted with `as i16`), otherwise `S = i32`.
+pub fn ImageBuffer::from_modular_channel(
+  g : @grid.Grid[Int32],
+  narrow~ : Bool = false,
+) -> ImageBuffer {
+  if narrow {
+    let n = g.width() * g.height()
+    let src = g.buf()
+    let out = @grid.Grid::new(g.width(), g.height(), (0 : Int16))
+    let dst = out.buf()
+    for i in 0..<n {
+      dst[i] = Int16::from_int(src[i])
+    }
+    I16(out)
+  } else {
+    I32(g)
+  }
 }
 
 ///|
@@ -24,12 +40,14 @@ pub fn ImageBuffer::zeroed_f32(
 }
 
 ///|
+#warnings("-unused_error_type")
 pub fn ImageBuffer::try_clone(
   self : ImageBuffer,
 ) -> ImageBuffer raise @bitstream.JxlError {
   match self {
     F32(g) => F32(g.clone())
     I32(g) => I32(g.clone())
+    I16(g) => I16(g.clone())
   }
 }
 
@@ -38,6 +56,7 @@ pub fn ImageBuffer::width(self : ImageBuffer) -> Int32 {
   match self {
     F32(g) => g.width()
     I32(g) => g.width()
+    I16(g) => g.width()
   }
 }
 
@@ -46,6 +65,7 @@ pub fn ImageBuffer::height(self : ImageBuffer) -> Int32 {
   match self {
     F32(g) => g.height()
     I32(g) => g.height()
+    I16(g) => g.height()
   }
 }
 
@@ -58,9 +78,15 @@ pub fn ImageBuffer::as_float(self : ImageBuffer) -> @grid.Grid[Float]? {
 }
 
 ///|
+/// `as_float_mut` (grids are shared references here).
+pub fn ImageBuffer::as_float_mut(self : ImageBuffer) -> @grid.Grid[Float]? {
+  self.as_float()
+}
+
+///|
 /// Returns the float grid, panicking if the buffer is not `F32`
 /// (`as_float().unwrap()`).
-pub fn ImageBuffer::float(self : ImageBuffer) -> @grid.Grid[Float] {
+fn ImageBuffer::float(self : ImageBuffer) -> @grid.Grid[Float] {
   match self {
     F32(g) => g
     _ => abort("buffer is not F32")
@@ -74,6 +100,7 @@ pub fn ImageBuffer::float(self : ImageBuffer) -> @grid.Grid[Float] {
 /// and the caller stores `F32(grid)` back (see
 /// `ImageWithRegion::convert_channel_to_float_modular`). Returns the
 /// original grid if already float.
+#warnings("-unused_error_type")
 pub fn ImageBuffer::convert_to_float_modular(
   self : ImageBuffer,
   bit_depth : @image.BitDepth,
@@ -90,11 +117,22 @@ pub fn ImageBuffer::convert_to_float_modular(
       }
       out
     }
+    I16(g) => {
+      let out = @grid.Grid::new(g.width(), g.height(), (0.0 : Float))
+      let src = g.buf()
+      let dst = out.buf()
+      let n = g.width() * g.height()
+      for i in 0..<n {
+        dst[i] = bit_depth.parse_integer_sample(src[i].to_int())
+      }
+      out
+    }
   }
 }
 
 ///|
 /// Casts integer samples to float without scaling.
+#warnings("-unused_error_type")
 pub fn ImageBuffer::cast_to_float(
   self : ImageBuffer,
 ) -> @grid.Grid[Float] raise @bitstream.JxlError {
@@ -107,6 +145,16 @@ pub fn ImageBuffer::cast_to_float(
       let n = g.width() * g.height()
       for i in 0..<n {
         dst[i] = Float::from_int(src[i])
+      }
+      out
+    }
+    I16(g) => {
+      let out = @grid.Grid::new(g.width(), g.height(), (0.0 : Float))
+      let src = g.buf()
+      let dst = out.buf()
+      let n = g.width() * g.height()
+      for i in 0..<n {
+        dst[i] = Float::from_int(src[i].to_int())
       }
       out
     }
@@ -126,6 +174,18 @@ fn saturating_add_i32(a : Int32, b : Int32) -> Int32 {
 }
 
 ///|
+fn saturating_add_i16(a : Int16, b : Int16) -> Int16 {
+  let r = a.to_int() + b.to_int()
+  if r > 32767 {
+    Int16::from_int(32767)
+  } else if r < -32768 {
+    Int16::from_int(-32768)
+  } else {
+    Int16::from_int(r)
+  }
+}
+
+///|
 /// Dequantizes XYB-encoded modular channels (given in Y, X, B order) into
 /// float X, Y, B values. Returns the float grids `[y, x, b]` positions, which
 /// now hold X, Y, B respectively.
@@ -141,6 +201,14 @@ pub fn ImageBuffer::convert_to_float_modular_xyb(
       let n = b.width() * b.height()
       for i in 0..<n {
         bb[i] = saturating_add_i32(bb[i], yb[i])
+      }
+    }
+    (I16(y), I16(_), I16(b)) => {
+      let bb = b.buf()
+      let yb = y.buf()
+      let n = b.width() * b.height()
+      for i in 0..<n {
+        bb[i] = saturating_add_i16(bb[i], yb[i])
       }
     }
     _ => abort("mismatched channel types")
@@ -197,7 +265,7 @@ fn[S] upsample_nn_inner(
 }
 
 ///|
-pub fn ImageBuffer::upsample_nn(
+fn ImageBuffer::upsample_nn(
   self : ImageBuffer,
   factor : Int32,
   tracker : @grid.AllocTracker?,
@@ -225,6 +293,17 @@ pub fn ImageBuffer::upsample_nn(
       upsample_nn_inner(g.buf(), out.buf(), width, height, factor)
       I32(out)
     }
+    I16(g) => {
+      let out = @grid.Grid::with_alloc_tracker(
+        up_width,
+        up_height,
+        (0 : Int16),
+        tracker,
+        elem_size=2,
+      )
+      upsample_nn_inner(g.buf(), out.buf(), width, height, factor)
+      I16(out)
+    }
   }
 }
 
@@ -232,17 +311,18 @@ pub fn ImageBuffer::upsample_nn(
 /// Rendered image: one buffer per channel, each with the region (in frame
 /// coordinates) it covers and its channel shift (jxl-render
 /// `ImageWithRegion`).
+#warnings("-unused_field")
 pub struct ImageWithRegion {
-  buffer : Array[ImageBuffer]
-  regions : Array[(Region, @modular.ChannelShift)]
-  mut color_channels : Int32
-  mut ct_done : Bool
-  mut blend_done : Bool
-  tracker : @grid.AllocTracker?
+  priv buffer : Array[ImageBuffer]
+  priv regions : Array[(Region, @modular.ChannelShift)]
+  priv mut color_channels : Int32
+  priv mut ct_done : Bool
+  priv mut blend_done : Bool
+  priv tracker : @grid.AllocTracker?
 }
 
 ///|
-pub fn ImageWithRegion::new(
+fn ImageWithRegion::new(
   color_channels : Int32,
   tracker : @grid.AllocTracker?,
 ) -> ImageWithRegion {
@@ -257,7 +337,7 @@ pub fn ImageWithRegion::new(
 }
 
 ///|
-pub fn ImageWithRegion::try_clone(
+fn ImageWithRegion::try_clone(
   self : ImageWithRegion,
 ) -> ImageWithRegion raise @bitstream.JxlError {
   let buffer = []
@@ -275,7 +355,7 @@ pub fn ImageWithRegion::try_clone(
 }
 
 ///|
-pub fn ImageWithRegion::alloc_tracker(
+fn ImageWithRegion::alloc_tracker(
   self : ImageWithRegion,
 ) -> @grid.AllocTracker? {
   self.tracker
@@ -381,7 +461,7 @@ pub fn ImageWithRegion::replace_channel_shifted(
 ///|
 /// Swaps the F32 buffer of channel `index` with `buffer`; returns the old
 /// buffer (upstream swaps through `&mut`).
-pub fn ImageWithRegion::swap_channel_f32(
+fn ImageWithRegion::swap_channel_f32(
   self : ImageWithRegion,
   index : Int32,
   buffer : @grid.Grid[Float],
@@ -402,7 +482,7 @@ pub fn ImageWithRegion::swap_channel_f32(
 /// Converts channel `index` to float with `bit_depth`, stores it back and
 /// returns the float grid (upstream `buffer_mut()[index]
 /// .convert_to_float_modular(bit_depth)`).
-pub fn ImageWithRegion::convert_channel_to_float_modular(
+fn ImageWithRegion::convert_channel_to_float_modular(
   self : ImageWithRegion,
   index : Int32,
   bit_depth : @image.BitDepth,
@@ -417,6 +497,7 @@ pub fn ImageWithRegion::convert_channel_to_float_modular(
 pub fn ImageWithRegion::extend_from_gmodular(
   self : ImageWithRegion,
   gmodular : @frame.GlobalModular,
+  narrow~ : Bool = false,
 ) -> Unit {
   guard gmodular.modular.into_image() is Some(image) else { return }
   for item in image.into_image_channels_with_info() {
@@ -424,13 +505,13 @@ pub fn ImageWithRegion::extend_from_gmodular(
     let (width, height) = info.original_size()
     let shift = info.shift()
     let original_region = Region::with_size(width, height)
-    let buffer = ImageBuffer::from_modular_channel(g)
+    let buffer = ImageBuffer::from_modular_channel(g, narrow~)
     self.append_channel_shifted(buffer, original_region, shift)
   }
 }
 
 ///|
-pub fn ImageWithRegion::clone_gray(
+fn ImageWithRegion::clone_gray(
   self : ImageWithRegion,
 ) -> Unit raise @bitstream.JxlError {
   guard self.color_channels == 1 else { abort("clone_gray: not grayscale") }
@@ -444,7 +525,7 @@ pub fn ImageWithRegion::clone_gray(
 }
 
 ///|
-pub fn ImageWithRegion::convert_modular_color(
+fn ImageWithRegion::convert_modular_color(
   self : ImageWithRegion,
   bit_depth : @image.BitDepth,
 ) -> Unit raise @bitstream.JxlError {
@@ -457,7 +538,7 @@ pub fn ImageWithRegion::convert_modular_color(
 }
 
 ///|
-pub fn ImageWithRegion::convert_modular_xyb(
+fn ImageWithRegion::convert_modular_xyb(
   self : ImageWithRegion,
   lf_dequant : @vardct.LfChannelDequantization,
 ) -> Unit raise @bitstream.JxlError {
@@ -474,7 +555,7 @@ pub fn ImageWithRegion::convert_modular_xyb(
 }
 
 ///|
-pub fn ImageWithRegion::upsample_lf(
+fn ImageWithRegion::upsample_lf(
   self : ImageWithRegion,
   lf_level : Int32,
 ) -> ImageWithRegion raise @bitstream.JxlError {
@@ -490,7 +571,7 @@ pub fn ImageWithRegion::upsample_lf(
 }
 
 ///|
-pub fn ImageWithRegion::upsample_jpeg(
+fn ImageWithRegion::upsample_jpeg(
   self : ImageWithRegion,
   valid_region : Region,
   bit_depth : @image.BitDepth,
@@ -527,7 +608,7 @@ pub fn ImageWithRegion::upsample_jpeg(
 }
 
 ///|
-pub fn ImageWithRegion::upsample_nonseparable(
+fn ImageWithRegion::upsample_nonseparable(
   self : ImageWithRegion,
   image_header : @image.ImageHeader,
   frame_header : @frame.FrameHeader,
@@ -586,7 +667,7 @@ pub fn ImageWithRegion::upsample_nonseparable(
 }
 
 ///|
-pub fn ImageWithRegion::prepare_color_upsampling(
+fn ImageWithRegion::prepare_color_upsampling(
   self : ImageWithRegion,
   frame_header : @frame.FrameHeader,
 ) -> Unit {
@@ -605,7 +686,7 @@ pub fn ImageWithRegion::prepare_color_upsampling(
         has_h_subsample=false,
         h_subsample=false,
         has_v_subsample=false,
-        v_subsample=false
+        v_subsample=false,
       ) => Shifts(upsampling_factor)
       JpegUpsampling(..) => abort("unexpected chroma subsampling")
     }
@@ -614,7 +695,7 @@ pub fn ImageWithRegion::prepare_color_upsampling(
 }
 
 ///|
-pub fn ImageWithRegion::remove_color_channels(
+fn ImageWithRegion::remove_color_channels(
   self : ImageWithRegion,
   count : Int32,
 ) -> Unit {
@@ -630,7 +711,7 @@ pub fn ImageWithRegion::remove_color_channels(
 }
 
 ///|
-pub fn ImageWithRegion::fill_opaque_alpha(
+fn ImageWithRegion::fill_opaque_alpha(
   self : ImageWithRegion,
   ec_info : Array[@image.ExtraChannelInfo],
 ) -> Unit {
@@ -645,6 +726,7 @@ pub fn ImageWithRegion::fill_opaque_alpha(
       }
     }
     match self.buffer[self.color_channels + ec_idx] {
+      I16(g) => g.buf().fill(Int16::from_int(opaque_int))
       I32(g) => g.buf().fill(opaque_int)
       F32(g) => g.buf().fill(1.0)
     }
@@ -657,25 +739,17 @@ pub fn ImageWithRegion::color_channels(self : ImageWithRegion) -> Int32 {
 }
 
 ///|
-pub fn ImageWithRegion::ct_done(self : ImageWithRegion) -> Bool {
+fn ImageWithRegion::ct_done(self : ImageWithRegion) -> Bool {
   self.ct_done
 }
 
 ///|
-pub fn ImageWithRegion::set_ct_done(
-  self : ImageWithRegion,
-  ct_done : Bool,
-) -> Unit {
+fn ImageWithRegion::set_ct_done(self : ImageWithRegion, ct_done : Bool) -> Unit {
   self.ct_done = ct_done
 }
 
 ///|
-pub fn ImageWithRegion::blend_done(self : ImageWithRegion) -> Bool {
-  self.blend_done
-}
-
-///|
-pub fn ImageWithRegion::set_blend_done(
+fn ImageWithRegion::set_blend_done(
   self : ImageWithRegion,
   blend_done : Bool,
 ) -> Unit {
@@ -684,7 +758,7 @@ pub fn ImageWithRegion::set_blend_done(
 
 ///|
 /// The three color channels as float grids (panics if not converted).
-pub fn ImageWithRegion::as_color_floats(
+fn ImageWithRegion::as_color_floats(
   self : ImageWithRegion,
 ) -> FixedArray[@grid.Grid[Float]] {
   guard self.color_channels == 3 else { abort("as_color_floats: not 3 ch") }
@@ -692,7 +766,7 @@ pub fn ImageWithRegion::as_color_floats(
 }
 
 ///|
-pub fn ImageWithRegion::as_color_floats_mut(
+fn ImageWithRegion::as_color_floats_mut(
   self : ImageWithRegion,
 ) -> FixedArray[@grid.Grid[Float]] {
   self.as_color_floats()
@@ -701,7 +775,7 @@ pub fn ImageWithRegion::as_color_floats_mut(
 ///|
 /// Splits the color channels into groups and returns each group with its
 /// group index in the frame.
-pub fn ImageWithRegion::color_groups_with_group_id(
+fn ImageWithRegion::color_groups_with_group_id(
   self : ImageWithRegion,
   frame_header : @frame.FrameHeader,
 ) -> Array[(Int32, FixedArray[@grid.SubGrid[Float]])] {
@@ -742,18 +816,18 @@ pub fn ImageWithRegion::color_groups_with_group_id(
 ///|
 /// A rendered (but possibly not yet blended) frame (jxl-render
 /// `RenderedImage`).
-pub struct RenderedImage {
+priv struct RenderedImage {
   image : FrameRenderHandle
 }
 
 ///|
-pub fn RenderedImage::new(image : FrameRenderHandle) -> RenderedImage {
+fn RenderedImage::new(image : FrameRenderHandle) -> RenderedImage {
   { image, }
 }
 
 ///|
 /// Composites the rendered frame onto its references, caching the result.
-pub fn RenderedImage::blend(
+fn RenderedImage::blend(
   self : RenderedImage,
   oriented_image_region : Region?,
 ) -> ImageWithRegion raise @bitstream.JxlError {
@@ -787,13 +861,28 @@ pub fn RenderedImage::blend(
 }
 
 ///|
-/// Upstream takes the blended image out of the handle when no one else holds
-/// it (`Arc::into_inner`). The call sites always hold another reference, so
-/// it never succeeds; without reference counting this always returns `None`.
-pub fn RenderedImage::try_take_blended(
-  _self : RenderedImage,
-) -> ImageWithRegion? {
-  None
+/// Takes the blended image out of the handle if no one else holds it
+/// (upstream `try_take_blended`).
+///
+/// Upstream does `Arc::into_inner(Arc::clone(&image))` while `image` itself
+/// is still alive, so `into_inner` never yields the image: the state is put
+/// back and `None` is returned. That is reproduced exactly here.
+fn RenderedImage::try_take_blended(self : RenderedImage) -> ImageWithRegion? {
+  // std::mem::take(&mut *grid_lock)
+  let render = self.image.render
+  self.image.render = Empty
+  match render {
+    Blended(image) => {
+      // `Arc::into_inner(cloned_image)` is `None`: `image` is another strong
+      // reference.
+      self.image.render = Blended(image)
+      None
+    }
+    render => {
+      self.image.render = render
+      None
+    }
+  }
 }
 
 ///|

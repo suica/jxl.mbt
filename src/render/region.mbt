@@ -239,7 +239,7 @@ pub fn Region::upsample_separate(
 
 ///|
 /// Aligns the region to a multiple of `grid_dim` (a power of two).
-pub fn Region::container_aligned(self : Region, grid_dim : Int32) -> Region {
+fn Region::container_aligned(self : Region, grid_dim : Int32) -> Region {
   let add = grid_dim - 1
   let mask = add.lnot()
   let new_left = self.left & mask

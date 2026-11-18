@@ -1,6 +1,6 @@
 ///|
 /// Converts a region in the image to the corresponding region in `frame`.
-pub fn image_region_to_frame(
+fn image_region_to_frame(
   frame : IndexedFrame,
   image_region : Region,
   ignore_lf_level : Bool,
@@ -27,7 +27,7 @@ pub fn image_region_to_frame(
 }
 
 ///|
-pub fn apply_orientation_to_image_region(
+fn apply_orientation_to_image_region(
   image_header : @image.ImageHeader,
   image_region : Region,
 ) -> Region {
@@ -35,7 +35,7 @@ pub fn apply_orientation_to_image_region(
 }
 
 ///|
-pub fn pad_lf_region(
+fn pad_lf_region(
   frame_header : @frame.FrameHeader,
   frame_region : Region,
 ) -> Region {
@@ -54,7 +54,7 @@ fn ilog2(x : Int32) -> Int32 {
 }
 
 ///|
-pub fn pad_upsampling(
+fn pad_upsampling(
   image_header : @image.ImageHeader,
   frame_header : @frame.FrameHeader,
   frame_region : Region,
@@ -86,7 +86,7 @@ pub fn pad_upsampling(
 }
 
 ///|
-pub fn pad_color_region(
+fn pad_color_region(
   image_header : @image.ImageHeader,
   frame_header : @frame.FrameHeader,
   frame_region : Region,
@@ -166,12 +166,13 @@ priv struct LfGroupJob {
 ///|
 /// Loads LF groups intersecting `lf_region` into `lf_groups`, and returns
 /// dequantized LF images for VarDCT frames without an LF frame.
-pub fn load_lf_groups(
+fn load_lf_groups(
   frame : IndexedFrame,
   lf_global : @frame.LfGlobal,
   lf_groups : Map[Int32, @frame.LfGroup],
   mlf_groups : Array[@modular.TransformedModularSubimage],
   lf_region : Region,
+  pool : @threadpool.JxlThreadPool,
 ) -> ImageWithRegion? raise @bitstream.JxlError {
   let frame_header = frame.header()
   let lf_global_vardct = lf_global.vardct
@@ -259,8 +260,9 @@ pub fn load_lf_groups(
     }
     jobs.push({ idx, lf_group: None, modular, lf_xyb, })
   }
-  let mut result : @bitstream.JxlError? = None
-  for job in jobs {
+  let result : Ref[@bitstream.JxlError?] = Ref(None)
+  // pool.for_each_mut_slice
+  pool.for_each_vec(jobs, job => {
     let idx = job.idx
     let loaded = match job.lf_group {
       Some(g) => !g.partial
@@ -271,15 +273,14 @@ pub fn load_lf_groups(
       job.modular = None
       let parse_result = frame.try_parse_lf_group(
         lf_global_vardct, global_ma_config, modular, idx,
-      ) catch {
-        e => {
-          result = Some(e)
-          continue
-        }
-      }
+      )
       match parse_result {
-        Some(g) => job.lf_group = Some(g)
-        None => continue
+        Some(Ok(g)) => job.lf_group = Some(g)
+        Some(Err(e)) => {
+          result.val = Some(e)
+          return
+        }
+        None => return
       }
     }
     let lf_group = job.lf_group.unwrap()
@@ -294,7 +295,7 @@ pub fn load_lf_groups(
         height: group_dim,
       }
       if lf_region.intersection(lf_group_region).is_empty() {
-        continue
+        return
       }
       let quantizer = lf_global_vardct.quantizer
       let lf_coeff = lf_group.lf_coeff.unwrap()
@@ -321,13 +322,13 @@ pub fn load_lf_groups(
         lf_coeff.extra_precision,
       )
     }
-  }
+  })
   for job in jobs {
     if job.lf_group is Some(group) {
       lf_groups[job.idx] = group
     }
   }
-  if result is Some(e) {
+  if result.val is Some(e) {
     raise e
   }
   lf_xyb
@@ -336,7 +337,7 @@ pub fn load_lf_groups(
 ///|
 /// Converts the color channels for recording as a reference (save_before_ct
 /// = false): YCbCr → RGB, or XYB → the signalled enum color encoding.
-pub fn convert_color_for_record(
+fn convert_color_for_record(
   image_header : @image.ImageHeader,
   do_ycbcr : Bool,
   fb : ImageWithRegion,
@@ -362,6 +363,7 @@ pub fn convert_color_for_record(
     }
     fb.convert_modular_color(metadata.bit_depth)
     let xyb = fb.as_color_floats_mut()
+    // Upstream unwraps both results (panics on error).
     let transform = @color.ColorTransform::new(
       @color.ColorEncodingWithProfile::new(
         @color.EnumColourEncoding::xyb(@color.RenderingIntent::Perceptual),
@@ -370,12 +372,16 @@ pub fn convert_color_for_record(
       metadata.opsin_inverse_matrix,
       metadata.tone_mapping,
       (@color.NullCms::{ } : &@color.ColorManagementSystem),
-    )
-    let output_channels = transform.run([
+    ) catch {
+      e => abort("ColorTransform::new: \{@debug.to_string(e)}")
+    }
+    let output_channels = transform.run_with_threads([
       xyb[0].buf(),
       xyb[1].buf(),
       xyb[2].buf(),
-    ])
+    ]) catch {
+      e => abort("ColorTransform::run_with_threads: \{@debug.to_string(e)}")
+    }
     fb.remove_color_channels(output_channels)
     fb.set_ct_done(true)
   }
@@ -383,7 +389,8 @@ pub fn convert_color_for_record(
 
 ///|
 /// Mirrors `offset` into `0..len`.
-pub fn mirror(offset : Int32, len : Int32) -> Int32 {
+#warnings("-unused_value")
+fn mirror(offset : Int32, len : Int32) -> Int32 {
   let mut offset = offset
   while true {
     if offset < 0 {
@@ -399,13 +406,14 @@ pub fn mirror(offset : Int32, len : Int32) -> Int32 {
 
 ///|
 /// A grid with `padding` samples of padding on each side.
-pub struct PaddedGrid[S] {
+priv struct PaddedGrid[S] {
   grid : @grid.Grid[S]
   padding : Int32
 }
 
 ///|
-pub fn[S] PaddedGrid::with_alloc_tracker(
+#warnings("-unused_value")
+fn[S] PaddedGrid::with_alloc_tracker(
   width : Int32,
   height : Int32,
   padding : Int32,
@@ -424,17 +432,20 @@ pub fn[S] PaddedGrid::with_alloc_tracker(
 }
 
 ///|
-pub fn[S] PaddedGrid::buf_padded(self : PaddedGrid[S]) -> FixedArray[S] {
+#warnings("-unused_value")
+fn[S] PaddedGrid::buf_padded(self : PaddedGrid[S]) -> FixedArray[S] {
   self.grid.buf()
 }
 
 ///|
-pub fn[S] PaddedGrid::buf_padded_mut(self : PaddedGrid[S]) -> FixedArray[S] {
+#warnings("-unused_value")
+fn[S] PaddedGrid::buf_padded_mut(self : PaddedGrid[S]) -> FixedArray[S] {
   self.grid.buf()
 }
 
 ///|
-pub fn[S] PaddedGrid::mirror_edges_padding(self : PaddedGrid[S]) -> Unit {
+#warnings("-unused_value")
+fn[S] PaddedGrid::mirror_edges_padding(self : PaddedGrid[S]) -> Unit {
   let padding = self.padding
   let stride = self.grid.width()
   let height = self.grid.height() - padding * 2

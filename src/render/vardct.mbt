@@ -20,6 +20,7 @@ fn render_vardct(
   lf_frame : Reference?,
   cache : RenderCache,
   region : Region,
+  pool : @threadpool.JxlThreadPool,
 ) -> ImageWithRegion raise @bitstream.JxlError {
   let image_header = frame.image_header()
   let frame_header = frame.header()
@@ -34,7 +35,8 @@ fn render_vardct(
   let lf_global = match cache.lf_global {
     Some(x) if !x.gmodular.is_partial() => x
     _ => {
-      guard frame.try_parse_lf_global() is Some(lf_global) else {
+      guard unwrap_opt_result(parse_lf_global(frame, cache.narrow))
+        is Some(lf_global) else {
         raise incomplete_frame()
       }
       cache.lf_global = Some(lf_global)
@@ -113,69 +115,77 @@ fn render_vardct(
     }
   }
   let group_dim = frame_header.group_dim()
-  let mut result : @bitstream.JxlError? = None
-  if cache.hf_global is None {
-    // Parse HfGlobal
-    try frame.try_parse_hf_global(Some(lf_global)) catch {
-      e => result = Some(e)
-    } noraise {
-      hf_global => cache.hf_global = hf_global
+  let result : Ref[@bitstream.JxlError?] = Ref(None)
+  let (fb, lf_xyb) = pool.scope(scope => {
+    if cache.hf_global is None {
+      scope.spawn(_ => {
+        // Parse HfGlobal
+        try
+          unwrap_opt_result(frame.try_parse_hf_global(Some(lf_global)))
+        catch {
+          e => result.val = Some(e)
+        } noraise {
+          hf_global => cache.hf_global = hf_global
+        }
+      })
     }
-  }
-  // Load LF groups
-  let lf_xyb = load_lf_groups(
-    frame,
-    lf_global,
-    cache.lf_groups,
-    lf_group_image,
-    modular_lf_region,
-  )
-  let lf_xyb = match lf_frame {
-    Some(x) => {
-      // Copy LFQuant
-      let lf_frame = x.image.run_with_image()
-      lf_frame.blend(None).try_clone()
-    }
-    None => {
-      let lf_xyb = lf_xyb.unwrap()
-      if !subsampled {
-        // LF CfL
-        chroma_from_luma_lf(
-          lf_xyb.as_color_floats_mut(),
-          lf_global_vardct.lf_chan_corr,
-        )
+    // Load LF groups
+    let lf_xyb = load_lf_groups(
+      frame,
+      lf_global,
+      cache.lf_groups,
+      lf_group_image,
+      modular_lf_region,
+      pool,
+    )
+    let lf_xyb = match lf_frame {
+      Some(x) => {
+        // Copy LFQuant
+        let lf_frame = x.image.run_with_image()
+        lf_frame.blend(None).try_clone()
       }
-      if !frame_header.flags.skip_adaptive_lf_smoothing() {
-        adaptive_lf_smoothing(
-          shifts_cbycr,
-          lf_xyb.as_color_floats_mut(),
-          lf_global.lf_dequant,
-          lf_global_vardct.quantizer,
+      None => {
+        let lf_xyb = lf_xyb.unwrap()
+        if !subsampled {
+          // LF CfL
+          chroma_from_luma_lf(
+            lf_xyb.as_color_floats_mut(),
+            lf_global_vardct.lf_chan_corr,
+          )
+        }
+        if !frame_header.flags.skip_adaptive_lf_smoothing() {
+          adaptive_lf_smoothing(
+            shifts_cbycr,
+            lf_xyb.as_color_floats_mut(),
+            lf_global.lf_dequant,
+            lf_global_vardct.quantizer,
+            tracker,
+          )
+        }
+        lf_xyb
+      }
+    }
+    let fb = {
+      let width = modular_region.width
+      let height = modular_region.height
+      let fb = ImageWithRegion::new(3, tracker)
+      for shift in shifts_cbycr {
+        let (w8, h8) = shift.shift_size(((width + 7) / 8, (height + 7) / 8))
+        let width = w8 * 8
+        let height = h8 * 8
+        let buffer = @grid.Grid::with_alloc_tracker(
+          width,
+          height,
+          (0.0 : Float),
           tracker,
         )
+        fb.append_channel_shifted(F32(buffer), modular_region, shift)
       }
-      lf_xyb
+      fb
     }
-  }
-  let fb = {
-    let width = modular_region.width
-    let height = modular_region.height
-    let fb = ImageWithRegion::new(3, tracker)
-    for shift in shifts_cbycr {
-      let (w8, h8) = shift.shift_size(((width + 7) / 8, (height + 7) / 8))
-      let width = w8 * 8
-      let height = h8 * 8
-      let buffer = @grid.Grid::with_alloc_tracker(
-        width,
-        height,
-        (0.0 : Float),
-        tracker,
-      )
-      fb.append_channel_shifted(F32(buffer), modular_region, shift)
-    }
-    fb
-  }
-  if result is Some(e) {
+    (fb, lf_xyb)
+  })
+  if result.val is Some(e) {
     raise e
   }
   let hf_global = cache.hf_global
@@ -202,13 +212,14 @@ fn render_vardct(
         if job.lf_group.hf_meta is None {
           continue
         }
-        let bitstream = frame.pass_group_bitstream(pass_idx, group_idx) catch {
-          e => {
+        let bitstream = match frame.pass_group_bitstream(pass_idx, group_idx) {
+          Some(Ok(bitstream)) => bitstream
+          Some(Err(e)) => {
             result = Some(e)
             continue
           }
+          None => continue
         }
-        guard bitstream is Some(bitstream) else { continue }
         let allow_partial = bitstream.partial
         let modular = if group_idx < pass_image.length() {
           Some(pass_image[group_idx])
@@ -293,7 +304,10 @@ fn render_vardct(
   }
   if modular_image is Some(modular_image) {
     // Extra channel inverse transform
-    ignore(modular_image.prepare_subimage().finish())
+    let subimage = modular_image.prepare_subimage() catch {
+      e => abort("prepare_subimage: \{@debug.to_string(e)}")
+    }
+    ignore(subimage.finish())
     fb.extend_from_gmodular(gmodular)
   }
   fb
@@ -301,7 +315,7 @@ fn render_vardct(
 
 ///|
 /// Dequantizes LF coefficients of one channel into `grid`.
-pub fn copy_lf_dequant(
+fn copy_lf_dequant(
   grid : @grid.SubGrid[Float],
   quantizer : @vardct.Quantizer,
   m_lf : Float,
@@ -332,7 +346,7 @@ pub fn copy_lf_dequant(
 
 ///|
 /// Adaptive LF smoothing of the dequantized LF image.
-pub fn adaptive_lf_smoothing(
+fn adaptive_lf_smoothing(
   shifts : FixedArray[@modular.ChannelShift],
   lf_image : FixedArray[@grid.Grid[Float]],
   lf_dequant : @vardct.LfChannelDequantization,
@@ -602,6 +616,9 @@ fn transform_with_lf_grouped(
     let lf_region = lf_regions[0].0
     let lf_base_left = lf_base_left - lf_region.left
     let lf_base_top = lf_base_top - lf_region.top
+    guard lf_base_left >= 0 && lf_base_top >= 0 else {
+      abort("transform_with_lf_grouped: LF region does not cover group")
+    }
     let lf_width = min_int(
       lf_region.width - lf_base_left,
       (group_width + 7) / 8,

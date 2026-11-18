@@ -195,6 +195,13 @@ fn compare_frame(
         }
         out
       }
+      I16(g) => {
+        let out = @grid.Grid::new(g.width(), g.height(), (0.0 : Float))
+        for i in 0..<(g.width() * g.height()) {
+          out.buf()[i] = bit_depth[c].parse_integer_sample(g.buf()[i].to_int())
+        }
+        out
+      }
     }
     let (region, _) = regions[c]
     let mut peak = 0.0

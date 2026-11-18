@@ -187,6 +187,11 @@ fn blend(
       blending_info, has_extra,
     )
     let ref_grid = reference_grids[ref_idx]
+    let mut can_overwrite = idx < color_channels &&
+      (
+        header.is_last ||
+        (header.can_reference() && ref_idx == header.save_as_reference)
+      )
     let original_frame_region = new_grid.regions_and_shifts()[idx].0.intersection(
       full_frame_region,
     )
@@ -201,9 +206,9 @@ fn blend(
       Bool,
     ) = match ref_grid {
       Some(grid) => {
-        // Upstream allows taking the reference buffer instead of cloning it
-        // (`can_overwrite`), but `try_take_blended` can never succeed there
-        // since another strong reference is alive; the clone path is taken.
+        if grid.frame.header().is_keyframe() {
+          can_overwrite = false
+        }
         let base_grid_render = grid.image.run_with_image()
         let base_grid = base_grid_render.blend(Some(output_image_region))
         guard base_grid.color_channels() == color_channels else {
@@ -223,7 +228,18 @@ fn blend(
             -base_frame_header.x0,
             -base_frame_header.y0,
           )
-          let cloned = base_grid.buffer()[idx].try_clone()
+          let cloned = if can_overwrite {
+            match base_grid_render.try_take_blended() {
+              Some(image) => {
+                let buffer = image.buffer_mut()[idx]
+                image.buffer_mut()[idx] = F32(@grid.Grid::empty((0.0 : Float)))
+                buffer
+              }
+              None => base_grid.buffer()[idx].try_clone()
+            }
+          } else {
+            base_grid.buffer()[idx].try_clone()
+          }
           let target_region = base_grid.regions_and_shifts()[idx].0.translate(
             base_frame_header.x0 - header.x0,
             base_frame_header.y0 - header.y0,
@@ -326,7 +342,7 @@ fn blend(
 
 ///|
 /// Renders a patch onto `base_grid`.
-pub fn patch(
+fn patch(
   image_header : @image.ImageHeader,
   base_grid : ImageWithRegion,
   patch_ref_grid : ImageWithRegion,
@@ -476,7 +492,7 @@ fn blend_single(
         }
       }
     Blend(
-      { base: base_alpha, new: Some(new_alpha), clamp, swapped, premultiplied, }
+      { base: base_alpha, new: Some(new_alpha), clamp, swapped, premultiplied, },
     ) =>
       for dy in 0..<height {
         let base_buf_y = base_y + dy

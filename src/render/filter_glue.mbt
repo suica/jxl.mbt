@@ -8,7 +8,7 @@
 /// Gabor-like filter on the color channels of `fb` within
 /// `color_padded_region`. The filtered channels are swapped into `fb`, and
 /// the previous buffers end up in `fb_scratch`.
-pub fn apply_gabor_like(
+fn apply_gabor_like(
   fb : ImageWithRegion,
   color_padded_region : Region,
   fb_scratch : FixedArray[@grid.Grid[Float]],
@@ -50,7 +50,7 @@ pub fn apply_gabor_like(
 
 ///|
 /// Edge-preserving filter on the color channels of `fb`.
-pub fn apply_epf(
+fn apply_epf(
   fb_image : ImageWithRegion,
   fb_scratch_arr : FixedArray[@grid.Grid[Float]],
   color_padded_region : Region,
@@ -120,7 +120,7 @@ pub fn apply_epf(
 
 ///|
 /// JPEG-style chroma upsampling of one channel.
-pub fn apply_jpeg_upsampling_single(
+fn apply_jpeg_upsampling_single(
   grid : @grid.SubGrid[Float],
   shift : @modular.ChannelShift,
   target_region : Region,
@@ -139,7 +139,7 @@ pub fn apply_jpeg_upsampling_single(
 ///|
 /// Non-separable upsampling by `1 << factor`; `out_region` is upsampled by
 /// `factor`.
-pub fn upsample(
+fn upsample(
   grid : @grid.SubGrid[Float],
   out_region : Ref[Region],
   image_header : @image.ImageHeader,
@@ -161,7 +161,8 @@ pub fn upsample(
 
 ///|
 /// Renders splines onto the color channels of `base_grid`.
-pub fn render_spline(
+#warnings("-unused_error_type")
+fn render_spline(
   frame_header : @frame.FrameHeader,
   base_grid : ImageWithRegion,
   splines : @frame.Splines,
@@ -188,7 +189,7 @@ pub fn render_spline(
 
 ///|
 /// Renders noise onto the color channels of `grid`.
-pub fn render_noise(
+fn render_noise(
   header : @frame.FrameHeader,
   visible_frames_num : Int32,
   invisible_frames_num : Int32,

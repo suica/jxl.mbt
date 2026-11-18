@@ -6,6 +6,7 @@ fn render_frame(
   reference_frames : ReferenceFrames,
   cache : RenderCache,
   image_region : Region,
+  pool : @threadpool.JxlThreadPool,
   frame_visibility : (Int32, Int32),
 ) -> ImageWithRegion raise @bitstream.JxlError {
   let frame_region = image_region_to_frame(frame, image_region, false)
@@ -27,9 +28,15 @@ fn render_frame(
     image_header, frame_header, frame_region,
   ).intersection(full_frame_region)
   let fb = match frame_header.encoding {
-    Modular => render_modular(frame, cache, color_padded_region)
+    Modular => render_modular(frame, cache, color_padded_region, pool)
     VarDct =>
-      render_vardct(frame, reference_frames.lf, cache, color_padded_region) catch {
+      render_vardct(
+        frame,
+        reference_frames.lf,
+        cache,
+        color_padded_region,
+        pool,
+      ) catch {
         e =>
           match reference_frames.lf {
             Some(lf) if is_incomplete_frame(e) || e.unexpected_eof() => {

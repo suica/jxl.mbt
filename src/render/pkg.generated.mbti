@@ -3,7 +3,6 @@ package "suica/jxl/render"
 
 import {
   "moonbitlang/core/debug",
-  "moonbitlang/core/ref",
   "moonbitlang/core/sorted_map",
   "suica/jxl/bitstream",
   "suica/jxl/color",
@@ -11,37 +10,20 @@ import {
   "suica/jxl/grid",
   "suica/jxl/image",
   "suica/jxl/modular",
+  "suica/jxl/threadpool",
   "suica/jxl/vardct",
 }
 
 // Values
-pub fn adaptive_lf_smoothing(FixedArray[@modular.ChannelShift], FixedArray[@grid.Grid[Float]], @vardct.LfChannelDequantization, @vardct.Quantizer, @grid.AllocTracker?) -> Unit raise @bitstream.JxlError
-
-pub fn apply_epf(ImageWithRegion, FixedArray[@grid.Grid[Float]], Region, Map[Int32, @frame.LfGroup], @frame.FrameHeader, @frame.EpfParams) -> Unit
-
 pub fn apply_epf_grids(Array[@grid.SubGrid[Float]], Array[@grid.Grid[Float]], Int32, Int32, Int32, Int32, Int32, Int32, Array[@grid.Grid[Float]?], EpfKernelParams) -> Bool
-
-pub fn apply_gabor_like(ImageWithRegion, Region, FixedArray[@grid.Grid[Float]], FixedArray[FixedArray[Float]]) -> Unit
 
 pub fn apply_gabor_like_grids(Array[@grid.SubGrid[Float]], Array[@grid.Grid[Float]], FixedArray[FixedArray[Float]]) -> Unit
 
-pub fn apply_jpeg_upsampling_single(@grid.SubGrid[Float], @modular.ChannelShift, Region, @grid.AllocTracker?) -> @grid.Grid[Float] raise @bitstream.JxlError
-
 pub fn apply_jpeg_upsampling_single_raw(@grid.SubGrid[Float], Int32, Int32, Int32, Int32, @grid.AllocTracker?) -> @grid.Grid[Float] raise @bitstream.JxlError
-
-pub fn apply_orientation_to_image_region(@image.ImageHeader, Region) -> Region
-
-pub fn compute_modular_region(@frame.FrameHeader, @frame.GlobalModular, Region, Bool) -> Region
-
-pub fn convert_color_for_record(@image.ImageHeader, Bool, ImageWithRegion) -> Unit raise @bitstream.JxlError
-
-pub fn copy_lf_dequant(@grid.SubGrid[Float], @vardct.Quantizer, Float, @grid.Grid[Int32], Int32) -> Unit
 
 pub fn epf_step(Int32, Array[@grid.SubGrid[Float]], Array[@grid.SubGrid[Float]], Int32, Int32, Int32, Int32, Int32, Int32, Array[@grid.Grid[Float]?], EpfKernelParams) -> Unit
 
 pub fn failed_reference() -> @bitstream.JxlError
-
-pub fn image_region_to_frame(IndexedFrame, Region, Bool) -> Region
 
 pub fn incomplete_frame() -> @bitstream.JxlError
 
@@ -49,27 +31,9 @@ pub fn invalid_reference(Int32) -> @bitstream.JxlError
 
 pub fn is_incomplete_frame(@bitstream.JxlError) -> Bool
 
-pub fn load_lf_groups(IndexedFrame, @frame.LfGlobal, Map[Int32, @frame.LfGroup], Array[@modular.TransformedModularSubimage], Region) -> ImageWithRegion? raise @bitstream.JxlError
-
-pub fn mirror(Int32, Int32) -> Int32
-
 pub fn not_ready() -> @bitstream.JxlError
 
-pub fn pad_color_region(@image.ImageHeader, @frame.FrameHeader, Region) -> Region
-
-pub fn pad_lf_region(@frame.FrameHeader, Region) -> Region
-
-pub fn pad_upsampling(@image.ImageHeader, @frame.FrameHeader, Region) -> Region
-
-pub fn patch(@image.ImageHeader, ImageWithRegion, ImageWithRegion, @frame.PatchRef) -> Unit raise @bitstream.JxlError
-
-pub fn render_modular(IndexedFrame, RenderCache, Region) -> ImageWithRegion raise @bitstream.JxlError
-
-pub fn render_noise(@frame.FrameHeader, Int32, Int32, (Float, Float)?, ImageWithRegion, @frame.NoiseParameters) -> Unit raise @bitstream.JxlError
-
 pub fn render_noise_raw(Int32, Int32, Int32, Int32, Int32, (Float, Float)?, @grid.Grid[Float], @grid.Grid[Float], @grid.Grid[Float], Int32, Int32, Int32, Int32, FixedArray[Float], @grid.AllocTracker?) -> Unit raise @bitstream.JxlError
-
-pub fn render_spline(@frame.FrameHeader, ImageWithRegion, @frame.Splines, (Float, Float)?) -> Unit raise @bitstream.JxlError
 
 pub fn render_spline_raw(Int32, Int32, Array[@grid.Grid[Float]], Int32, Int32, Array[(Int64, Int64)], FixedArray[FixedArray[Int32]], FixedArray[Int32], Int32, (Float, Float)?) -> Unit
 
@@ -78,8 +42,6 @@ pub fn render_spot_color(FixedArray[@grid.Grid[Float]], @grid.Grid[Float], @imag
 pub fn render_spot_color_raw(Array[@grid.Grid[Float]], @grid.Grid[Float], Float, Float, Float, Float) -> Unit
 
 pub fn uninitialized_lf_frame(Int32) -> @bitstream.JxlError
-
-pub fn upsample(@grid.SubGrid[Float], @ref.Ref[Region], @image.ImageHeader, Int32, @grid.AllocTracker?) -> @grid.Grid[Float]? raise @bitstream.JxlError
 
 pub fn upsample_raw(@grid.SubGrid[Float], FixedArray[Float], FixedArray[Float], FixedArray[Float], Int32, @grid.AllocTracker?) -> @grid.Grid[Float]? raise @bitstream.JxlError
 
@@ -97,121 +59,58 @@ pub(all) struct EpfKernelParams {
 
 type FrameDependence
 
-pub enum FrameRender {
-  Empty
-  Rendering
-  InProgress(RenderCache)
-  Done(ImageWithRegion)
-  Blended(ImageWithRegion)
-  Failed(@bitstream.JxlError)
-  ErrTaken
-}
-
-pub struct FrameRenderHandle {
-  frame : IndexedFrame
-  image_region : Region
-  mut render : FrameRender
-  render_op : (FrameRender, Region) -> FrameRender
-  refs : FixedArray[Reference?]
-}
-pub fn FrameRenderHandle::from_cache(IndexedFrame, Region, RenderCache, (FrameRender, Region) -> FrameRender, FixedArray[Reference?]) -> Self
-pub fn FrameRenderHandle::new(IndexedFrame, Region, (FrameRender, Region) -> FrameRender, FixedArray[Reference?]) -> Self
-pub fn FrameRenderHandle::reset(Self) -> FrameRender
-pub fn FrameRenderHandle::run(Self, Region) -> Unit
-pub fn FrameRenderHandle::run_with_image(Self) -> RenderedImage raise @bitstream.JxlError
+type FrameRenderHandle
 
 pub(all) enum ImageBuffer {
   F32(@grid.Grid[Float])
   I32(@grid.Grid[Int32])
+  I16(@grid.Grid[Int16])
 }
 pub fn ImageBuffer::as_float(Self) -> @grid.Grid[Float]?
+pub fn ImageBuffer::as_float_mut(Self) -> @grid.Grid[Float]?
 pub fn ImageBuffer::cast_to_float(Self) -> @grid.Grid[Float] raise @bitstream.JxlError
 pub fn ImageBuffer::convert_to_float_modular(Self, @image.BitDepth) -> @grid.Grid[Float] raise @bitstream.JxlError
 pub fn ImageBuffer::convert_to_float_modular_xyb(FixedArray[Self], @vardct.LfChannelDequantization) -> FixedArray[@grid.Grid[Float]] raise @bitstream.JxlError
-pub fn ImageBuffer::float(Self) -> @grid.Grid[Float]
-pub fn ImageBuffer::from_modular_channel(@grid.Grid[Int32]) -> Self
+pub fn ImageBuffer::from_modular_channel(@grid.Grid[Int32], narrow? : Bool) -> Self
 pub fn ImageBuffer::height(Self) -> Int32
 pub fn ImageBuffer::try_clone(Self) -> Self raise @bitstream.JxlError
-pub fn ImageBuffer::upsample_nn(Self, Int32, @grid.AllocTracker?) -> Self raise @bitstream.JxlError
 pub fn ImageBuffer::width(Self) -> Int32
 pub fn ImageBuffer::zeroed_f32(Int32, Int32, @grid.AllocTracker?) -> Self raise @bitstream.JxlError
 
 pub struct ImageWithRegion {
-  buffer : Array[ImageBuffer]
-  regions : Array[(Region, @modular.ChannelShift)]
-  mut color_channels : Int32
-  mut ct_done : Bool
-  mut blend_done : Bool
-  tracker : @grid.AllocTracker?
+  // private fields
 }
-pub fn ImageWithRegion::alloc_tracker(Self) -> @grid.AllocTracker?
 pub fn ImageWithRegion::append_channel(Self, ImageBuffer, Region) -> Unit
 pub fn ImageWithRegion::append_channel_shifted(Self, ImageBuffer, Region, @modular.ChannelShift) -> Unit
-pub fn ImageWithRegion::as_color_floats(Self) -> FixedArray[@grid.Grid[Float]]
-pub fn ImageWithRegion::as_color_floats_mut(Self) -> FixedArray[@grid.Grid[Float]]
-pub fn ImageWithRegion::blend_done(Self) -> Bool
 pub fn ImageWithRegion::buffer(Self) -> Array[ImageBuffer]
 pub fn ImageWithRegion::buffer_mut(Self) -> Array[ImageBuffer]
 pub fn ImageWithRegion::channels(Self) -> Int32
-pub fn ImageWithRegion::clone_gray(Self) -> Unit raise @bitstream.JxlError
 pub fn ImageWithRegion::color_channels(Self) -> Int32
-pub fn ImageWithRegion::color_groups_with_group_id(Self, @frame.FrameHeader) -> Array[(Int32, FixedArray[@grid.SubGrid[Float]])]
-pub fn ImageWithRegion::convert_channel_to_float_modular(Self, Int32, @image.BitDepth) -> @grid.Grid[Float] raise @bitstream.JxlError
-pub fn ImageWithRegion::convert_modular_color(Self, @image.BitDepth) -> Unit raise @bitstream.JxlError
-pub fn ImageWithRegion::convert_modular_xyb(Self, @vardct.LfChannelDequantization) -> Unit raise @bitstream.JxlError
-pub fn ImageWithRegion::ct_done(Self) -> Bool
-pub fn ImageWithRegion::extend_from_gmodular(Self, @frame.GlobalModular) -> Unit
-pub fn ImageWithRegion::fill_opaque_alpha(Self, Array[@image.ExtraChannelInfo]) -> Unit
-pub fn ImageWithRegion::new(Int32, @grid.AllocTracker?) -> Self
-pub fn ImageWithRegion::prepare_color_upsampling(Self, @frame.FrameHeader) -> Unit
+pub fn ImageWithRegion::extend_from_gmodular(Self, @frame.GlobalModular, narrow? : Bool) -> Unit
 pub fn ImageWithRegion::regions_and_shifts(Self) -> Array[(Region, @modular.ChannelShift)]
-pub fn ImageWithRegion::remove_color_channels(Self, Int32) -> Unit
 pub fn ImageWithRegion::replace_channel(Self, Int32, ImageBuffer, Region) -> Unit
 pub fn ImageWithRegion::replace_channel_shifted(Self, Int32, ImageBuffer, Region, @modular.ChannelShift) -> Unit
-pub fn ImageWithRegion::set_blend_done(Self, Bool) -> Unit
-pub fn ImageWithRegion::set_ct_done(Self, Bool) -> Unit
-pub fn ImageWithRegion::swap_channel_f32(Self, Int32, @grid.Grid[Float], Region) -> @grid.Grid[Float]
 pub fn ImageWithRegion::take_buffer(Self) -> Array[ImageBuffer]
-pub fn ImageWithRegion::try_clone(Self) -> Self raise @bitstream.JxlError
-pub fn ImageWithRegion::upsample_jpeg(Self, Region, @image.BitDepth) -> Unit raise @bitstream.JxlError
-pub fn ImageWithRegion::upsample_lf(Self, Int32) -> Self raise @bitstream.JxlError
-pub fn ImageWithRegion::upsample_nonseparable(Self, @image.ImageHeader, @frame.FrameHeader, Region, Bool) -> Unit raise @bitstream.JxlError
 
 pub struct IndexedFrame {
-  f : @frame.Frame
-  idx : Int32
+  // private fields
 }
+pub fn IndexedFrame::adjust_region(Self, (Int32, Int32, Int32, Int32)) -> (Int32, Int32, Int32, Int32)
 pub fn IndexedFrame::alloc_tracker(Self) -> @grid.AllocTracker?
+pub fn IndexedFrame::current_loading_group(Self) -> @frame.TocGroup?
+pub fn IndexedFrame::data(Self, @frame.TocGroupKind) -> BytesView?
 pub fn IndexedFrame::feed_bytes(Self, BytesView) -> BytesView raise @bitstream.JxlError
 pub fn IndexedFrame::frame(Self) -> @frame.Frame
 pub fn IndexedFrame::header(Self) -> @frame.FrameHeader
 pub fn IndexedFrame::image_header(Self) -> @image.ImageHeader
 pub fn IndexedFrame::index(Self) -> Int32
 pub fn IndexedFrame::is_loading_done(Self) -> Bool
-pub fn IndexedFrame::pass_group_bitstream(Self, Int32, Int32) -> @frame.PassGroupBitstream? raise @bitstream.JxlError
+pub fn IndexedFrame::pass_group_bitstream(Self, Int32, Int32) -> Result[@frame.PassGroupBitstream, @bitstream.JxlError]?
 pub fn IndexedFrame::pass_shifts(Self) -> @sorted_map.SortedMap[Int32, (Int32, Int32)]
-pub fn IndexedFrame::try_parse_hf_global(Self, @frame.LfGlobal?) -> @frame.HfGlobal? raise @bitstream.JxlError
-pub fn IndexedFrame::try_parse_lf_global(Self) -> @frame.LfGlobal? raise @bitstream.JxlError
-pub fn IndexedFrame::try_parse_lf_group(Self, @frame.LfGlobalVarDct?, @modular.MaConfig?, @modular.TransformedModularSubimage?, Int32) -> @frame.LfGroup? raise @bitstream.JxlError
-
-pub struct PaddedGrid[S] {
-  grid : @grid.Grid[S]
-  padding : Int32
-}
-pub fn[S] PaddedGrid::buf_padded(Self[S]) -> FixedArray[S]
-pub fn[S] PaddedGrid::buf_padded_mut(Self[S]) -> FixedArray[S]
-pub fn[S] PaddedGrid::mirror_edges_padding(Self[S]) -> Unit
-pub fn[S] PaddedGrid::with_alloc_tracker(Int32, Int32, Int32, S, @grid.AllocTracker?) -> Self[S] raise @bitstream.JxlError
-
-pub struct Reference {
-  frame : IndexedFrame
-  image : FrameRenderHandle
-}
-
-pub struct ReferenceFrames {
-  lf : Reference?
-  refs : FixedArray[Reference?]
-}
+pub fn IndexedFrame::toc(Self) -> @frame.Toc
+pub fn IndexedFrame::try_parse_hf_global(Self, @frame.LfGlobal?) -> Result[@frame.HfGlobal, @bitstream.JxlError]?
+pub fn IndexedFrame::try_parse_lf_global(Self) -> Result[@frame.LfGlobal, @bitstream.JxlError]?
+pub fn IndexedFrame::try_parse_lf_group(Self, @frame.LfGlobalVarDct?, @modular.MaConfig?, @modular.TransformedModularSubimage?, Int32) -> Result[@frame.LfGroup, @bitstream.JxlError]?
 
 #derive(Default, Eq, Hash, @debug.Debug)
 pub(all) struct Region {
@@ -222,7 +121,6 @@ pub(all) struct Region {
 }
 pub fn Region::apply_orientation(Self, @image.ImageHeader) -> Self
 pub fn Region::bottom(Self) -> Int32
-pub fn Region::container_aligned(Self, Int32) -> Self
 pub fn Region::contains(Self, Self) -> Bool
 pub fn Region::downsample(Self, Int32) -> Self
 pub fn Region::downsample_separate(Self, Int32, Int32) -> Self
@@ -238,33 +136,10 @@ pub fn Region::upsample(Self, Int32) -> Self
 pub fn Region::upsample_separate(Self, Int32, Int32) -> Self
 pub fn Region::with_size(Int32, Int32) -> Self
 
-pub struct RenderCache {
-  mut lf_global : @frame.LfGlobal?
-  mut hf_global : @frame.HfGlobal?
-  lf_groups : Map[Int32, @frame.LfGroup]
-}
-pub fn RenderCache::new(IndexedFrame) -> Self
+type RenderCache
 
 pub struct RenderContext {
-  image_header : @image.ImageHeader
-  tracker : @grid.AllocTracker?
-  frames : Array[IndexedFrame]
-  renders_wide : Array[FrameRenderHandle]
-  keyframes : Array[Int32]
-  mut keyframe_in_progress : Int32?
-  refcounts : Array[Int32]
-  frame_deps : Array[FrameDependence]
-  lf_frame : FixedArray[Int32]
-  reference : FixedArray[Int32]
-  mut loading_frame : IndexedFrame?
-  mut loading_render_cache_wide : RenderCache?
-  mut loading_region : Region?
-  mut requested_image_region : Region
-  embedded_icc : Bytes
-  mut requested_color_encoding : @color.ColorEncodingWithProfile
-  mut cms : &@color.ColorManagementSystem
-  mut cached_transform : @color.ColorTransform?
-  force_wide_buffers : Bool
+  // private fields
 }
 pub fn RenderContext::alloc_tracker(Self) -> @grid.AllocTracker?
 pub fn RenderContext::builder() -> RenderContextBuilder
@@ -290,24 +165,15 @@ pub fn RenderContext::suggested_hdr_tf(Self) -> @image.TransferFunction?
 pub fn RenderContext::width(Self) -> Int32
 
 pub struct RenderContextBuilder {
-  mut embedded_icc : Bytes
-  mut tracker : @grid.AllocTracker?
-  mut force_wide_buffers : Bool
+  // private fields
 }
 pub fn RenderContextBuilder::alloc_tracker(Self, @grid.AllocTracker) -> Self
 pub fn RenderContextBuilder::build(Self, @image.ImageHeader) -> RenderContext raise @bitstream.JxlError
 pub fn RenderContextBuilder::default() -> Self
 pub fn RenderContextBuilder::embedded_icc(Self, Bytes) -> Self
 pub fn RenderContextBuilder::force_wide_buffers(Self, Bool) -> Self
-
-pub struct RenderedImage {
-  image : FrameRenderHandle
-}
-pub fn RenderedImage::blend(Self, Region?) -> ImageWithRegion raise @bitstream.JxlError
-pub fn RenderedImage::new(FrameRenderHandle) -> Self
-pub fn RenderedImage::try_take_blended(Self) -> ImageWithRegion?
+pub fn RenderContextBuilder::pool(Self, @threadpool.JxlThreadPool) -> Self
 
 // Type aliases
-pub type RenderOp = (FrameRender, Region) -> FrameRender
 
 // Traits

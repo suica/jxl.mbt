@@ -5,11 +5,12 @@ const NO_FRAME : Int32 = -1
 ///|
 /// Frame with its index in the image (jxl-render `IndexedFrame`).
 ///
-/// Upstream derefs to `Frame`; here the frame is the field `f` and the
-/// commonly used `Frame` methods are forwarded.
+/// Upstream derefs to `Frame`; MoonBit has no `Deref`, so every public
+/// `Frame` method is forwarded with the same signature, and `frame()` gives
+/// the `Frame` itself.
 pub struct IndexedFrame {
-  f : @frame.Frame
-  idx : Int32
+  priv f : @frame.Frame
+  priv idx : Int32
 }
 
 ///|
@@ -65,10 +66,38 @@ pub fn IndexedFrame::pass_shifts(
 }
 
 ///|
+pub fn IndexedFrame::toc(self : IndexedFrame) -> @frame.Toc {
+  self.f.toc()
+}
+
+///|
+pub fn IndexedFrame::data(
+  self : IndexedFrame,
+  group : @frame.TocGroupKind,
+) -> BytesView? {
+  self.f.data(group)
+}
+
+///|
+pub fn IndexedFrame::current_loading_group(
+  self : IndexedFrame,
+) -> @frame.TocGroup? {
+  self.f.current_loading_group()
+}
+
+///|
+pub fn IndexedFrame::adjust_region(
+  self : IndexedFrame,
+  region : (Int32, Int32, Int32, Int32),
+) -> (Int32, Int32, Int32, Int32) {
+  self.f.adjust_region(region)
+}
+
+///|
 pub fn IndexedFrame::try_parse_lf_global(
   self : IndexedFrame,
-) -> @frame.LfGlobal? raise @bitstream.JxlError {
-  unwrap_opt_result(self.f.try_parse_lf_global())
+) -> Result[@frame.LfGlobal, @bitstream.JxlError]? {
+  self.f.try_parse_lf_global()
 }
 
 ///|
@@ -78,16 +107,31 @@ pub fn IndexedFrame::try_parse_lf_group(
   global_ma_config : @modular.MaConfig?,
   mlf_group : @modular.TransformedModularSubimage?,
   lf_group_idx : Int32,
-) -> @frame.LfGroup? raise @bitstream.JxlError {
-  unwrap_opt_result(
-    self.f.try_parse_lf_group(
-      lf_global_vardct, global_ma_config, mlf_group, lf_group_idx,
-    ),
+) -> Result[@frame.LfGroup, @bitstream.JxlError]? {
+  self.f.try_parse_lf_group(
+    lf_global_vardct, global_ma_config, mlf_group, lf_group_idx,
   )
 }
 
 ///|
-/// `Option<Result<T>>` → `T? raise`.
+pub fn IndexedFrame::try_parse_hf_global(
+  self : IndexedFrame,
+  cached_lf_global : @frame.LfGlobal?,
+) -> Result[@frame.HfGlobal, @bitstream.JxlError]? {
+  self.f.try_parse_hf_global(cached_lf_global)
+}
+
+///|
+pub fn IndexedFrame::pass_group_bitstream(
+  self : IndexedFrame,
+  pass_idx : Int32,
+  group_idx : Int32,
+) -> Result[@frame.PassGroupBitstream, @bitstream.JxlError]? {
+  self.f.pass_group_bitstream(pass_idx, group_idx)
+}
+
+///|
+/// `Option<Result<T>>` → `T? raise` (`?` on the inner result).
 fn[T] unwrap_opt_result(
   r : Result[T, @bitstream.JxlError]?,
 ) -> T? raise @bitstream.JxlError {
@@ -99,23 +143,6 @@ fn[T] unwrap_opt_result(
 }
 
 ///|
-pub fn IndexedFrame::try_parse_hf_global(
-  self : IndexedFrame,
-  cached_lf_global : @frame.LfGlobal?,
-) -> @frame.HfGlobal? raise @bitstream.JxlError {
-  unwrap_opt_result(self.f.try_parse_hf_global(cached_lf_global))
-}
-
-///|
-pub fn IndexedFrame::pass_group_bitstream(
-  self : IndexedFrame,
-  pass_idx : Int32,
-  group_idx : Int32,
-) -> @frame.PassGroupBitstream? raise @bitstream.JxlError {
-  unwrap_opt_result(self.f.pass_group_bitstream(pass_idx, group_idx))
-}
-
-///|
 struct FrameDependence {
   lf : Int32
   ref_slots : FixedArray[Int32]
@@ -123,39 +150,43 @@ struct FrameDependence {
 
 ///|
 /// LF frame and reference frames a frame depends on.
-pub struct ReferenceFrames {
+priv struct ReferenceFrames {
   lf : Reference?
   refs : FixedArray[Reference?]
 }
 
 ///|
-pub struct Reference {
+priv struct Reference {
   frame : IndexedFrame
   image : FrameRenderHandle
 }
 
 ///|
 /// Render context that tracks loaded and rendered frames.
+#warnings("-unused_field")
 pub struct RenderContext {
-  image_header : @image.ImageHeader
-  tracker : @grid.AllocTracker?
-  frames : Array[IndexedFrame]
-  renders_wide : Array[FrameRenderHandle]
-  keyframes : Array[Int32]
-  mut keyframe_in_progress : Int32?
-  refcounts : Array[Int32]
-  frame_deps : Array[FrameDependence]
-  lf_frame : FixedArray[Int32]
-  reference : FixedArray[Int32]
-  mut loading_frame : IndexedFrame?
-  mut loading_render_cache_wide : RenderCache?
-  mut loading_region : Region?
-  mut requested_image_region : Region
-  embedded_icc : Bytes
-  mut requested_color_encoding : @color.ColorEncodingWithProfile
-  mut cms : &@color.ColorManagementSystem
-  mut cached_transform : @color.ColorTransform?
-  force_wide_buffers : Bool
+  priv image_header : @image.ImageHeader
+  priv pool : @threadpool.JxlThreadPool
+  priv tracker : @grid.AllocTracker?
+  priv frames : Array[IndexedFrame]
+  priv renders_wide : Array[FrameRenderHandle]
+  priv renders_narrow : Array[FrameRenderHandle]
+  priv keyframes : Array[Int32]
+  priv mut keyframe_in_progress : Int32?
+  priv refcounts : Array[Int32]
+  priv frame_deps : Array[FrameDependence]
+  priv lf_frame : FixedArray[Int32]
+  priv reference : FixedArray[Int32]
+  priv mut loading_frame : IndexedFrame?
+  priv mut loading_render_cache_wide : RenderCache?
+  priv mut loading_render_cache_narrow : RenderCache?
+  priv mut loading_region : Region?
+  priv mut requested_image_region : Region
+  priv embedded_icc : Bytes
+  priv mut requested_color_encoding : @color.ColorEncodingWithProfile
+  priv mut cms : &@color.ColorManagementSystem
+  priv mut cached_transform : @color.ColorTransform?
+  priv force_wide_buffers : Bool
 }
 
 ///|
@@ -165,14 +196,15 @@ pub fn RenderContext::builder() -> RenderContextBuilder {
 
 ///|
 pub struct RenderContextBuilder {
-  mut embedded_icc : Bytes
-  mut tracker : @grid.AllocTracker?
-  mut force_wide_buffers : Bool
+  priv mut embedded_icc : Bytes
+  priv mut pool : @threadpool.JxlThreadPool?
+  priv mut tracker : @grid.AllocTracker?
+  priv mut force_wide_buffers : Bool
 }
 
 ///|
 pub fn RenderContextBuilder::default() -> RenderContextBuilder {
-  { embedded_icc: b"", tracker: None, force_wide_buffers: false, }
+  { embedded_icc: b"", pool: None, tracker: None, force_wide_buffers: false, }
 }
 
 ///|
@@ -181,6 +213,15 @@ pub fn RenderContextBuilder::embedded_icc(
   icc : Bytes,
 ) -> RenderContextBuilder {
   self.embedded_icc = icc
+  self
+}
+
+///|
+pub fn RenderContextBuilder::pool(
+  self : RenderContextBuilder,
+  pool : @threadpool.JxlThreadPool,
+) -> RenderContextBuilder {
+  self.pool = Some(pool)
   self
 }
 
@@ -194,7 +235,6 @@ pub fn RenderContextBuilder::alloc_tracker(
 }
 
 ///|
-/// Kept for API parity; buffers are always wide (32-bit) in this port.
 pub fn RenderContextBuilder::force_wide_buffers(
   self : RenderContextBuilder,
   force_wide_buffers : Bool,
@@ -258,8 +298,13 @@ pub fn RenderContextBuilder::build(
   {
     image_header,
     tracker: self.tracker,
+    pool: match self.pool {
+      Some(pool) => pool
+      None => @threadpool.JxlThreadPool::none()
+    },
     frames: [],
     renders_wide: [],
+    renders_narrow: [],
     keyframes: [],
     keyframe_in_progress: None,
     refcounts: [],
@@ -268,6 +313,7 @@ pub fn RenderContextBuilder::build(
     reference: FixedArray::make(4, NO_FRAME),
     loading_frame: None,
     loading_render_cache_wide: None,
+    loading_render_cache_narrow: None,
     loading_region: None,
     requested_image_region: full_image_region,
     embedded_icc: self.embedded_icc,
@@ -379,6 +425,22 @@ pub fn RenderContext::loaded_frames(self : RenderContext) -> Int32 {
 }
 
 ///|
+fn RenderContext::narrow_modular(self : RenderContext) -> Bool {
+  !self.force_wide_buffers && self.image_header.metadata.modular_16bit_buffers
+}
+
+///|
+/// `renders_narrow` (`S = i16`) or `renders_wide` (`S = i32`), as selected by
+/// `narrow_modular()`.
+fn RenderContext::renders(self : RenderContext) -> Array[FrameRenderHandle] {
+  if self.narrow_modular() {
+    self.renders_narrow
+  } else {
+    self.renders_wide
+  }
+}
+
+///|
 fn RenderContext::reference_frames(
   self : RenderContext,
   lf : Int32,
@@ -386,14 +448,14 @@ fn RenderContext::reference_frames(
 ) -> ReferenceFrames {
   {
     lf: if lf != NO_FRAME {
-      Some({ frame: self.frames[lf], image: self.renders_wide[lf], })
+      Some({ frame: self.frames[lf], image: self.renders()[lf], })
     } else {
       None
     },
     refs: FixedArray::makei(4, i => {
       let r = ref_slots[i]
       if r != NO_FRAME {
-        Some({ frame: self.frames[r], image: self.renders_wide[r], })
+        Some({ frame: self.frames[r], image: self.renders()[r], })
       } else {
         None
       }
@@ -440,14 +502,24 @@ fn RenderContext::preserve_current_frame(self : RenderContext) -> Unit {
   let reference_frames = self.reference_frames(deps.lf, deps.ref_slots)
   let refs = reference_frames.refs
   let render_op = self.render_op(frame, reference_frames)
-  let handle = match self.loading_render_cache_wide {
+  let narrow = self.narrow_modular()
+  let loading_cache = if narrow {
+    self.loading_render_cache_narrow
+  } else {
+    self.loading_render_cache_wide
+  }
+  let handle = match loading_cache {
     Some(cache) => {
-      self.loading_render_cache_wide = None
+      if narrow {
+        self.loading_render_cache_narrow = None
+      } else {
+        self.loading_render_cache_wide = None
+      }
       FrameRenderHandle::from_cache(frame, image_region, cache, render_op, refs)
     }
     None => FrameRenderHandle::new(frame, image_region, render_op, refs)
   }
-  self.renders_wide.push(handle)
+  self.renders().push(handle)
   self.frames.push(frame)
   self.frame_deps.push(deps)
 }
@@ -558,30 +630,35 @@ pub fn RenderContext::frame(
 }
 
 ///|
+/// `RenderContext::do_render::<S>`; `narrow` selects `S = i16`.
 fn do_render(
   frame : IndexedFrame,
   reference_frames : ReferenceFrames,
   state : FrameRender,
   image_region : Region,
   prev_frame_visibility : (Int32, Int32),
+  pool : @threadpool.JxlThreadPool,
+  narrow : Bool,
 ) -> FrameRender {
-  // Upstream spawns these on the thread pool; without threads the pool runs
-  // them immediately.
   if reference_frames.lf is Some(lf) {
-    lf.image.run(image_region)
+    // Spawn LF frame renderer
+    let lf_handle = lf.image
+    pool.spawn(() => lf_handle.run(image_region))
   }
   for grid in reference_frames.refs {
     if grid is Some(grid) {
-      grid.image.run(image_region)
+      // Spawn reference frame renderer
+      let ref_handle = grid.image
+      pool.spawn(() => ref_handle.run(image_region))
     }
   }
   let cache = match state {
     InProgress(cache) => cache
-    _ => RenderCache::new(frame)
+    _ => RenderCache::new(frame, narrow)
   }
   try
     render_frame(
-      frame, reference_frames, cache, image_region, prev_frame_visibility,
+      frame, reference_frames, cache, image_region, pool, prev_frame_visibility,
     )
   catch {
     e =>
@@ -606,9 +683,12 @@ fn RenderContext::render_op(
   reference_frames : ReferenceFrames,
 ) -> RenderOp {
   let prev_frame_visibility = self.get_previous_frames_visibility(frame)
+  let pool = self.pool
+  let narrow = self.narrow_modular()
   fn(state, image_region) {
     do_render(
-      frame, reference_frames, state, image_region, prev_frame_visibility,
+      frame, reference_frames, state, image_region, prev_frame_visibility, pool,
+      narrow,
     )
   }
 }
@@ -639,11 +719,22 @@ fn RenderContext::get_previous_frames_visibility(
 }
 
 ///|
+fn RenderContext::spawn_renderer(self : RenderContext, index : Int32) -> Unit {
+  if !self.pool.is_multithreaded() {
+    // Frame rendering will run immediately, this is not we want.
+    return
+  }
+  let image_region = self.requested_image_region
+  let render_handle = self.renders()[index]
+  self.pool.spawn(() => render_handle.run(image_region))
+}
+
+///|
 fn RenderContext::render_by_index(
   self : RenderContext,
   index : Int32,
 ) -> ImageWithRegion raise @bitstream.JxlError {
-  self.renders_wide[index].run_with_image().blend(None)
+  self.renders()[index].run_with_image().blend(None)
 }
 
 ///|
@@ -709,6 +800,7 @@ pub fn RenderContext::reset_cache(self : RenderContext) -> Unit {
   let image_region = self.requested_image_region
   self.loading_region = None
   self.loading_render_cache_wide = None
+  self.loading_render_cache_narrow = None
   for idx, frame in self.frames {
     if frame.header().frame_type is ReferenceOnly {
       continue
@@ -717,7 +809,7 @@ pub fn RenderContext::reset_cache(self : RenderContext) -> Unit {
     let reference_frames = self.reference_frames(deps.lf, deps.ref_slots)
     let refs = reference_frames.refs
     let render_op = self.render_op(frame, reference_frames)
-    self.renders_wide[idx] = FrameRenderHandle::new(
+    self.renders()[idx] = FrameRenderHandle::new(
       frame, image_region, render_op, refs,
     )
   }
@@ -735,19 +827,34 @@ fn RenderContext::render_loading_frame(
   let frame_region = image_region_to_frame(frame, image_region, false)
   self.loading_region = Some(frame_region)
   let header = frame.header()
-  let lf_global_failed = try frame.try_parse_lf_global() catch {
-    _ => true
-  } noraise {
-    lf_global => lf_global is None
-  }
+  let narrow = self.narrow_modular()
+  // Only `None` counts as failure (`try_parse_lf_global::<S>().is_none()`);
+  // a parse error is left to the renderer.
+  let lf_global_failed = parse_lf_global(frame, narrow) is None
   if lf_global_failed {
     raise incomplete_frame()
   }
   let lf_frame_idx = self.lf_frame[header.lf_level]
-  // spawn_renderer is a no-op without a thread pool.
-  let state = match self.loading_render_cache_wide {
+  if header.flags.use_lf_frame() {
+    self.spawn_renderer(lf_frame_idx)
+  }
+  for idx in self.reference {
+    if idx != NO_FRAME {
+      self.spawn_renderer(idx)
+    }
+  }
+  let loading_cache = if narrow {
+    self.loading_render_cache_narrow
+  } else {
+    self.loading_render_cache_wide
+  }
+  let state = match loading_cache {
     Some(cache) => {
-      self.loading_render_cache_wide = None
+      if narrow {
+        self.loading_render_cache_narrow = None
+      } else {
+        self.loading_render_cache_wide = None
+      }
       InProgress(cache)
     }
     None => Empty
@@ -755,11 +862,21 @@ fn RenderContext::render_loading_frame(
   let reference_frames = self.reference_frames(lf_frame_idx, self.reference)
   let prev_frame_visibility = self.get_previous_frames_visibility(frame)
   let state = do_render(
-    frame, reference_frames, state, image_region, prev_frame_visibility,
+    frame,
+    reference_frames,
+    state,
+    image_region,
+    prev_frame_visibility,
+    self.pool,
+    narrow,
   )
   let image = match state {
     InProgress(cache) => {
-      self.loading_render_cache_wide = Some(cache)
+      if narrow {
+        self.loading_render_cache_narrow = Some(cache)
+      } else {
+        self.loading_render_cache_wide = Some(cache)
+      }
       raise incomplete_frame()
     }
     Failed(e) => raise e
@@ -874,7 +991,7 @@ fn RenderContext::postprocess_keyframe(
       }
     }
   }
-  let output_channels = transform.run(channels)
+  let output_channels = transform.run_with_threads(channels)
   if output_channels < 3 {
     grid.remove_color_channels(output_channels)
   }
