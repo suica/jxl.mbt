@@ -76,11 +76,10 @@ pub fn AuxBoxReader::finalize(
     Raw(_) => ()
     Brotli(writer) => {
       writer.flush()
-      // Upstream logs a warning when the decompressor reports an error, and
-      // keeps what was decompressed so far.
-      writer.close() catch {
-        _ => ()
-      }
+      writer.close()
+      // `into_inner`: upstream keeps what was decompressed so far (with a
+      // warning) when the decompressor is in an error state, which `close`
+      // has already reported.
       let buf = Buffer()
       buf.write_bytes(writer.get_ref())
       self.data = Raw(buf)
@@ -285,4 +284,23 @@ pub fn AuxBoxList::first_exif(
 /// Returns the first XML metadata, if any.
 pub fn AuxBoxList::first_xml(self : AuxBoxList) -> AuxBoxData[Bytes] {
   self.first_of_type(@container.ContainerBoxType::xml())
+}
+
+///|
+/// `AuxBoxData::as_ref` (values are shared references here).
+pub fn[T] AuxBoxData::as_ref(self : AuxBoxData[T]) -> AuxBoxData[T] {
+  self
+}
+
+///|
+/// `AuxBoxData<Result<T, E>>::transpose`.
+pub fn[T, E] AuxBoxData::transpose(
+  self : AuxBoxData[Result[T, E]],
+) -> Result[AuxBoxData[T], E] {
+  match self {
+    Data(Ok(x)) => Ok(Data(x))
+    Data(Err(e)) => Err(e)
+    Decoding => Ok(Decoding)
+    NotFound => Ok(NotFound)
+  }
 }

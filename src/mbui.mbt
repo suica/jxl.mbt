@@ -35,7 +35,10 @@ fn decode_jxl_rgba8(
   }
   let image = JxlImage::builder()
     .alloc_tracker(@grid.AllocTracker::with_limit(limit))
-    .read(b)
+    .read(Cursor::new(b))
+  // The adapter converts ICC-profiled and CMYK images itself: it picks the
+  // MoonBit CMS (the library's default is `NullCms`, as upstream's).
+  image.set_cms(@cms.MoonCms::{  })
   if image.num_loaded_keyframes() == 0 {
     return None
   }
@@ -67,7 +70,7 @@ fn decode_jxl_rgba8(
   let channels = stream.channels()
   let n = width * height
   let samples = FixedArray::make(n * channels, (0.0 : Float))
-  stream.write_to_buffer_f32(samples) |> ignore
+  stream.write_to_buffer(samples) |> ignore
   let color = if is_gray { 1 } else { 3 }
   let has_alpha = channels > color
   let out = FixedArray::make(n * 4, b'\xff')

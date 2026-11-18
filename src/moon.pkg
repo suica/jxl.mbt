@@ -1,5 +1,6 @@
 import {
   "moonbitlang/core/cmp",
+  "moonbitlang/core/encoding/utf8",
   "suica/jxl/bitstream",
   "suica/jxl/brotli",
   "suica/jxl/cms",
@@ -10,4 +11,10 @@ import {
   "suica/jxl/image",
   "suica/jxl/jbr",
   "suica/jxl/render",
+  "suica/jxl/threadpool",
 }
+
+options(
+  "native-stub": [ "open_native.c" ],
+  targets: { "open_native.mbt": [ "native" ] },
+)

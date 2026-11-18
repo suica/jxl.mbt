@@ -1,43 +1,92 @@
 // Port of jxl-oxide/src/lib.rs: the public decoder API.
 //
 // jxl-oxide is a JPEG XL decoder written in pure Rust. It's internally organized
-// into a few small crates; this package acts as a blanket and provides a simple
+// into a few small crates. This package acts as a blanket and provides a simple
 // interface made from those packages to decode the actual image.
 //
 // # Decoding an image
 //
-// Create a builder with `JxlImage::builder()` and feed the whole file with
-// `read`:
+// Decoding a JPEG XL image starts with constructing `JxlImage`. First create a
+// builder using `JxlImage::builder`, and use `open` to read a file (native
+// only), or `read` with any `Read` (for bytes in memory, `Cursor::new(bytes)`):
 //
-//   let image = JxlImage::builder().read(bytes)
-//   for keyframe_idx in 0..<image.num_loaded_keyframes() {
-//     let render = image.render_frame(keyframe_idx)
-//     ...
-//   }
+//   let image = JxlImage::builder().read(Cursor::new(bytes))
 //
-// When bytes arrive over time, create an image with *uninitialized state* using
-// `build_uninit`, and call `feed_bytes` and `try_init` (upstream's incremental
-// API shape; a reader-based `read`/`open` takes `Bytes` here, there is no
-// `std::io::Read` or file system in the published module).
+// To feed byte buffers directly, create an image struct with *uninitialized
+// state* using `build_uninit`, and call `feed_bytes` and `try_init`.
 //
-// # Differences from upstream
-// - Threads: there is no thread pool; everything runs sequentially (builder
-//   `pool` and `JxlImage::pool` are not ported).
-// - Errors: every fallible function raises `@bitstream.JxlError`.
-// - Default CMS: the pure MoonBit `@cms` package plays the role of the `lcms2`
-//   feature (it is set on every new image); `set_cms(@color.NullCms::{ })`
-//   disables it as upstream.
+// `JxlImage` parses the image header and embedded ICC profile (if there's
+// any). Use `JxlImage::render_frame` to render the image.
+//
+// # Color management
+// Use `request_color_encoding` or `request_icc` to set color encoding of
+// rendered images. Conversion to and/or from ICC profiles may occur if you do
+// this; in that case, an external CMS needs to be set using `set_cms`
+// (`Lcms2` or `Moxcms`). Without one the CMS is `NullCms`, as upstream with
+// neither the `lcms2` nor the `moxcms` feature.
+//
+// # Feature flags (upstream) and this port
+// - `rayon`: not available (no threads in MoonBit); the default pool is
+//   `JxlThreadPool::none()`, as upstream without `rayon`.
+// - `image`: the `image` crate integration is `JxlDecoder` in
+//   `integration.mbt`, always compiled.
+// - `lcms2` / `moxcms`: `Lcms2` and `Moxcms` are always available, but (as
+//   upstream with the features enabled only on request) the default CMS stays
+//   `NullCms`: jxl-oxide sets `Lcms2` by default only when the `lcms2`
+//   feature is on, which is not a default feature.
+
+///|
+pub using @color {
+  type ColorEncodingWithProfile,
+  trait ColorManagementSystem,
+  type NullCms,
+  trait PreparedTransform,
+}
+
+///|
+pub using @frame {type Frame, type FrameHeader}
+
+///|
+pub using @grid {type AllocTracker}
+
+///|
+pub using @image {
+  type EnumColourEncoding,
+  type RenderingIntent,
+  type ExtraChannelType,
+  type ImageHeader,
+}
+
+///|
+pub using @threadpool {type JxlThreadPool}
+
+///|
+/// Upstream's default pool: `JxlThreadPool::none()` without `rayon`.
+fn default_pool() -> @threadpool.JxlThreadPool {
+  @threadpool.JxlThreadPool::none()
+}
 
 ///|
 /// JPEG XL image decoder builder.
 pub struct JxlImageBuilder {
+  priv mut pool : @threadpool.JxlThreadPool?
   priv mut tracker : @grid.AllocTracker?
   priv mut force_wide_buffers : Bool
 }
 
 ///|
 pub fn JxlImageBuilder::default() -> JxlImageBuilder {
-  { tracker: None, force_wide_buffers: false, }
+  { pool: None, tracker: None, force_wide_buffers: false }
+}
+
+///|
+/// Sets a custom thread pool.
+pub fn JxlImageBuilder::pool(
+  self : JxlImageBuilder,
+  pool : @threadpool.JxlThreadPool,
+) -> JxlImageBuilder {
+  self.pool = Some(pool)
+  self
 }
 
 ///|
@@ -67,6 +116,10 @@ pub fn JxlImageBuilder::build_uninit(
   self : JxlImageBuilder,
 ) -> UninitializedJxlImage {
   {
+    pool: match self.pool {
+      Some(pool) => pool
+      None => default_pool()
+    },
     tracker: self.tracker,
     reader: @container.ContainerParser::new(),
     buffer: Buffer(),
@@ -76,41 +129,50 @@ pub fn JxlImageBuilder::build_uninit(
 }
 
 ///|
-/// Consumes the builder, and creates a JPEG XL image decoder by reading the
-/// whole image from `data` (upstream `read`, with the reader's contents given
-/// at once).
+/// `buf.copy_within(from..to, 0)`.
+fn copy_to_front(buf : FixedArray[Byte], from : Int, to : Int) -> Unit {
+  for i in 0..<(to - from) {
+    buf[i] = buf[from + i]
+  }
+}
+
+///|
+/// Consumes the builder, and creates a JPEG XL image decoder by reading image
+/// from the reader.
 pub fn JxlImageBuilder::read(
   self : JxlImageBuilder,
-  data : Bytes,
+  reader : &Read,
 ) -> JxlImage raise @bitstream.JxlError {
   let mut uninit = self.build_uninit()
-  let len = data.length()
-  let mut pos = 0
+  let buf = FixedArray::make(4096, b'\x00')
+  let mut buf_valid = 0
   let mut initialized : JxlImage? = None
   while initialized is None {
-    // The whole input is available at once; the container parser keeps what
-    // it cannot use yet, which is fed again with the rest.
-    let consumed = uninit.feed_bytes(data[pos:])
-    pos += consumed
+    let count = reader.read(buf, buf_valid, buf.length())
+    if count == 0 {
+      raise @bitstream.Io(
+        "UnexpectedEof: reader ended before parsing image header",
+      )
+    }
+    buf_valid += count
+    let consumed = uninit.feed_bytes(Bytes::from_array(buf[:buf_valid])[:])
+    copy_to_front(buf, consumed, buf_valid)
+    buf_valid -= consumed
     match uninit.try_init() {
-      NeedMoreData(x) => {
-        uninit = x
-        if consumed == 0 || pos >= len {
-          raise @bitstream.Io(
-            "UnexpectedEof: reader ended before parsing image header",
-          )
-        }
-      }
+      NeedMoreData(x) => uninit = x
       Initialized(x) => initialized = Some(x)
     }
   }
   let image = initialized.unwrap()
-  while !image.inner.end_of_image && pos < len {
-    let consumed = image.feed_bytes(data[pos:])
-    if consumed == 0 {
+  while !image.inner.end_of_image {
+    let count = reader.read(buf, buf_valid, buf.length())
+    if count == 0 {
       break
     }
-    pos += consumed
+    buf_valid += count
+    let consumed = image.feed_bytes(Bytes::from_array(buf[:buf_valid])[:])
+    copy_to_front(buf, consumed, buf_valid)
+    buf_valid -= consumed
   }
   image.finalize()
   image
@@ -131,6 +193,7 @@ pub fn JxlImageBuilder::read(
 /// }
 /// ```
 pub struct UninitializedJxlImage {
+  priv pool : @threadpool.JxlThreadPool
   priv tracker : @grid.AllocTracker?
   priv reader : @container.ContainerParser
   priv buffer : Buffer
@@ -231,8 +294,8 @@ pub fn UninitializedJxlImage::try_init(
   }
   builder = builder.force_wide_buffers(self.force_wide_buffers)
   let ctx = builder.build(image_header)
-  ctx.set_cms(default_cms())
   let image : JxlImage = {
+    pool: self.pool,
     reader: self.reader,
     image_header,
     ctx,
@@ -250,14 +313,9 @@ pub fn UninitializedJxlImage::try_init(
 }
 
 ///|
-/// The CMS set on new images (upstream: `Lcms2` with the `lcms2` feature).
-fn default_cms() -> &@color.ColorManagementSystem {
-  @cms.MoonCms::{ }
-}
-
-///|
 /// JPEG XL image.
 pub struct JxlImage {
+  priv pool : @threadpool.JxlThreadPool
   priv reader : @container.ContainerParser
   priv image_header : @image.ImageHeader
   priv ctx : @render.RenderContext
@@ -274,11 +332,11 @@ pub fn JxlImage::builder() -> JxlImageBuilder {
 }
 
 ///|
-/// Reads an image from the bytes with default options.
+/// Reads an image from the reader with default options.
 pub fn JxlImage::read_with_defaults(
-  data : Bytes,
+  reader : &Read,
 ) -> JxlImage raise @bitstream.JxlError {
-  JxlImage::builder().read(data)
+  JxlImage::builder().read(reader)
 }
 
 ///|
@@ -303,7 +361,8 @@ pub fn JxlImage::feed_bytes(
 ///|
 /// Signals the end of bitstream.
 ///
-/// This is automatically done if `read()` is used to decode the image.
+/// This is automatically done if `open()` or `read()` is used to decode the
+/// image.
 pub fn JxlImage::finalize(self : JxlImage) -> Unit raise @bitstream.JxlError {
   self.inner.aux_boxes.eof()
 }
@@ -479,6 +538,12 @@ pub fn JxlImage::frame(
 /// Returns the offset of frame within codestream, in bytes.
 pub fn JxlImage::frame_offset(self : JxlImage, frame_index : Int32) -> Int32? {
   self.inner.frame_offsets.get(frame_index)
+}
+
+///|
+/// Returns the thread pool used by the renderer.
+pub fn JxlImage::pool(self : JxlImage) -> @threadpool.JxlThreadPool {
+  self.pool
 }
 
 ///|

@@ -290,16 +290,59 @@ pub fn ImageStream::channels(self : ImageStream) -> Int32 {
 }
 
 ///|
-/// Output sample type of `ImageStream::write_to_buffer` (upstream sealed trait
-/// `FrameBufferSample`, implemented by `f32`, `u16` and `u8`).
-#derive(Debug, Eq)
-pub(all) enum SampleKind {
-  /// 32-bit float samples, with nominal range of `[0, 1]`.
-  F32
-  /// 16-bit unsigned integer samples.
-  U16
-  /// 8-bit unsigned integer samples.
-  U8
+/// Marker trait for supported output sample types (upstream's sealed
+/// `FrameBufferSample`): `Float` (32-bit float samples, with nominal range of
+/// `[0, 1]`), `UInt16` (16-bit unsigned integer samples) and `Byte` (8-bit
+/// unsigned integer samples).
+pub trait FrameBufferSample {
+  default_sample() -> Self
+  copy_from_grid(@render.ImageBuffer, Int, Int, @image.BitDepth) -> Self
+  copy_from_f32(Float) -> Self
+}
+
+///|
+pub impl FrameBufferSample for Float with default_sample() {
+  0.0
+}
+
+///|
+pub impl FrameBufferSample for Float with copy_from_grid(grid, x, y, bit_depth) {
+  sample_f32(grid, x, y, bit_depth)
+}
+
+///|
+pub impl FrameBufferSample for Float with copy_from_f32(val) {
+  val
+}
+
+///|
+pub impl FrameBufferSample for UInt16 with default_sample() {
+  0
+}
+
+///|
+pub impl FrameBufferSample for UInt16 with copy_from_grid(grid, x, y, bit_depth) {
+  copy_u16_from_grid(grid, x, y, bit_depth).to_uint16()
+}
+
+///|
+pub impl FrameBufferSample for UInt16 with copy_from_f32(val) {
+  sample_f32_to_u16(val).to_uint16()
+}
+
+///|
+pub impl FrameBufferSample for Byte with default_sample() {
+  b'\x00'
+}
+
+///|
+pub impl FrameBufferSample for Byte with copy_from_grid(grid, x, y, bit_depth) {
+  copy_u8_from_grid(grid, x, y, bit_depth).to_byte()
+}
+
+///|
+pub impl FrameBufferSample for Byte with copy_from_f32(val) {
+  sample_f32_to_u8(val).to_byte()
 }
 
 ///|
@@ -389,71 +432,13 @@ fn copy_u8_from_grid(
 }
 
 ///|
-/// Writes next samples as `f32` to `buf[start:]`, returning how many samples
-/// are written.
-pub fn ImageStream::write_to_buffer_f32(
+/// Writes next samples to the buffer, returning how many samples are written.
+pub fn[Sample : FrameBufferSample] ImageStream::write_to_buffer(
   self : ImageStream,
-  buf : FixedArray[Float],
-  start~ : Int32 = 0,
-) -> Int32 {
-  self.write_samples(
-    buf.length() - start,
-    fn(i, grid, x, y, bit_depth) {
-      buf[start + i] = sample_f32(grid, x, y, bit_depth)
-    },
-    fn(i, v) { buf[start + i] = v },
-    fn(i) { buf[start + i] = 0.0 },
-  )
-}
-
-///|
-/// Writes next samples as `u16` (stored in `Int`) to `buf[start:]`, returning
-/// how many samples are written.
-pub fn ImageStream::write_to_buffer_u16(
-  self : ImageStream,
-  buf : FixedArray[Int32],
-  start~ : Int32 = 0,
-) -> Int32 {
-  self.write_samples(
-    buf.length() - start,
-    fn(i, grid, x, y, bit_depth) {
-      buf[start + i] = copy_u16_from_grid(grid, x, y, bit_depth)
-    },
-    fn(i, v) { buf[start + i] = sample_f32_to_u16(v) },
-    fn(i) { buf[start + i] = 0 },
-  )
-}
-
-///|
-/// Writes next samples as `u8` to `buf[start:]`, returning how many samples are
-/// written.
-pub fn ImageStream::write_to_buffer_u8(
-  self : ImageStream,
-  buf : FixedArray[Byte],
-  start~ : Int32 = 0,
-) -> Int32 {
-  self.write_samples(
-    buf.length() - start,
-    fn(i, grid, x, y, bit_depth) {
-      buf[start + i] = copy_u8_from_grid(grid, x, y, bit_depth).to_byte()
-    },
-    fn(i, v) { buf[start + i] = sample_f32_to_u8(v).to_byte() },
-    fn(i) { buf[start + i] = b'\x00' },
-  )
-}
-
-///|
-/// Body of upstream `write_to_buffer`, generic over the output through
-/// `from_grid` (copy a grid sample), `from_f32` (store a float) and
-/// `default` (store the zero sample) callbacks indexed by output position.
-fn ImageStream::write_samples(
-  self : ImageStream,
-  capacity : Int32,
-  from_grid : (Int32, @render.ImageBuffer, Int32, Int32, @image.BitDepth) -> Unit,
-  from_f32 : (Int32, Float) -> Unit,
-  default : (Int32) -> Unit,
-) -> Int32 {
+  buf : FixedArray[Sample],
+) -> Int {
   let channels = self.grids.length()
+  let capacity = buf.length()
   let mut count = 0
   while self.y < self.height {
     while self.x < self.width {
@@ -466,7 +451,7 @@ fn ImageStream::write_samples(
         let x = orig_x + start_x
         let y = orig_y + start_y
         if x < 0 || y < 0 {
-          default(count)
+          buf[count] = Sample::default_sample()
           count += 1
           self.c += 1
           continue
@@ -474,7 +459,7 @@ fn ImageStream::write_samples(
         let grid = self.grids[self.c]
         let bit_depth = self.bit_depth[self.c]
         if self.c >= 3 || self.spot_colors.is_empty() {
-          from_grid(count, grid, x, y, bit_depth)
+          buf[count] = Sample::copy_from_grid(grid, x, y, bit_depth)
         } else {
           let mut tmp_sample = sample_f32(grid, x, y, bit_depth)
           for spot in self.spot_colors {
@@ -494,7 +479,7 @@ fn ImageStream::write_samples(
             }
             tmp_sample = color * mix + tmp_sample * (1.0 - mix)
           }
-          from_f32(count, tmp_sample)
+          buf[count] = Sample::copy_from_f32(tmp_sample)
         }
         count += 1
         self.c += 1
