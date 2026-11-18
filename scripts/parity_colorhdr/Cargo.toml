@@ -1,0 +1,19 @@
+# Generator of src/color/icc_parity_data_wbtest.mbt and src/image/header_parity_data_wbtest.mbt
+# from upstream jxl-oxide. Point the paths below at a jxl-oxide checkout (c0cc4c7ea57c), copy its
+# Cargo.lock next to this file, then:
+#   cargo run --release --offline -- <conformance testcases> \
+#     <jxl-oxide>/crates/jxl-color/src/icc/test-profiles \
+#     src/color/icc_parity_data_wbtest.mbt src/image/header_parity_data_wbtest.mbt
+[package]
+name = "parity"
+version = "0.0.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+jxl-color = { path = "../../../jxl-oxide/crates/jxl-color" }
+jxl-image = { path = "../../../jxl-oxide/crates/jxl-image" }
+jxl-bitstream = { path = "../../../jxl-oxide/crates/jxl-bitstream" }
+jxl-coding = { path = "../../../jxl-oxide/crates/jxl-coding" }
+jxl-oxide-common = { path = "../../../jxl-oxide/crates/jxl-oxide-common" }
