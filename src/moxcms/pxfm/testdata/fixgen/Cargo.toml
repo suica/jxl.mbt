@@ -1,0 +1,13 @@
+[package]
+name = "pxfm-fixgen"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+pxfm = "=0.1.30"
+pxfm_instr = { path = "../vendor/pxfm_instr" }
+pxfm_generic = { path = "../vendor/pxfm_generic" }
+
+[profile.release]
+debug = false

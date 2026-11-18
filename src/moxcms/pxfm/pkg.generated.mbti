@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/moxcms/pxfm"
+
+// Values
+pub fn dirty_powf(Float, Float) -> Float
+
+pub fn f_cbrtf(Float) -> Float
+
+pub fn f_exp(Double) -> Double
+
+pub fn f_exp10(Double) -> Double
+
+pub fn f_exp2(Double) -> Double
+
+pub fn f_log(Double) -> Double
+
+pub fn f_log10(Double) -> Double
+
+pub fn f_pow(Double, Double) -> Double
+
+pub fn f_powf(Float, Float) -> Float
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
