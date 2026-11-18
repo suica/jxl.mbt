@@ -68,7 +68,7 @@ pub fn IndexedFrame::pass_shifts(
 pub fn IndexedFrame::try_parse_lf_global(
   self : IndexedFrame,
 ) -> @frame.LfGlobal? raise @bitstream.JxlError {
-  self.f.try_parse_lf_global()
+  unwrap_opt_result(self.f.try_parse_lf_global())
 }
 
 ///|
@@ -79,9 +79,23 @@ pub fn IndexedFrame::try_parse_lf_group(
   mlf_group : @modular.TransformedModularSubimage?,
   lf_group_idx : Int,
 ) -> @frame.LfGroup? raise @bitstream.JxlError {
-  self.f.try_parse_lf_group(
-    lf_global_vardct, global_ma_config, mlf_group, lf_group_idx,
+  unwrap_opt_result(
+    self.f.try_parse_lf_group(
+      lf_global_vardct, global_ma_config, mlf_group, lf_group_idx,
+    ),
   )
+}
+
+///|
+/// `Option<Result<T>>` → `T? raise`.
+fn[T] unwrap_opt_result(
+  r : Result[T, @bitstream.JxlError]?,
+) -> T? raise @bitstream.JxlError {
+  match r {
+    None => None
+    Some(Ok(v)) => Some(v)
+    Some(Err(e)) => raise e
+  }
 }
 
 ///|
@@ -89,7 +103,7 @@ pub fn IndexedFrame::try_parse_hf_global(
   self : IndexedFrame,
   cached_lf_global : @frame.LfGlobal?,
 ) -> @frame.HfGlobal? raise @bitstream.JxlError {
-  self.f.try_parse_hf_global(cached_lf_global)
+  unwrap_opt_result(self.f.try_parse_hf_global(cached_lf_global))
 }
 
 ///|
@@ -98,7 +112,7 @@ pub fn IndexedFrame::pass_group_bitstream(
   pass_idx : Int,
   group_idx : Int,
 ) -> @frame.PassGroupBitstream? raise @bitstream.JxlError {
-  self.f.pass_group_bitstream(pass_idx, group_idx)
+  unwrap_opt_result(self.f.pass_group_bitstream(pass_idx, group_idx))
 }
 
 ///|
