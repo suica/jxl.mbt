@@ -195,7 +195,10 @@ pub struct PredictorState {
   priv mut sc_valid : Bool
   priv mut sc_prediction : Int64
   priv mut sc_max_error : Int32
-  priv sc_subpred : FixedArray[Int64]
+  priv mut sc_subpred0 : Int64
+  priv mut sc_subpred1 : Int64
+  priv mut sc_subpred2 : Int64
+  priv mut sc_subpred3 : Int64
 }
 
 ///|
@@ -217,7 +220,10 @@ pub fn PredictorState::new() -> PredictorState {
     sc_valid: false,
     sc_prediction: 0L,
     sc_max_error: 0,
-    sc_subpred: FixedArray::make(4, 0L),
+    sc_subpred0: 0L,
+    sc_subpred1: 0L,
+    sc_subpred2: 0L,
+    sc_subpred3: 0L,
   }
 }
 
@@ -418,6 +424,8 @@ pub fn PredictorState::record(self : PredictorState, sample : Int32) -> Unit {
 }
 
 ///|
+/// Self-correcting (weighted) predictor state. The `[u32; 4]` arrays of
+/// upstream are kept as four scalar fields each (`_0` .. `_3`).
 priv struct SelfCorrectingPredictor {
   mut width : Int32
   mut x : Int32
@@ -430,12 +438,18 @@ priv struct SelfCorrectingPredictor {
   mut true_err_nw : Int32
   mut true_err_n : Int32
   mut true_err_ne : Int32
-  subpred_err_nw_ww : FixedArray[UInt32]
-  subpred_err_n_w : FixedArray[UInt32]
-  subpred_err_ne : FixedArray[UInt32]
-  // scratch
-  weight : FixedArray[UInt32]
-  subpred_err : FixedArray[UInt32]
+  mut nw_ww_0 : UInt32
+  mut nw_ww_1 : UInt32
+  mut nw_ww_2 : UInt32
+  mut nw_ww_3 : UInt32
+  mut n_w_0 : UInt32
+  mut n_w_1 : UInt32
+  mut n_w_2 : UInt32
+  mut n_w_3 : UInt32
+  mut ne_0 : UInt32
+  mut ne_1 : UInt32
+  mut ne_2 : UInt32
+  mut ne_3 : UInt32
 }
 
 ///|
@@ -451,11 +465,18 @@ fn SelfCorrectingPredictor::new() -> SelfCorrectingPredictor {
     true_err_nw: 0,
     true_err_n: 0,
     true_err_ne: 0,
-    subpred_err_nw_ww: FixedArray::make(4, 0),
-    subpred_err_n_w: FixedArray::make(4, 0),
-    subpred_err_ne: FixedArray::make(4, 0),
-    weight: FixedArray::make(4, 0),
-    subpred_err: FixedArray::make(4, 0),
+    nw_ww_0: 0,
+    nw_ww_1: 0,
+    nw_ww_2: 0,
+    nw_ww_3: 0,
+    n_w_0: 0,
+    n_w_1: 0,
+    n_w_2: 0,
+    n_w_3: 0,
+    ne_0: 0,
+    ne_1: 0,
+    ne_2: 0,
+    ne_3: 0,
   }
 }
 
@@ -481,11 +502,18 @@ fn SelfCorrectingPredictor::reset(
   self.true_err_nw = 0
   self.true_err_n = 0
   self.true_err_ne = 0
-  for i in 0..<4 {
-    self.subpred_err_nw_ww[i] = 0
-    self.subpred_err_n_w[i] = 0
-    self.subpred_err_ne[i] = 0
-  }
+  self.nw_ww_0 = 0
+  self.nw_ww_1 = 0
+  self.nw_ww_2 = 0
+  self.nw_ww_3 = 0
+  self.n_w_0 = 0
+  self.n_w_1 = 0
+  self.n_w_2 = 0
+  self.n_w_3 = 0
+  self.ne_0 = 0
+  self.ne_1 = 0
+  self.ne_2 = 0
+  self.ne_3 = 0
 }
 
 ///|
@@ -493,6 +521,22 @@ fn SelfCorrectingPredictor::reset(
 #inline
 fn ilog2_u64(v : UInt64) -> Int32 {
   63 - v.clz()
+}
+
+///|
+/// `4 + ((maxweight * DIV_LOOKUP[(err_sum >> shift) + 1]) >> shift)`.
+#inline
+fn sc_weight(err_sum : UInt32, maxweight : Int32) -> UInt32 {
+  let t = (err_sum.to_uint64() + 1UL) >> 5
+  let shift = if t == 0UL { 0 } else { ilog2_u64(t) }
+  4U +
+  (
+    (
+      maxweight.reinterpret_as_uint() *
+      div_lookup[(err_sum >> shift).reinterpret_as_int() + 1]
+    ) >>
+    shift
+  )
 }
 
 ///|
@@ -516,13 +560,12 @@ fn SelfCorrectingPredictor::predict(
   let ne3 = ne.to_int64() << 3
   let w3 = w.to_int64() << 3
   let nn3 = nn.to_int64() << 3
-  let subpred = out.sc_subpred
-  subpred[0] = w3 + ne3 - n3
-  subpred[1] = n3 -
+  let subpred0 = w3 + ne3 - n3
+  let subpred1 = n3 -
     (((true_err_w + true_err_n + true_err_ne) * wp.wp_p1.to_int64()) >> 5)
-  subpred[2] = w3 -
+  let subpred2 = w3 -
     (((true_err_w + true_err_n + true_err_nw) * wp.wp_p2.to_int64()) >> 5)
-  subpred[3] = n3 -
+  let subpred3 = n3 -
     (
       (
         true_err_nw * wp.wp_p3a.to_int64() +
@@ -533,38 +576,27 @@ fn SelfCorrectingPredictor::predict(
       ) >>
       5
     )
-  let weight = self.weight
-  for i in 0..<4 {
-    let err_sum = self.subpred_err_nw_ww[i] +
-      self.subpred_err_n_w[i] +
-      self.subpred_err_ne[i]
-    let maxweight = match i {
-      0 => wp.wp_w0
-      1 => wp.wp_w1
-      2 => wp.wp_w2
-      _ => wp.wp_w3
-    }
-    let t = (err_sum.to_uint64() + 1UL) >> 5
-    let shift = if t == 0UL { 0 } else { ilog2_u64(t) }
-    weight[i] = 4U +
-      (
-        (
-          maxweight.reinterpret_as_uint() *
-          div_lookup[(err_sum >> shift).reinterpret_as_int() + 1]
-        ) >>
-        shift
-      )
-  }
-  let sum_weights = weight[0] + weight[1] + weight[2] + weight[3]
+  out.sc_subpred0 = subpred0
+  out.sc_subpred1 = subpred1
+  out.sc_subpred2 = subpred2
+  out.sc_subpred3 = subpred3
+  let mut weight0 = sc_weight(self.nw_ww_0 + self.n_w_0 + self.ne_0, wp.wp_w0)
+  let mut weight1 = sc_weight(self.nw_ww_1 + self.n_w_1 + self.ne_1, wp.wp_w1)
+  let mut weight2 = sc_weight(self.nw_ww_2 + self.n_w_2 + self.ne_2, wp.wp_w2)
+  let mut weight3 = sc_weight(self.nw_ww_3 + self.n_w_3 + self.ne_3, wp.wp_w3)
+  let sum_weights = weight0 + weight1 + weight2 + weight3
   let log_weight = ilog2_u64(sum_weights.to_uint64() >> 4)
-  for i in 0..<4 {
-    weight[i] = weight[i] >> log_weight
-  }
-  let sum_weights = weight[0] + weight[1] + weight[2] + weight[3]
-  let mut s = (sum_weights.to_int64() >> 1) - 1L
-  for i in 0..<4 {
-    s += subpred[i] * weight[i].to_int64()
-  }
+  weight0 = weight0 >> log_weight
+  weight1 = weight1 >> log_weight
+  weight2 = weight2 >> log_weight
+  weight3 = weight3 >> log_weight
+  let sum_weights = weight0 + weight1 + weight2 + weight3
+  let s = (sum_weights.to_int64() >> 1) -
+    1L +
+    subpred0 * weight0.to_int64() +
+    subpred1 * weight1.to_int64() +
+    subpred2 * weight2.to_int64() +
+    subpred3 * weight3.to_int64()
   let mut prediction = (
       s * div_lookup[sum_weights.reinterpret_as_int()].to_int64()
     ) >>
@@ -595,6 +627,18 @@ fn SelfCorrectingPredictor::predict(
 }
 
 ///|
+/// `((subpred.abs_diff(sample) + 3) >> 3) as u32`.
+#inline
+fn sc_subpred_err(subpred : Int64, sample : Int64) -> UInt32 {
+  let diff = if subpred >= sample {
+    (subpred - sample).reinterpret_as_uint64()
+  } else {
+    (sample - subpred).reinterpret_as_uint64()
+  }
+  ((diff + 3UL) >> 3).to_uint()
+}
+
+///|
 fn SelfCorrectingPredictor::record(
   self : SelfCorrectingPredictor,
   pred : PredictorState,
@@ -602,21 +646,17 @@ fn SelfCorrectingPredictor::record(
 ) -> Unit {
   let sample = sample.to_int64() << 3
   let true_err = pred.sc_prediction - sample
-  let subpred_err = self.subpred_err
-  for i in 0..<4 {
-    let sp = pred.sc_subpred[i]
-    let diff = if sp >= sample {
-      (sp - sample).reinterpret_as_uint64()
-    } else {
-      (sample - sp).reinterpret_as_uint64()
-    }
-    subpred_err[i] = ((diff + 3UL) >> 3).to_uint()
-  }
+  let err0 = sc_subpred_err(pred.sc_subpred0, sample)
+  let err1 = sc_subpred_err(pred.sc_subpred1, sample)
+  let err2 = sc_subpred_err(pred.sc_subpred2, sample)
+  let err3 = sc_subpred_err(pred.sc_subpred3, sample)
   let x = self.x
+  let row = self.subpred_err_row
   self.true_err_row[x] = true_err.to_int()
-  for i in 0..<4 {
-    self.subpred_err_row[x * 4 + i] = subpred_err[i]
-  }
+  row[x * 4] = err0
+  row[x * 4 + 1] = err1
+  row[x * 4 + 2] = err2
+  row[x * 4 + 3] = err3
   self.x += 1
   if self.x >= self.width {
     self.y += 1
@@ -624,40 +664,52 @@ fn SelfCorrectingPredictor::record(
     self.true_err_w = 0
     self.true_err_n = self.true_err_row[0]
     self.true_err_nw = self.true_err_n
-    for i in 0..<4 {
-      self.subpred_err_n_w[i] = self.subpred_err_row[i]
-      self.subpred_err_nw_ww[i] = self.subpred_err_n_w[i]
-    }
+    self.n_w_0 = row[0]
+    self.n_w_1 = row[1]
+    self.n_w_2 = row[2]
+    self.n_w_3 = row[3]
+    self.nw_ww_0 = self.n_w_0
+    self.nw_ww_1 = self.n_w_1
+    self.nw_ww_2 = self.n_w_2
+    self.nw_ww_3 = self.n_w_3
     if self.width <= 1 {
       self.true_err_ne = self.true_err_n
-      for i in 0..<4 {
-        self.subpred_err_ne[i] = self.subpred_err_n_w[i]
-      }
+      self.ne_0 = self.n_w_0
+      self.ne_1 = self.n_w_1
+      self.ne_2 = self.n_w_2
+      self.ne_3 = self.n_w_3
     } else {
       self.true_err_ne = self.true_err_row[1]
-      for i in 0..<4 {
-        self.subpred_err_ne[i] = self.subpred_err_row[4 + i]
-      }
+      self.ne_0 = row[4]
+      self.ne_1 = row[5]
+      self.ne_2 = row[6]
+      self.ne_3 = row[7]
     }
   } else {
     self.true_err_w = true_err.to_int()
     self.true_err_nw = self.true_err_n
     self.true_err_n = self.true_err_ne
-    for i in 0..<4 {
-      self.subpred_err_nw_ww[i] = self.subpred_err_n_w[i]
-      self.subpred_err_n_w[i] = self.subpred_err_ne[i] + subpred_err[i]
-    }
+    self.nw_ww_0 = self.n_w_0
+    self.nw_ww_1 = self.n_w_1
+    self.nw_ww_2 = self.n_w_2
+    self.nw_ww_3 = self.n_w_3
+    self.n_w_0 = self.ne_0 + err0
+    self.n_w_1 = self.ne_1 + err1
+    self.n_w_2 = self.ne_2 + err2
+    self.n_w_3 = self.ne_3 + err3
     if self.x + 1 >= self.width {
       self.true_err_ne = self.true_err_n
-      for i in 0..<4 {
-        self.subpred_err_ne[i] = self.subpred_err_n_w[i]
-      }
+      self.ne_0 = self.n_w_0
+      self.ne_1 = self.n_w_1
+      self.ne_2 = self.n_w_2
+      self.ne_3 = self.n_w_3
     } else if self.y != 0 {
-      let x = self.x
-      self.true_err_ne = self.true_err_row[x + 1]
-      for i in 0..<4 {
-        self.subpred_err_ne[i] = self.subpred_err_row[(x + 1) * 4 + i]
-      }
+      let x1 = self.x + 1
+      self.true_err_ne = self.true_err_row[x1]
+      self.ne_0 = row[x1 * 4]
+      self.ne_1 = row[x1 * 4 + 1]
+      self.ne_2 = row[x1 * 4 + 2]
+      self.ne_3 = row[x1 * 4 + 3]
     }
   }
 }
