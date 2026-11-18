@@ -1,0 +1,15 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl"
+
+// Values
+pub fn is_jxl(Bytes) -> Bool
+
+pub fn jxl_size(Bytes) -> (Int32, Int32)?
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
