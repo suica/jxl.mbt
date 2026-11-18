@@ -2,4 +2,5 @@ import {
   "suica/jxl/bitstream",
   "suica/jxl/grid",
   "moonbitlang/core/math",
+  "moonbitlang/core/float",
 }
