@@ -1,0 +1,83 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/bitstream"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn c(UInt32) -> U32Spec
+
+pub fn cu(UInt32, Int32) -> U32Spec
+
+pub fn read_name(Bitstream) -> String raise JxlError
+
+pub fn u(Int32) -> U32Spec
+
+pub fn unpack_signed(UInt32) -> Int32
+
+pub fn unpack_signed_u64(UInt64) -> Int64
+
+// Errors
+#derive(Eq, @debug.Debug)
+pub(all) suberror JxlError {
+  Eof
+  Io(String)
+  InvalidBox
+  NonZeroPadding
+  InvalidFloat
+  InvalidEnum(String, UInt32)
+  ValidationFailed(String)
+  ProfileConformance(String)
+  CannotSkip
+  NotAligned
+  Decoder(String)
+  Modular(String)
+  Frame(String)
+  IncompleteFrameData(String)
+  Color(String)
+  Render(String)
+  NotSupported(String)
+  OutOfMemory(Int32)
+  Jbr(String)
+  Brotli(String)
+}
+pub fn JxlError::unexpected_eof(Self) -> Bool
+
+// Types and methods
+pub struct Bitstream {
+  bytes : Bytes
+  end : Int32
+  mut pos : Int32
+  mut buf : UInt64
+  mut num_read_bits : Int32
+  mut remaining_buf_bits : Int32
+}
+pub fn Bitstream::bits_left(Self) -> Int32
+pub fn Bitstream::bytes_left(Self) -> Int32
+pub fn Bitstream::clone(Self) -> Self
+pub fn Bitstream::consume_bits(Self, Int32) -> Unit raise JxlError
+pub fn Bitstream::new(Bytes) -> Self
+pub fn Bitstream::new_range(Bytes, Int32, Int32) -> Self
+pub fn Bitstream::num_read_bits(Self) -> Int32
+pub fn Bitstream::peek_bits(Self, Int32) -> UInt32
+pub fn Bitstream::peek_bits_prefilled(Self, Int32) -> UInt32
+pub fn Bitstream::read_bits(Self, Int32) -> UInt32 raise JxlError
+pub fn Bitstream::read_bits_int(Self, Int32) -> Int32 raise JxlError
+pub fn Bitstream::read_bool(Self) -> Bool raise JxlError
+pub fn Bitstream::read_bytes_aligned(Self, Int32) -> Bytes raise JxlError
+pub fn Bitstream::read_enum_raw(Self) -> UInt32 raise JxlError
+pub fn Bitstream::read_f16_as_f32(Self) -> Float raise JxlError
+pub fn Bitstream::read_u32(Self, U32Spec, U32Spec, U32Spec, U32Spec) -> UInt32 raise JxlError
+pub fn Bitstream::read_u64(Self) -> UInt64 raise JxlError
+pub fn Bitstream::skip_bits(Self, Int32) -> Unit raise JxlError
+pub fn Bitstream::zero_pad_to_byte(Self) -> Unit raise JxlError
+
+pub(all) enum U32Spec {
+  Constant(UInt32)
+  BitsOffset(UInt32, Int32)
+}
+
+// Type aliases
+
+// Traits

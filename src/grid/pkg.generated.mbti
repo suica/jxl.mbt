@@ -1,0 +1,59 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/grid"
+
+import {
+  "suica/jxl/bitstream",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct AllocTracker {
+  mut bytes_left : Int64
+}
+pub fn AllocTracker::alloc(Self, Int32, Int32) -> Unit raise @bitstream.JxlError
+pub fn AllocTracker::free(Self, Int32, Int32) -> Unit
+pub fn AllocTracker::with_limit(Int64) -> Self
+
+pub struct Grid[T] {
+  width : Int32
+  height : Int32
+  buf : FixedArray[T]
+}
+pub fn[T] Grid::as_subgrid(Self[T]) -> SubGrid[T]
+pub fn[T] Grid::buf(Self[T]) -> FixedArray[T]
+pub fn[T] Grid::clone(Self[T]) -> Self[T]
+pub fn[T] Grid::empty(T) -> Self[T]
+pub fn[T] Grid::from_buf(Int32, Int32, FixedArray[T]) -> Self[T]
+pub fn[T] Grid::get(Self[T], Int32, Int32) -> T
+pub fn[T] Grid::height(Self[T]) -> Int32
+pub fn[T] Grid::new(Int32, Int32, T) -> Self[T]
+pub fn[T] Grid::row_offset(Self[T], Int32) -> Int32
+pub fn[T] Grid::set(Self[T], Int32, Int32, T) -> Unit
+pub fn[T] Grid::width(Self[T]) -> Int32
+pub fn[T] Grid::with_alloc_tracker(Int32, Int32, T, AllocTracker?, elem_size? : Int32) -> Self[T] raise @bitstream.JxlError
+
+pub struct SubGrid[T] {
+  buf : FixedArray[T]
+  offset : Int32
+  width : Int32
+  height : Int32
+  stride : Int32
+}
+pub fn[T] SubGrid::from_buf(FixedArray[T], Int32, Int32, Int32, Int32) -> Self[T]
+pub fn[T] SubGrid::get(Self[T], Int32, Int32) -> T
+pub fn[T] SubGrid::height(Self[T]) -> Int32
+pub fn[T] SubGrid::into_groups(Self[T], Int32, Int32) -> Array[Self[T]]
+pub fn[T] SubGrid::row_offset(Self[T], Int32) -> Int32
+pub fn[T] SubGrid::set(Self[T], Int32, Int32, T) -> Unit
+pub fn[T] SubGrid::split_horizontal(Self[T], Int32) -> (Self[T], Self[T])
+pub fn[T] SubGrid::split_vertical(Self[T], Int32) -> (Self[T], Self[T])
+pub fn[T] SubGrid::subgrid(Self[T], Int32, Int32, Int32, Int32) -> Self[T]
+pub fn[T] SubGrid::swap(Self[T], Int32, Int32, Int32, Int32) -> Unit
+pub fn[T] SubGrid::width(Self[T]) -> Int32
+
+// Type aliases
+
+// Traits
