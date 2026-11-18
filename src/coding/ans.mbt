@@ -11,6 +11,7 @@
 /// Each bucket is packed into a `UInt64` with the same layout as the Rust
 /// `#[repr(C)] struct Bucket` read as a little-endian `u64`:
 /// `alias_symbol | alias_cutoff << 8 | dist << 16 | alias_offset << 32 | alias_dist_xor << 48`.
+#derive(Debug)
 priv struct AnsHistogram {
   buckets : FixedArray[UInt64]
   log_bucket_size : Int32
@@ -52,11 +53,11 @@ fn AnsHistogram::parse(
       let v0 = ans_read_u8(bitstream)
       let v1 = ans_read_u8(bitstream)
       if v0 == v1 {
-        raise coding_error("InvalidAnsHistogram")
+        raise coding_error(InvalidAnsHistogram)
       }
       alphabet_size = (if v0 > v1 { v0 } else { v1 }) + 1
       if alphabet_size > table_size {
-        raise coding_error("InvalidAnsHistogram")
+        raise coding_error(InvalidAnsHistogram)
       }
       let prob = bitstream.read_bits_int(12)
       dist[v0] = prob
@@ -66,7 +67,7 @@ fn AnsHistogram::parse(
       let val = ans_read_u8(bitstream)
       alphabet_size = val + 1
       if alphabet_size > table_size {
-        raise coding_error("InvalidAnsHistogram")
+        raise coding_error(InvalidAnsHistogram)
       }
       dist[val] = 1 << 12
     }
@@ -74,7 +75,7 @@ fn AnsHistogram::parse(
     // evenly distributed
     alphabet_size = ans_read_u8(bitstream) + 1
     if alphabet_size > table_size {
-      raise coding_error("InvalidAnsHistogram")
+      raise coding_error(InvalidAnsHistogram)
     }
     let base = (1 << 12) / alphabet_size
     let leftover = (1 << 12) % alphabet_size
@@ -96,11 +97,11 @@ fn AnsHistogram::parse(
     }
     let shift = bitstream.read_bits_int(len) + (1 << len) - 1
     if shift > 13 {
-      raise coding_error("InvalidAnsHistogram")
+      raise coding_error(InvalidAnsHistogram)
     }
     alphabet_size = ans_read_u8(bitstream) + 3
     if alphabet_size > table_size {
-      raise coding_error("InvalidAnsHistogram")
+      raise coding_error(InvalidAnsHistogram)
     }
     // (start, end) pairs
     let repeat_ranges : Array[Int32] = []
@@ -112,7 +113,7 @@ fn AnsHistogram::parse(
       if dist[idx] == 13 {
         let repeat_count = ans_read_u8(bitstream) + 4
         if idx + repeat_count > alphabet_size {
-          raise coding_error("InvalidAnsHistogram")
+          raise coding_error(InvalidAnsHistogram)
         }
         repeat_ranges.push(idx)
         repeat_ranges.push(idx + repeat_count)
@@ -131,10 +132,10 @@ fn AnsHistogram::parse(
       idx += 1
     }
     if omit_pos < 0 {
-      raise coding_error("InvalidAnsHistogram")
+      raise coding_error(InvalidAnsHistogram)
     }
     if omit_pos + 1 < table_size && dist[omit_pos + 1] == 13 {
-      raise coding_error("InvalidAnsHistogram")
+      raise coding_error(InvalidAnsHistogram)
     }
     let num_ranges = repeat_ranges.length() / 2
     let mut repeat_range_idx = 0
@@ -149,7 +150,7 @@ fn AnsHistogram::parse(
           dist[idx] = prev_dist
           acc += prev_dist
           if acc > 1 << 12 {
-            raise coding_error("InvalidAnsHistogram")
+            raise coding_error(InvalidAnsHistogram)
           }
           continue
         }
@@ -182,7 +183,7 @@ fn AnsHistogram::parse(
       prev_dist = code
       acc += code
       if acc > 1 << 12 {
-        raise coding_error("InvalidAnsHistogram")
+        raise coding_error(InvalidAnsHistogram)
       }
     }
     dist[omit_pos] = (1 << 12) - acc

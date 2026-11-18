@@ -71,8 +71,36 @@ pub fn Bitstream::bits_left(self : Bitstream) -> Int32 {
 }
 
 ///|
+/// Fills bit buffer from byte buffer (upstream `refill`: an 8-byte load when
+/// at least 8 bytes are left, otherwise byte by byte up to 56 bits).
+#inline
 fn Bitstream::refill(self : Bitstream) -> Unit {
-  while self.remaining_buf_bits <= 56 && self.pos < self.end {
+  let p = self.pos
+  if self.end - p >= 8 {
+    let b = self.bytes
+    let bits = b[p].to_uint64() |
+      (b[p + 1].to_uint64() << 8) |
+      (b[p + 2].to_uint64() << 16) |
+      (b[p + 3].to_uint64() << 24) |
+      (b[p + 4].to_uint64() << 32) |
+      (b[p + 5].to_uint64() << 40) |
+      (b[p + 6].to_uint64() << 48) |
+      (b[p + 7].to_uint64() << 56)
+    self.buf = self.buf | (bits << self.remaining_buf_bits)
+    let read_bytes = (63 - self.remaining_buf_bits) >> 3
+    self.remaining_buf_bits = self.remaining_buf_bits | 56
+    self.pos = p + read_bytes
+  } else {
+    self.refill_slow()
+  }
+}
+
+///|
+fn Bitstream::refill_slow(self : Bitstream) -> Unit {
+  while self.remaining_buf_bits < 56 {
+    if self.pos >= self.end {
+      return
+    }
     self.buf = self.buf |
       (self.bytes[self.pos].to_uint64() << self.remaining_buf_bits)
     self.remaining_buf_bits += 8
@@ -103,7 +131,7 @@ pub fn Bitstream::consume_bits(
   }
   self.remaining_buf_bits -= n
   self.num_read_bits += n
-  self.buf = if n >= 64 { 0 } else { self.buf >> n }
+  self.buf = self.buf >> n
 }
 
 ///|
@@ -112,9 +140,6 @@ pub fn Bitstream::read_bits(
   self : Bitstream,
   n : Int32,
 ) -> UInt32 raise JxlError {
-  if n == 0 {
-    return 0
-  }
   let ret = self.peek_bits(n)
   self.consume_bits(n)
   ret
@@ -132,7 +157,9 @@ pub fn Bitstream::read_bits_int(
 ///|
 pub fn Bitstream::skip_bits(self : Bitstream, n : Int32) -> Unit raise JxlError {
   if n <= self.remaining_buf_bits {
-    self.consume_bits(n)
+    self.num_read_bits += n
+    self.remaining_buf_bits -= n
+    self.buf = self.buf >> n
     return
   }
   let mut n = n - self.remaining_buf_bits
@@ -140,16 +167,21 @@ pub fn Bitstream::skip_bits(self : Bitstream, n : Int32) -> Unit raise JxlError 
   self.buf = 0
   self.remaining_buf_bits = 0
   let avail = self.end - self.pos
-  if n > avail * 8 {
+  if n.to_int64() > avail.to_int64() * 8L {
+    // Upstream counts the remaining bytes as read but does not advance the
+    // byte slice.
     self.num_read_bits += avail * 8
-    self.pos = self.end
     raise Eof
   }
-  self.num_read_bits += n / 8 * 8
+  self.num_read_bits += n
   self.pos += n / 8
   n = n % 8
   self.refill()
-  self.consume_bits(n)
+  if self.remaining_buf_bits < n {
+    raise Eof
+  }
+  self.remaining_buf_bits -= n
+  self.buf = self.buf >> n
 }
 
 ///|
@@ -312,5 +344,43 @@ pub fn read_name(bs : Bitstream) -> String raise JxlError {
   }
   @utf8.decode(Bytes::from_array(data)) catch {
     _ => raise ValidationFailed("non-UTF-8 name")
+  }
+}
+
+///|
+/// Name type which is read by some JPEG XL headers (jxl-oxide-common `Name`).
+#derive(Eq, Debug)
+pub(all) struct Name(String)
+
+///|
+/// `Name::parse` (the `Bundle` impl): a UTF-8 string with a U32 length
+/// prefix.
+pub fn Name::parse(bs : Bitstream) -> Name raise JxlError {
+  Name(read_name(bs))
+}
+
+///|
+/// The string of the name (Rust `Deref<Target = String>`).
+pub fn Name::as_str(self : Name) -> String {
+  self.0
+}
+
+///|
+/// An enum that can be read with [Bitstream::read_enum] (Rust
+/// `E: TryFrom<u32>` plus `std::any::type_name::<E>()` for the error).
+pub(open) trait JxlEnum {
+  fn try_from_u32(UInt32) -> Self?
+  fn type_name() -> String
+}
+
+///|
+/// Reads an enum as defined in the JPEG XL specification.
+///
+/// Raises `InvalidEnum(type_name, value)` if the value is not a variant.
+pub fn[E : JxlEnum] Bitstream::read_enum(self : Bitstream) -> E raise JxlError {
+  let v = self.read_u32(c(0), c(1), cu(2, 4), cu(18, 6))
+  match E::try_from_u32(v) {
+    Some(e) => e
+    None => raise InvalidEnum(E::type_name(), v)
   }
 }

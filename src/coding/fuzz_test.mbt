@@ -4,27 +4,42 @@
 // hash.
 
 ///|
-fn fuzz_err_code(e : @bitstream.JxlError) -> UInt32 {
-  let code = match e {
-    @bitstream.Eof => 1U
-    @bitstream.Decoder(name) =>
-      match name {
-        "Lz77NotAllowed" => 2
-        "InvalidAnsHistogram" => 3
-        "InvalidAnsStream" => 4
-        "InvalidIntegerConfig" => 5
-        "InvalidPermutation" => 6
-        "InvalidPrefixHistogram" => 7
-        "PrefixSymbolTooLarge" => 8
-        "InvalidCluster" => 9
-        "ClusterHole" => 10
-        "UnexpectedLz77Repeat" => 11
-        "InvalidLz77Symbol" => 12
-        _ => 99
+/// Error code and payload, as pushed by the generator (`err_codes`).
+fn fuzz_err_codes(e : @bitstream.JxlError, log : Array[UInt32]) -> Unit {
+  let base = 0xdead0000U
+  match e {
+    @bitstream.Eof => log.push(base + 1)
+    @bitstream.Decoder(ce) =>
+      match ce {
+        Lz77NotAllowed => log.push(base + 2)
+        InvalidAnsHistogram => log.push(base + 3)
+        InvalidAnsStream => log.push(base + 4)
+        InvalidIntegerConfig(split_exponent~, msb_in_token~, lsb_in_token~) => {
+          log.push(base + 5)
+          log.push(split_exponent)
+          log.push(msb_in_token)
+          log.push(lsb_in_token.unwrap_or(0xffffffff))
+        }
+        InvalidPermutation => log.push(base + 6)
+        InvalidPrefixHistogram => log.push(base + 7)
+        PrefixSymbolTooLarge(n) => {
+          log.push(base + 8)
+          log.push(n.reinterpret_as_uint())
+        }
+        InvalidCluster(id) => {
+          log.push(base + 9)
+          log.push(id)
+        }
+        ClusterHole(num_expected_clusters~, num_actual_clusters~) => {
+          log.push(base + 10)
+          log.push(num_expected_clusters)
+          log.push(num_actual_clusters)
+        }
+        UnexpectedLz77Repeat => log.push(base + 11)
+        InvalidLz77Symbol => log.push(base + 12)
       }
-    _ => 99
+    _ => log.push(base + 99)
   }
-  0xdead0000U + code
 }
 
 ///|
@@ -68,7 +83,7 @@ fn fuzz_run(
 ) -> Unit {
   let bs = @bitstream.Bitstream::new(bytes)
   fuzz_run_inner(bs, mode, num_dist, p1, p2, log) catch {
-    e => log.push(fuzz_err_code(e))
+    e => fuzz_err_codes(e, log)
   }
 }
 
@@ -110,7 +125,7 @@ fn fuzz_run_inner(
                 )
               }
             } catch {
-              e => log.push(fuzz_err_code(e))
+              e => fuzz_err_codes(e, log)
             }
           }
           let r = if (p2 & 1) == 1 {
@@ -174,7 +189,7 @@ fn fuzz_run_inner(
           log.push(v.reinterpret_as_uint())
         }
       } catch {
-        e => log.push(fuzz_err_code(e))
+        e => fuzz_err_codes(e, log)
       }
       log.push(bs.num_read_bits().reinterpret_as_uint())
     }

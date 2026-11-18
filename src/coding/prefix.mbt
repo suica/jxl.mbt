@@ -11,6 +11,7 @@ const MAX_TOPLEVEL_BITS : Int32 = 10
 ///
 /// Entries are packed into an `Int`:
 /// `symbol_or_offset | bits_or_mask << 16 | nested << 24`.
+#derive(Debug)
 priv struct PrefixHistogram {
   toplevel_bits : Int32
   toplevel_mask : UInt32
@@ -57,8 +58,8 @@ fn PrefixHistogram::with_code_lengths(
       let entry = prefix_entry(false, idx + 1, sym)
       let n = 1 << shifts
       if current_bits + n > toplevel_size {
-        // Rust panics on the out-of-bounds slice here.
-        raise coding_error("InvalidPrefixHistogram")
+        // Upstream panics on the out-of-bounds slice here (unreachable for codes that passed the Kraft checks).
+        abort("prefix code table index out of bounds")
       }
       for i in current_bits..<(current_bits + n) {
         entries[i] = entry
@@ -90,8 +91,8 @@ fn PrefixHistogram::with_code_lengths(
         chunk.push(prefix_entry(false, idx + 1, sym))
         if chunk.length() == chunk_size {
           if current_bits >= toplevel_size {
-            // Rust panics on the out-of-bounds index here.
-            raise coding_error("InvalidPrefixHistogram")
+            // Upstream panics on the out-of-bounds index here (unreachable for codes that passed the Kraft checks).
+            abort("prefix code table index out of bounds")
           }
           entries[current_bits] = prefix_entry(
             true,
@@ -107,7 +108,7 @@ fn PrefixHistogram::with_code_lengths(
       remaining_entry_bits = chunk_size_bits
     }
     if !remaining_entries.is_empty() {
-      raise coding_error("InvalidPrefixHistogram")
+      raise coding_error(InvalidPrefixHistogram)
     }
   }
   if current_bits == toplevel_size {
@@ -120,7 +121,7 @@ fn PrefixHistogram::with_code_lengths(
       second_level_entries: FixedArray::from_array(second_level_entries),
     }
   } else {
-    raise coding_error("InvalidPrefixHistogram")
+    raise coding_error(InvalidPrefixHistogram)
   }
 }
 
@@ -143,7 +144,7 @@ fn PrefixHistogram::parse(
     return PrefixHistogram::with_single_symbol(0)
   }
   if alphabet_size > 1 << MAX_PREFIX_BITS {
-    raise coding_error("PrefixSymbolTooLarge")
+    raise coding_error(PrefixSymbolTooLarge(alphabet_size))
   }
   let hskip = bitstream.read_bits_int(2)
   if hskip == 1 {
@@ -170,7 +171,7 @@ fn PrefixHistogram::parse_simple(
     1 => {
       let sym = bitstream.read_bits_int(alphabet_bits)
       if sym >= alphabet_size {
-        raise coding_error("InvalidPrefixHistogram")
+        raise coding_error(InvalidPrefixHistogram)
       }
       return PrefixHistogram::with_single_symbol(sym)
     }
@@ -212,7 +213,7 @@ fn PrefixHistogram::parse_simple(
     if sym < alphabet_size {
       code_lengths[sym] = lens[i]
     } else {
-      raise coding_error("InvalidPrefixHistogram")
+      raise coding_error(InvalidPrefixHistogram)
     }
   }
   PrefixHistogram::with_code_lengths(code_lengths)
@@ -268,14 +269,14 @@ fn PrefixHistogram::parse_complex(
       if bitacc == 32 {
         break
       } else if bitacc > 32 {
-        raise coding_error("InvalidPrefixHistogram")
+        raise coding_error(InvalidPrefixHistogram)
       }
     }
   }
   let code_length_histogram = if nonzero_count == 1 {
     PrefixHistogram::with_single_symbol(nonzero_sym)
   } else if bitacc != 32 {
-    raise coding_error("InvalidPrefixHistogram")
+    raise coding_error(InvalidPrefixHistogram)
   } else {
     PrefixHistogram::with_code_lengths(code_length_code_lengths)
   }
@@ -335,14 +336,14 @@ fn PrefixHistogram::parse_complex(
       bitacc += 1 <<
         (if len >= MAX_PREFIX_BITS { 0 } else { MAX_PREFIX_BITS - len })
       if bitacc > 1 << MAX_PREFIX_BITS {
-        raise coding_error("PrefixSymbolTooLarge")
+        raise coding_error(PrefixSymbolTooLarge(bitacc))
       } else if bitacc == 1 << MAX_PREFIX_BITS && repeat_count == 0 {
         break
       }
     }
   }
   if bitacc != 1 << MAX_PREFIX_BITS || repeat_count > 0 {
-    raise coding_error("InvalidPrefixHistogram")
+    raise coding_error(InvalidPrefixHistogram)
   }
   PrefixHistogram::with_code_lengths(code_lengths)
 }

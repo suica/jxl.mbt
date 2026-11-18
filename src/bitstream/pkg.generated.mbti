@@ -31,7 +31,7 @@ pub(all) suberror JxlError {
   ProfileConformance(String)
   CannotSkip
   NotAligned
-  Decoder(String)
+  Decoder(CodingError)
   Modular(String)
   Frame(String)
   IncompleteFrameData(String)
@@ -43,6 +43,7 @@ pub(all) suberror JxlError {
   Brotli(String)
 }
 pub fn JxlError::unexpected_eof(Self) -> Bool
+pub impl Show for JxlError
 
 // Types and methods
 pub struct Bitstream {
@@ -66,12 +67,34 @@ pub fn Bitstream::read_bits(Self, Int32) -> UInt32 raise JxlError
 pub fn Bitstream::read_bits_int(Self, Int32) -> Int32 raise JxlError
 pub fn Bitstream::read_bool(Self) -> Bool raise JxlError
 pub fn Bitstream::read_bytes_aligned(Self, Int32) -> Bytes raise JxlError
+pub fn[E : JxlEnum] Bitstream::read_enum(Self) -> E raise JxlError
 pub fn Bitstream::read_enum_raw(Self) -> UInt32 raise JxlError
 pub fn Bitstream::read_f16_as_f32(Self) -> Float raise JxlError
 pub fn Bitstream::read_u32(Self, U32Spec, U32Spec, U32Spec, U32Spec) -> UInt32 raise JxlError
 pub fn Bitstream::read_u64(Self) -> UInt64 raise JxlError
 pub fn Bitstream::skip_bits(Self, Int32) -> Unit raise JxlError
 pub fn Bitstream::zero_pad_to_byte(Self) -> Unit raise JxlError
+
+#derive(Eq, @debug.Debug)
+pub(all) enum CodingError {
+  Lz77NotAllowed
+  InvalidAnsHistogram
+  InvalidAnsStream
+  InvalidIntegerConfig(split_exponent~ : UInt32, msb_in_token~ : UInt32, lsb_in_token~ : UInt32?)
+  InvalidPermutation
+  InvalidPrefixHistogram
+  PrefixSymbolTooLarge(Int32)
+  InvalidCluster(UInt32)
+  ClusterHole(num_expected_clusters~ : UInt32, num_actual_clusters~ : UInt32)
+  UnexpectedLz77Repeat
+  InvalidLz77Symbol
+}
+pub impl Show for CodingError
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Name(String)
+pub fn Name::as_str(Self) -> String
+pub fn Name::parse(Bitstream) -> Self raise JxlError
 
 pub(all) enum U32Spec {
   Constant(UInt32)
@@ -81,3 +104,7 @@ pub(all) enum U32Spec {
 // Type aliases
 
 // Traits
+pub(open) trait JxlEnum {
+  fn try_from_u32(UInt32) -> Self?
+  fn type_name() -> String
+}

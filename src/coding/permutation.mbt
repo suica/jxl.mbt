@@ -15,7 +15,7 @@ pub fn read_permutation(
     get_context(size.reinterpret_as_uint()),
   )
   if end > (size - skip).reinterpret_as_uint() {
-    raise coding_error("InvalidPermutation")
+    raise coding_error(InvalidPermutation)
   }
   let end = end.reinterpret_as_int()
   let lehmer = FixedArray::make(end, 0)
@@ -23,12 +23,14 @@ pub fn read_permutation(
   for idx in 0..<end {
     let val = decoder.read_varint(bitstream, get_context(prev_val))
     if val >= (size - skip - idx).reinterpret_as_uint() {
-      raise coding_error("InvalidPermutation")
+      raise coding_error(InvalidPermutation)
     }
     lehmer[idx] = val.reinterpret_as_int()
     prev_val = val
   }
-  let temp : Array[Int32] = Array(capacity=size - skip)
+  let temp : Array[Int32] = Array(
+    capacity=if size > skip { size - skip } else { 0 },
+  )
   for i in skip..<size {
     temp.push(i)
   }

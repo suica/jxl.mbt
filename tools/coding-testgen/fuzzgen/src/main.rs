@@ -13,23 +13,27 @@ impl Rng {
     }
 }
 
-fn err_code(e: &Error) -> u32 {
-    let name = match e {
-        Error::Bitstream(_) => return 1,
-        Error::Lz77NotAllowed => 2,
-        Error::InvalidAnsHistogram => 3,
-        Error::InvalidAnsStream => 4,
-        Error::InvalidIntegerConfig { .. } => 5,
-        Error::InvalidPermutation => 6,
-        Error::InvalidPrefixHistogram => 7,
-        Error::PrefixSymbolTooLarge(_) => 8,
-        Error::InvalidCluster(_) => 9,
-        Error::ClusterHole { .. } => 10,
-        Error::UnexpectedLz77Repeat => 11,
-        Error::InvalidLz77Symbol => 12,
-        _ => 99,
-    };
-    name
+fn err_codes(e: &Error) -> Vec<u32> {
+    let base = 0xdead0000u32;
+    match e {
+        Error::Bitstream(_) => vec![base + 1],
+        Error::Lz77NotAllowed => vec![base + 2],
+        Error::InvalidAnsHistogram => vec![base + 3],
+        Error::InvalidAnsStream => vec![base + 4],
+        Error::InvalidIntegerConfig { split_exponent, msb_in_token, lsb_in_token } => {
+            vec![base + 5, *split_exponent, *msb_in_token, lsb_in_token.unwrap_or(0xffffffff)]
+        }
+        Error::InvalidPermutation => vec![base + 6],
+        Error::InvalidPrefixHistogram => vec![base + 7],
+        Error::PrefixSymbolTooLarge(n) => vec![base + 8, *n as u32],
+        Error::InvalidCluster(id) => vec![base + 9, *id],
+        Error::ClusterHole { num_expected_clusters, num_actual_clusters } => {
+            vec![base + 10, *num_expected_clusters, *num_actual_clusters]
+        }
+        Error::UnexpectedLz77Repeat => vec![base + 11],
+        Error::InvalidLz77Symbol => vec![base + 12],
+        _ => vec![base + 99],
+    }
 }
 
 const K: u32 = 200;
@@ -43,7 +47,7 @@ fn mult_of(j: u32) -> u32 {
 
 fn run(bytes: &[u8], mode: u32, num_dist: u32, p1: u32, p2: u32, log: &mut Vec<u32>) -> bool {
     let mut bs = Bitstream::new(bytes);
-    let fail = |log: &mut Vec<u32>, e: Error| log.push(0xdead0000 + err_code(&e));
+    let fail = |log: &mut Vec<u32>, e: Error| log.extend(err_codes(&e));
     match mode {
         0 | 1 => {
             let mut dec = match Decoder::parse(&mut bs, num_dist) {

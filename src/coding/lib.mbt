@@ -11,6 +11,7 @@
 ///
 /// Integer types: contexts and clusters are `Int`; decoded values are `UInt`
 /// (Rust `u32`), so they can be passed to `@bitstream.unpack_signed`.
+#derive(Debug)
 struct Decoder {
   lz77 : Lz77
   inner : DecoderInner
@@ -36,7 +37,7 @@ fn Decoder::parse_assume_no_lz77(
 ) -> Decoder raise @bitstream.JxlError {
   let lz77_enabled = bitstream.read_bool()
   if lz77_enabled {
-    raise coding_error("Lz77NotAllowed")
+    raise coding_error(Lz77NotAllowed)
   }
   let inner = DecoderInner::parse(bitstream, num_dist)
   { lz77: Disabled, inner, }
@@ -185,6 +186,7 @@ pub fn Decoder::cluster_map(self : Decoder) -> FixedArray[Int32] {
 ///|
 /// An entropy decoder in RLE mode. It shares the state of the [Decoder] it
 /// was created from.
+#derive(Debug)
 struct DecoderRleMode {
   inner : DecoderInner
   min_symbol : Int32
@@ -254,6 +256,7 @@ pub fn DecoderRleMode::cluster_map(self : DecoderRleMode) -> FixedArray[Int32] {
 ///|
 /// A LZ77-enabled entropy decoder. It shares the state of the [Decoder] it was
 /// created from.
+#derive(Debug)
 struct DecoderWithLz77 {
   inner : DecoderInner
   state : Lz77State
@@ -292,6 +295,7 @@ pub fn DecoderWithLz77::cluster_map(
 ///|
 /// An entropy decoder without LZ77. It shares the state of the [Decoder] it
 /// was created from.
+#derive(Debug)
 struct DecoderNoLz77 {
   inner : DecoderInner
 }
@@ -325,6 +329,7 @@ pub fn DecoderNoLz77::cluster_map(self : DecoderNoLz77) -> FixedArray[Int32] {
 }
 
 ///|
+#derive(Debug)
 priv enum Lz77 {
   Disabled
   Enabled(min_symbol~ : Int32, min_length~ : Int32, state~ : Lz77State)
@@ -395,6 +400,7 @@ fn Lz77State::clone(self : Lz77State) -> Lz77State {
 
 ///|
 /// Hybrid integer configuration.
+#derive(Debug)
 priv struct IntegerConfig {
   split_exponent : Int32
   split : Int32
@@ -417,7 +423,13 @@ fn IntegerConfig::parse(
     let msb_bits = add_log2_ceil(split_exponent.reinterpret_as_uint())
     msb_in_token = bitstream.read_bits_int(msb_bits)
     if msb_in_token > split_exponent {
-      raise coding_error("InvalidIntegerConfig")
+      raise coding_error(
+        InvalidIntegerConfig(
+          split_exponent=split_exponent.reinterpret_as_uint(),
+          msb_in_token=msb_in_token.reinterpret_as_uint(),
+          lsb_in_token=None,
+        ),
+      )
     }
     let lsb_bits = add_log2_ceil(
       (split_exponent - msb_in_token).reinterpret_as_uint(),
@@ -425,12 +437,19 @@ fn IntegerConfig::parse(
     lsb_in_token = bitstream.read_bits_int(lsb_bits)
   }
   if lsb_in_token + msb_in_token > split_exponent {
-    raise coding_error("InvalidIntegerConfig")
+    raise coding_error(
+      InvalidIntegerConfig(
+        split_exponent=split_exponent.reinterpret_as_uint(),
+        msb_in_token=msb_in_token.reinterpret_as_uint(),
+        lsb_in_token=Some(lsb_in_token.reinterpret_as_uint()),
+      ),
+    )
   }
   { split_exponent, split: 1 << split_exponent, msb_in_token, lsb_in_token, }
 }
 
 ///|
+#derive(Debug)
 priv struct DecoderInner {
   /// num_dist, [0, num_clusters)
   clusters : FixedArray[Int32]
@@ -471,7 +490,7 @@ fn DecoderInner::parse(
         1
       }
       if count > 1 << 15 {
-        raise coding_error("InvalidPrefixHistogram")
+        raise coding_error(InvalidPrefixHistogram)
       }
       counts[i] = count
     }
@@ -547,7 +566,7 @@ fn DecoderInner::read_varint_with_multiplier_clustered_lz77(
     if token >= min_symbol {
       if state.num_decoded == 0 {
         // LZ77 repeat symbol encountered without decoding any symbols
-        raise coding_error("UnexpectedLz77Repeat")
+        raise coding_error(UnexpectedLz77Repeat)
       }
       let lz_dist_cluster = self.lz_dist_cluster()
       let num_to_copy = self.read_uint_prefilled(
@@ -558,7 +577,7 @@ fn DecoderInner::read_varint_with_multiplier_clustered_lz77(
       let sum = num_to_copy + min_length.reinterpret_as_uint()
       if sum < num_to_copy {
         // LZ77 num_to_copy overflow
-        raise coding_error("InvalidLz77Symbol")
+        raise coding_error(InvalidLz77Symbol)
       }
       state.num_to_copy = sum
       let token = self.code.read_symbol(bitstream, lz_dist_cluster)
@@ -644,12 +663,14 @@ fn DecoderInner::lz_dist_cluster(self : DecoderInner) -> Int32 {
 }
 
 ///|
+#derive(Debug)
 priv enum Coder {
   PrefixCode(FixedArray[PrefixHistogram])
   Ans(AnsCoder)
 }
 
 ///|
+#derive(Debug)
 priv struct AnsCoder {
   dist : FixedArray[AnsHistogram]
   mut state : UInt32
@@ -710,7 +731,7 @@ fn Coder::begin(
 fn Coder::finalize(self : Coder) -> Unit raise @bitstream.JxlError {
   match self {
     PrefixCode(_) => ()
-    Ans(a) => if a.state != 0x130000 { raise coding_error("InvalidAnsStream") }
+    Ans(a) => if a.state != 0x130000 { raise coding_error(InvalidAnsStream) }
   }
 }
 
@@ -753,7 +774,7 @@ pub fn read_clusters(
     for i in 0..<num_dist {
       let b = decoder.read_varint(bitstream, 0)
       if b > 255 {
-        raise coding_error("InvalidCluster")
+        raise coding_error(InvalidCluster(b))
       }
       cluster[i] = b.reinterpret_as_int()
     }
@@ -771,6 +792,10 @@ pub fn read_clusters(
       }
     }
   }
+  if num_dist == 0 {
+    // Upstream: `cluster.iter().max().unwrap()` panics on an empty map.
+    abort("read_clusters: empty distribution clustering")
+  }
   let mut max = 0
   let seen = FixedArray::make(256, false)
   let mut num_actual_clusters = 0
@@ -786,7 +811,23 @@ pub fn read_clusters(
   let num_clusters = max + 1
   if num_actual_clusters != num_clusters {
     // distribution cluster has a hole
-    raise coding_error("ClusterHole")
+    raise coding_error(
+      ClusterHole(
+        num_expected_clusters=num_clusters.reinterpret_as_uint(),
+        num_actual_clusters=num_actual_clusters.reinterpret_as_uint(),
+      ),
+    )
   }
   (num_clusters, cluster)
+}
+
+///|
+/// Upstream's manual `Debug` omits the window (`finish_non_exhaustive`).
+impl Debug for Lz77State with fn to_repr(self) {
+  Repr::record({
+    "lz_len_conf": Repr(self.lz_len_conf),
+    "num_to_copy": Repr(self.num_to_copy),
+    "copy_pos": Repr(self.copy_pos),
+    "num_decoded": Repr(self.num_decoded),
+  })
 }

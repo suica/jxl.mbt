@@ -14,6 +14,7 @@ pub fn read_permutation(@bitstream.Bitstream, Decoder, Int32, Int32) -> Array[In
 // Errors
 
 // Types and methods
+#derive(@debug.Debug)
 type Decoder
 pub fn Decoder::as_no_lz77(Self) -> DecoderNoLz77?
 pub fn Decoder::as_rle(Self) -> DecoderRleMode?
@@ -28,16 +29,19 @@ pub fn Decoder::read_varint_with_multiplier(Self, @bitstream.Bitstream, Int32, I
 pub fn Decoder::read_varint_with_multiplier_clustered(Self, @bitstream.Bitstream, Int32, Int32) -> UInt32 raise @bitstream.JxlError
 pub fn Decoder::single_token(Self, Int32) -> UInt32?
 
+#derive(@debug.Debug)
 type DecoderNoLz77
 pub fn DecoderNoLz77::cluster_map(Self) -> FixedArray[Int32]
 pub fn DecoderNoLz77::read_varint_clustered(Self, @bitstream.Bitstream, Int32) -> UInt32 raise @bitstream.JxlError
 pub fn DecoderNoLz77::single_token(Self, Int32) -> UInt32?
 
+#derive(@debug.Debug)
 type DecoderRleMode
 pub fn DecoderRleMode::cluster_map(Self) -> FixedArray[Int32]
 pub fn DecoderRleMode::read_varint_clustered(Self, @bitstream.Bitstream, Int32) -> RleToken raise @bitstream.JxlError
 pub fn DecoderRleMode::read_varint_clustered_packed(Self, @bitstream.Bitstream, Int32) -> Int64 raise @bitstream.JxlError
 
+#derive(@debug.Debug)
 type DecoderWithLz77
 pub fn DecoderWithLz77::cluster_map(Self) -> FixedArray[Int32]
 pub fn DecoderWithLz77::read_varint_with_multiplier_clustered(Self, @bitstream.Bitstream, Int32, Int32) -> UInt32 raise @bitstream.JxlError
