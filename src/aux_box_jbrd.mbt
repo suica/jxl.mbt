@@ -25,7 +25,7 @@ fn Jbrd::feed_bytes(self : Jbrd, bytes : BytesView) -> Unit raise @bitstream.Jxl
         self.state = Init(data)
       }
     }
-    Init(data) => data.feed_bytes(bytes)
+    Init(data) => data.feed_bytes(bytes.to_owned())
   }
 }
 
