@@ -80,27 +80,6 @@ fn JpegFrameInfo::group_idx_from_coord(
 }
 
 ///|
-/// `FrameHeader::group_size_for`.
-fn JpegFrameInfo::group_size_for(
-  self : JpegFrameInfo,
-  group_idx : Int32,
-) -> (Int32, Int32) {
-  let group_dim = self.group_dim()
-  let width = self.color_sample_width
-  let height = self.color_sample_height
-  let full_rows = height / group_dim
-  let rows_remainder = height % group_dim
-  let full_cols = width / group_dim
-  let cols_remainder = width % group_dim
-  let num_cols = full_cols + (if cols_remainder > 0 { 1 } else { 0 })
-  let col = group_idx % num_cols
-  let row = group_idx / num_cols
-  let w = if col >= full_cols { cols_remainder } else { group_dim }
-  let h = if row >= full_rows { rows_remainder } else { group_dim }
-  (w, h)
-}
-
-///|
 /// `jpeg_upsampling` with the first two entries swapped (YCbCr order).
 fn JpegFrameInfo::jpeg_upsampling_ycbcr(
   self : JpegFrameInfo,

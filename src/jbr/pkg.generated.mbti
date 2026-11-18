@@ -6,6 +6,7 @@ import {
   "moonbitlang/core/hashmap",
   "moonbitlang/core/hashset",
   "suica/jxl/bitstream",
+  "suica/jxl/frame",
   "suica/jxl/grid",
 }
 
@@ -65,6 +66,7 @@ pub fn JpegBitstreamData::data(Self) -> Bytes
 pub fn JpegBitstreamData::feed_bytes(Self, Bytes) -> Unit
 pub fn JpegBitstreamData::finalize(Self) -> Unit raise @bitstream.JxlError
 pub fn JpegBitstreamData::header(Self) -> JpegBitstreamHeader
+pub fn JpegBitstreamData::reconstruct(Self, @frame.Frame, Bytes, Bytes, Bytes) -> JpegBitstreamReconstructor raise @bitstream.JxlError
 pub fn JpegBitstreamData::try_parse(Bytes) -> Self? raise @bitstream.JxlError
 
 pub(all) struct JpegBitstreamHeader {
@@ -92,6 +94,7 @@ pub struct JpegBitstreamReconstructor {
   // private fields
 }
 pub fn JpegBitstreamReconstructor::from_parsed(JpegBitstreamHeader, Bytes, JpegFrameInfo, ParsedFrameData, Bytes, Bytes, Bytes) -> Self raise @bitstream.JxlError
+pub fn JpegBitstreamReconstructor::new(JpegBitstreamHeader, Bytes, @frame.Frame, Bytes, Bytes, Bytes) -> Self raise @bitstream.JxlError
 pub fn JpegBitstreamReconstructor::to_bytes(Self) -> Bytes raise @bitstream.JxlError
 pub fn JpegBitstreamReconstructor::write(Self, @buffer.Buffer) -> Unit raise @bitstream.JxlError
 
