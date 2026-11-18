@@ -1,0 +1,34 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/threadpool"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/ref",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+#derive(@debug.Debug)
+pub struct JxlScope {
+  // private fields
+}
+pub fn JxlScope::spawn(Self, (Self) -> Unit raise?) -> Unit raise?
+
+#derive(@debug.Debug)
+pub struct JxlThreadPool {
+  // private fields
+}
+pub fn[T] JxlThreadPool::for_each_vec(Self, Array[T], (T) -> Unit raise?) -> Unit raise?
+pub fn[T, U] JxlThreadPool::for_each_vec_with(Self, Array[T], U, (@ref.Ref[U], T) -> Unit raise?) -> Unit raise?
+pub fn JxlThreadPool::is_multithreaded(Self) -> Bool
+pub fn JxlThreadPool::none() -> Self
+pub fn[R] JxlThreadPool::scope(Self, (JxlScope) -> R raise?) -> R raise?
+pub fn JxlThreadPool::spawn(Self, () -> Unit) -> Unit
+pub impl Default for JxlThreadPool
+
+// Type aliases
+
+// Traits
