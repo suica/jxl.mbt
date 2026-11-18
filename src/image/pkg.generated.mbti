@@ -1,0 +1,263 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/image"
+
+import {
+  "moonbitlang/core/debug",
+  "suica/jxl/bitstream",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+#derive(@debug.Debug)
+pub(all) struct AnimationHeader {
+  tps_numerator : Int32
+  tps_denominator : Int32
+  num_loops : UInt32
+  have_timecodes : Bool
+}
+pub fn AnimationHeader::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(Eq, @debug.Debug)
+pub(all) enum BitDepth {
+  IntegerSample(bits_per_sample~ : Int32)
+  FloatSample(bits_per_sample~ : Int32, exp_bits~ : Int32)
+}
+pub fn BitDepth::bits_per_sample(Self) -> Int32
+pub fn BitDepth::default() -> Self
+pub fn BitDepth::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+pub fn BitDepth::parse_integer_sample(Self, Int32) -> Float
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ColourEncoding {
+  Enum(EnumColourEncoding)
+  IccProfile(ColourSpace)
+}
+pub fn ColourEncoding::cicp(Self) -> FixedArray[Int32]?
+pub fn ColourEncoding::clone(Self) -> Self
+pub fn ColourEncoding::colour_space(Self) -> ColourSpace
+pub fn ColourEncoding::default() -> Self
+pub fn ColourEncoding::is_srgb(Self) -> Bool
+pub fn ColourEncoding::is_srgb_gamut(Self) -> Bool
+pub fn ColourEncoding::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+pub fn ColourEncoding::want_icc(Self) -> Bool
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ColourSpace {
+  Rgb
+  Grey
+  Xyb
+  Unknown
+}
+pub fn ColourSpace::default() -> Self
+pub fn ColourSpace::from_raw(UInt32) -> Self raise @bitstream.JxlError
+pub fn ColourSpace::to_raw(Self) -> Int32
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Customxy {
+  x : Int32
+  y : Int32
+}
+pub fn Customxy::as_float(Self) -> FixedArray[Float]
+pub fn Customxy::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(Eq, @debug.Debug)
+pub(all) struct EnumColourEncoding {
+  mut colour_space : ColourSpace
+  mut white_point : WhitePoint
+  mut primaries : Primaries
+  mut tf : TransferFunction
+  mut rendering_intent : RenderingIntent
+}
+pub fn EnumColourEncoding::bt2100_hlg(RenderingIntent) -> Self
+pub fn EnumColourEncoding::bt2100_pq(RenderingIntent) -> Self
+pub fn EnumColourEncoding::bt709(RenderingIntent) -> Self
+pub fn EnumColourEncoding::cicp(Self) -> FixedArray[Int32]?
+pub fn EnumColourEncoding::clone(Self) -> Self
+pub fn EnumColourEncoding::dci_p3(RenderingIntent) -> Self
+pub fn EnumColourEncoding::default() -> Self
+pub fn EnumColourEncoding::display_p3(RenderingIntent) -> Self
+pub fn EnumColourEncoding::display_p3_pq(RenderingIntent) -> Self
+pub fn EnumColourEncoding::gray_gamma22(RenderingIntent) -> Self
+pub fn EnumColourEncoding::gray_srgb(RenderingIntent) -> Self
+pub fn EnumColourEncoding::is_hdr(Self) -> Bool
+pub fn EnumColourEncoding::is_srgb(Self) -> Bool
+pub fn EnumColourEncoding::is_srgb_gamut(Self) -> Bool
+pub fn EnumColourEncoding::srgb(RenderingIntent) -> Self
+pub fn EnumColourEncoding::srgb_gamma22(RenderingIntent) -> Self
+pub fn EnumColourEncoding::srgb_linear(RenderingIntent) -> Self
+pub fn EnumColourEncoding::xyb(RenderingIntent) -> Self
+
+#derive(@debug.Debug)
+pub(all) struct Extensions {
+  extension_bits : UInt64
+}
+pub fn Extensions::default() -> Self
+pub fn Extensions::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) struct ExtraChannelInfo {
+  ty : ExtraChannelType
+  bit_depth : BitDepth
+  dim_shift : Int32
+  name : String
+}
+pub fn ExtraChannelInfo::alpha_associated(Self) -> Bool?
+pub fn ExtraChannelInfo::default() -> Self
+pub fn ExtraChannelInfo::is_alpha(Self) -> Bool
+pub fn ExtraChannelInfo::is_black(Self) -> Bool
+pub fn ExtraChannelInfo::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(Eq, @debug.Debug)
+pub(all) enum ExtraChannelType {
+  Alpha(alpha_associated~ : Bool)
+  Depth
+  SpotColour(red~ : Float, green~ : Float, blue~ : Float, solidity~ : Float)
+  SelectionMask
+  Black
+  Cfa(cfa_channel~ : Int32)
+  Thermal
+  NonOptional
+  Optional
+}
+pub fn ExtraChannelType::default() -> Self
+
+#derive(@debug.Debug)
+pub(all) struct ImageHeader {
+  size : SizeHeader
+  metadata : ImageMetadata
+}
+pub fn ImageHeader::height_with_orientation(Self) -> Int32
+pub fn ImageHeader::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+pub fn ImageHeader::width_with_orientation(Self) -> Int32
+
+#derive(@debug.Debug)
+pub(all) struct ImageMetadata {
+  all_default : Bool
+  extra_fields : Bool
+  orientation : Int32
+  have_intr_size : Bool
+  intrinsic_size : SizeHeader?
+  have_preview : Bool
+  preview : PreviewHeader?
+  have_animation : Bool
+  animation : AnimationHeader?
+  bit_depth : BitDepth
+  modular_16bit_buffers : Bool
+  num_extra : Int32
+  ec_info : Array[ExtraChannelInfo]
+  xyb_encoded : Bool
+  colour_encoding : ColourEncoding
+  tone_mapping : ToneMapping
+  extensions : Extensions
+  default_m : Bool
+  opsin_inverse_matrix : OpsinInverseMatrix
+  cw_mask : Int32
+  up2_weight : FixedArray[Float]
+  up4_weight : FixedArray[Float]
+  up8_weight : FixedArray[Float]
+}
+pub fn ImageMetadata::alpha(Self) -> Int32?
+pub fn ImageMetadata::apply_orientation(Self, Int32, Int32, Int32, Int32, Bool) -> (Int32, Int32, Int32, Int32)
+pub fn ImageMetadata::default() -> Self
+pub fn ImageMetadata::grayscale(Self) -> Bool
+pub fn ImageMetadata::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) struct OpsinInverseMatrix {
+  all_default : Bool
+  inv_mat : FixedArray[FixedArray[Float]]
+  opsin_bias : FixedArray[Float]
+  quant_bias : FixedArray[Float]
+  quant_bias_numerator : Float
+}
+pub fn OpsinInverseMatrix::default() -> Self
+pub fn OpsinInverseMatrix::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) struct PreviewHeader {
+  div8 : Bool
+  h_div8 : Int32
+  height : Int32
+  ratio : Int32
+  w_div8 : Int32
+  width : Int32
+}
+pub fn PreviewHeader::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Primaries {
+  Srgb
+  Custom(red~ : Customxy, green~ : Customxy, blue~ : Customxy)
+  Bt2100
+  P3
+}
+pub fn Primaries::cicp(Self) -> Int32?
+pub fn Primaries::default() -> Self
+pub fn Primaries::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(Eq, @debug.Debug)
+pub(all) enum RenderingIntent {
+  Perceptual
+  Relative
+  Saturation
+  Absolute
+}
+pub fn RenderingIntent::default() -> Self
+pub fn RenderingIntent::from_raw(UInt32) -> Self raise @bitstream.JxlError
+pub fn RenderingIntent::to_raw(Self) -> Int32
+
+#derive(@debug.Debug)
+pub(all) struct SizeHeader {
+  div8 : Bool
+  h_div8 : Int32
+  height : Int32
+  ratio : Int32
+  w_div8 : Int32
+  width : Int32
+}
+pub fn SizeHeader::default() -> Self
+pub fn SizeHeader::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) struct ToneMapping {
+  all_default : Bool
+  intensity_target : Float
+  min_nits : Float
+  relative_to_max_display : Bool
+  linear_below : Float
+}
+pub fn ToneMapping::default() -> Self
+pub fn ToneMapping::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(Eq, @debug.Debug)
+pub(all) enum TransferFunction {
+  Gamma(g~ : Int32, inverted~ : Bool)
+  Bt709
+  Unknown
+  Linear
+  Srgb
+  Pq
+  Dci
+  Hlg
+}
+pub fn TransferFunction::cicp(Self) -> Int32?
+pub fn TransferFunction::default() -> Self
+pub fn TransferFunction::from_raw(UInt32) -> Self raise @bitstream.JxlError
+pub fn TransferFunction::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(Eq, @debug.Debug)
+pub(all) enum WhitePoint {
+  D65
+  Custom(Customxy)
+  E
+  Dci
+}
+pub fn WhitePoint::default() -> Self
+pub fn WhitePoint::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+// Type aliases
+
+// Traits
