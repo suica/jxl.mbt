@@ -1,0 +1,247 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/modular"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/sorted_map",
+  "suica/jxl/bitstream",
+  "suica/jxl/coding",
+  "suica/jxl/grid",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum ChannelShift {
+  JpegUpsampling(has_h_subsample~ : Bool, h_subsample~ : Bool, has_v_subsample~ : Bool, v_subsample~ : Bool)
+  Shifts(Int32)
+  Raw(Int32, Int32)
+}
+pub fn ChannelShift::from_jpeg_upsampling(FixedArray[Int32], Int32) -> Self
+pub fn ChannelShift::from_shift(Int32) -> Self
+pub fn ChannelShift::hshift(Self) -> Int32
+pub fn ChannelShift::shift_size(Self, (Int32, Int32)) -> (Int32, Int32)
+pub fn ChannelShift::vshift(Self) -> Int32
+
+pub struct FlatMaTree {
+  // private fields
+}
+pub fn FlatMaTree::decode_sample(Self, @bitstream.Bitstream, @coding.Decoder, PredictorState, Int32) -> (Int32, Predictor) raise @bitstream.JxlError
+pub fn FlatMaTree::get_leaf(Self, PredictorState) -> MaTreeLeafClustered
+pub fn FlatMaTree::max_prev_channel_depth(Self) -> Int32
+pub fn FlatMaTree::need_self_correcting(Self) -> Bool
+
+pub struct MaConfig {
+  // private fields
+}
+pub fn MaConfig::decoder(Self) -> @coding.Decoder
+pub fn MaConfig::make_flat_tree(Self, Int32, Int32, Int32) -> FlatMaTree
+pub fn MaConfig::num_tree_nodes(Self) -> Int32
+pub fn MaConfig::parse(@bitstream.Bitstream, MaConfigParams) -> Self raise @bitstream.JxlError
+pub fn MaConfig::tree_depth(Self) -> Int32
+
+pub(all) struct MaConfigParams {
+  tracker : @grid.AllocTracker?
+  node_limit : Int32
+  depth_limit : Int32
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct MaTreeLeafClustered {
+  cluster : Int32
+  predictor : Predictor
+  offset : Int32
+  multiplier : Int32
+}
+
+pub struct Modular {
+  // private fields
+}
+pub fn Modular::empty() -> Self
+pub fn Modular::has_palette(Self) -> Bool
+pub fn Modular::has_squeeze(Self) -> Bool
+pub fn Modular::image(Self) -> ModularImageDestination?
+pub fn Modular::image_mut(Self) -> ModularImageDestination?
+pub fn Modular::into_image(Self) -> ModularImageDestination?
+pub fn Modular::parse(@bitstream.Bitstream, ModularParams) -> Self raise @bitstream.JxlError
+pub fn Modular::try_clone(Self) -> Self
+
+#derive(@debug.Debug)
+pub struct ModularChannelInfo {
+  width : Int32
+  height : Int32
+  original_width : Int32
+  original_height : Int32
+  hshift : Int32
+  vshift : Int32
+  original_shift : ChannelShift
+}
+pub fn ModularChannelInfo::original_size(Self) -> (Int32, Int32)
+pub fn ModularChannelInfo::shift(Self) -> ChannelShift
+
+#derive(@debug.Debug)
+pub(all) struct ModularChannelParams {
+  width : Int32
+  height : Int32
+  shift : ChannelShift
+}
+pub fn ModularChannelParams::jpeg(Int32, Int32, FixedArray[Int32], Int32) -> Self
+pub fn ModularChannelParams::new(Int32, Int32) -> Self
+pub fn ModularChannelParams::with_shift(Int32, Int32, ChannelShift) -> Self
+
+#derive(@debug.Debug)
+pub(all) struct ModularHeader {
+  use_global_tree : Bool
+  wp_params : WpHeader
+  nb_transforms : Int32
+  transform : Array[TransformInfo]
+}
+pub fn ModularHeader::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub struct ModularImageDestination {
+  // private fields
+}
+pub fn ModularImageDestination::has_palette(Self) -> Bool
+pub fn ModularImageDestination::has_squeeze(Self) -> Bool
+pub fn ModularImageDestination::image_channels(Self) -> Array[@grid.Grid[Int32]]
+pub fn ModularImageDestination::into_image_channels(Self) -> Array[@grid.Grid[Int32]]
+pub fn ModularImageDestination::into_image_channels_with_info(Self) -> Array[(@grid.Grid[Int32], ModularChannelInfo)]
+pub fn ModularImageDestination::prepare_gmodular(Self) -> TransformedModularSubimage raise @bitstream.JxlError
+pub fn ModularImageDestination::prepare_groups(Self, @sorted_map.SortedMap[Int32, (Int32, Int32)]) -> TransformedGlobalModular raise @bitstream.JxlError
+pub fn ModularImageDestination::prepare_subimage(Self) -> TransformedModularSubimage raise @bitstream.JxlError
+pub fn ModularImageDestination::try_clone(Self) -> Self
+
+pub(all) struct ModularParams {
+  group_dim : Int32
+  bit_depth : Int32
+  channels : Array[ModularChannelParams]
+  ma_config : MaConfig?
+  tracker : @grid.AllocTracker?
+  mut narrow_buffer : Bool
+}
+pub fn ModularParams::new(Int32, Int32, Int32, Int32, Array[ChannelShift], MaConfig?, @grid.AllocTracker?) -> Self
+pub fn ModularParams::with_channels(Int32, Int32, Array[ModularChannelParams], MaConfig?, @grid.AllocTracker?) -> Self
+
+#derive(@debug.Debug)
+pub(all) struct Palette {
+  begin_c : Int32
+  num_c : Int32
+  nb_colours : Int32
+  nb_deltas : Int32
+  d_pred : Predictor
+  wp_header : WpHeader?
+}
+pub fn Palette::parse(@bitstream.Bitstream, WpHeader) -> Self raise @bitstream.JxlError
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Predictor {
+  Zero
+  West
+  North
+  AvgWestAndNorth
+  Select
+  Gradient
+  SelfCorrecting
+  NorthEast
+  NorthWest
+  WestWest
+  AvgWestAndNorthWest
+  AvgNorthAndNorthWest
+  AvgNorthAndNorthEast
+  AvgAll
+}
+pub fn Predictor::predict(Self, PredictorState) -> Int32
+pub fn Predictor::try_from(UInt32) -> Self raise @bitstream.JxlError
+
+pub struct PredictorState {
+  // private fields
+}
+pub fn PredictorState::get_property(Self, Int32) -> Int32
+pub fn PredictorState::new() -> Self
+pub fn PredictorState::properties(Self) -> Unit
+pub fn PredictorState::record(Self, Int32) -> Unit
+pub fn PredictorState::reset(Self, Int32, ArrayView[@grid.SubGrid[Int32]], WpHeader?) -> Unit
+
+#derive(@debug.Debug)
+pub(all) struct Rct {
+  begin_c : Int32
+  rct_type : Int32
+}
+pub fn Rct::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+pub struct RecursiveModularImage {
+  // private fields
+}
+pub fn RecursiveModularImage::prepare_subimage(Self) -> TransformedModularSubimage raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) struct Squeeze {
+  num_sq : Int32
+  sp : Array[SqueezeParams]
+}
+pub fn Squeeze::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) struct SqueezeParams {
+  horizontal : Bool
+  in_place : Bool
+  begin_c : Int32
+  num_c : Int32
+}
+pub fn SqueezeParams::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+#derive(@debug.Debug)
+pub(all) enum TransformInfo {
+  Rct(Rct)
+  Palette(Palette)
+  Squeeze(Squeeze)
+}
+pub fn TransformInfo::is_palette(Self) -> Bool
+pub fn TransformInfo::is_squeeze(Self) -> Bool
+pub fn TransformInfo::parse(@bitstream.Bitstream, WpHeader) -> Self raise @bitstream.JxlError
+
+pub(all) struct TransformedGlobalModular {
+  lf_groups : Array[TransformedModularSubimage]
+  pass_groups : Array[Array[TransformedModularSubimage]]
+}
+
+pub struct TransformedGrid {
+  // private fields
+}
+pub fn TransformedGrid::from(@grid.SubGrid[Int32]) -> Self
+pub fn TransformedGrid::grid(Self) -> @grid.SubGrid[Int32]
+
+pub struct TransformedModularSubimage {
+  // private fields
+}
+pub fn TransformedModularSubimage::channel_indices(Self) -> Array[Int32]
+pub fn TransformedModularSubimage::decode(Self, @bitstream.Bitstream, Int32, Bool) -> Unit raise @bitstream.JxlError
+pub fn TransformedModularSubimage::finish(Self) -> Bool
+pub fn TransformedModularSubimage::is_empty(Self) -> Bool
+pub fn TransformedModularSubimage::is_partial(Self) -> Bool
+pub fn TransformedModularSubimage::recursive(Self, @bitstream.Bitstream, MaConfig?, @grid.AllocTracker?) -> RecursiveModularImage raise @bitstream.JxlError
+
+#derive(Eq, @debug.Debug)
+pub(all) struct WpHeader {
+  default_wp : Bool
+  wp_p1 : Int32
+  wp_p2 : Int32
+  wp_p3a : Int32
+  wp_p3b : Int32
+  wp_p3c : Int32
+  wp_p3d : Int32
+  wp_p3e : Int32
+  wp_w0 : Int32
+  wp_w1 : Int32
+  wp_w2 : Int32
+  wp_w3 : Int32
+}
+pub fn WpHeader::default() -> Self
+pub fn WpHeader::parse(@bitstream.Bitstream) -> Self raise @bitstream.JxlError
+
+// Type aliases
+
+// Traits
