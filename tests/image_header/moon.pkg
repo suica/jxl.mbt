@@ -1,7 +1,8 @@
 import {
   "suica/jxl/bitstream",
   "suica/jxl/image",
+  "suica/jxl/color",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
   "moonbitlang/x/fs",
-}
+} for "test"
