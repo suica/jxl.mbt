@@ -131,6 +131,7 @@ pub fn ColourEncoding::want_icc(self : ColourEncoding) -> Bool {
 ///|
 #derive(Debug)
 pub(all) struct ToneMapping {
+  all_default : Bool
   intensity_target : Float
   min_nits : Float
   relative_to_max_display : Bool
@@ -140,9 +141,43 @@ pub(all) struct ToneMapping {
 ///|
 #derive(Debug)
 pub(all) struct OpsinInverseMatrix {
+  all_default : Bool
   inv_mat : FixedArray[FixedArray[Float]]
   opsin_bias : FixedArray[Float]
   quant_bias : FixedArray[Float]
+  quant_bias_numerator : Float
+}
+
+///|
+pub fn ToneMapping::default() -> ToneMapping {
+  {
+    all_default: true,
+    intensity_target: 255.0,
+    min_nits: 0.0,
+    relative_to_max_display: false,
+    linear_below: 0.0,
+  }
+}
+
+///|
+pub fn OpsinInverseMatrix::default() -> OpsinInverseMatrix {
+  {
+    all_default: true,
+    inv_mat: [
+      [11.031566901960783, -9.866943921568629, -0.16462299647058826],
+      [-3.254147380392157, 4.418770392156863, -0.16462299647058826],
+      [-3.6588512862745097, 2.7129230470588235, 1.9459282392156863],
+    ],
+    opsin_bias: [
+      -0.0037930732552754493, -0.0037930732552754493, -0.0037930732552754493,
+    ],
+    quant_bias: [
+      (1.0 : Float) - 0.05465007330715401,
+      (1.0 : Float) - 0.07005449891748593,
+      (1.0 : Float) - 0.049935103337343655,
+    ],
+    quant_bias_numerator: 0.145,
+  }
 }
 
 ///|
@@ -391,6 +426,13 @@ pub fn IccProfile::is_cmyk(self : IccProfile) -> Bool {
 fn parse_icc_raw(profile : Bytes) -> IccProfile raise @bitstream.JxlError {
   if profile.length() < 128 {
     raise @bitstream.Color("IccParseFailure: profile too short")
+  }
+  let size = (profile[0].to_int() << 24) |
+    (profile[1].to_int() << 16) |
+    (profile[2].to_int() << 8) |
+    profile[3].to_int()
+  if profile.length() != size {
+    raise @bitstream.Color("IccParseFailure: profile size mismatch")
   }
   let ri = match profile[67] {
     0 => Perceptual
