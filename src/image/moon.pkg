@@ -5,3 +5,7 @@ import {
 import {
   "suica/jxl/image",
 } for "test"
+
+import {
+  "moonbitlang/core/encoding/utf8",
+} for "wbtest"
