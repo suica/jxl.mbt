@@ -24,15 +24,12 @@ pub(all) enum BitstreamKind {
 pub impl Show for BitstreamKind
 
 #derive(@debug.Debug)
-pub(all) struct ContainerBoxHeader {
-  ty : ContainerBoxType
-  box_size : UInt64?
-  is_last : Bool
+pub struct ContainerBoxHeader {
+  // private fields
 }
 pub fn ContainerBoxHeader::box_size(Self) -> UInt64?
 pub fn ContainerBoxHeader::box_type(Self) -> ContainerBoxType
 pub fn ContainerBoxHeader::is_last(Self) -> Bool
-pub fn ContainerBoxHeader::parse(BytesView) -> HeaderParseResult raise @bitstream.JxlError
 
 #derive(Eq, Hash, @debug.Debug)
 pub(all) struct ContainerBoxType(Bytes)
@@ -58,6 +55,7 @@ pub fn ContainerParser::feed_bytes(Self, BytesView) -> ParseEvents
 pub fn ContainerParser::kind(Self) -> BitstreamKind
 pub fn ContainerParser::new() -> Self
 pub fn ContainerParser::previous_consumed_bytes(Self) -> Int32
+pub impl Default for ContainerParser
 
 #derive(@debug.Debug)
 pub(all) enum HeaderParseResult {
@@ -78,6 +76,7 @@ pub impl Show for ParseEvent
 pub struct ParseEvents {
   // private fields
 }
+pub fn ParseEvents::iter(Self) -> Iter[Result[ParseEvent, @bitstream.JxlError]]
 pub fn ParseEvents::next(Self) -> ParseEvent? raise @bitstream.JxlError
 
 // Type aliases

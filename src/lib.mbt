@@ -202,20 +202,20 @@ pub fn UninitializedJxlImage::try_init(
   }
   bitstream.zero_pad_to_byte()
   let skip_bytes = if image_header.metadata.preview is Some(_) {
-    let frame = @frame.Frame::parse(
-      bitstream,
+    let frame = @frame.Frame::parse(bitstream, {
       image_header,
-      tracker=self.tracker,
-    ) catch {
+      tracker: self.tracker,
+      pool: @threadpool.JxlThreadPool::none(),
+    }) catch {
       e if e.unexpected_eof() => return NeedMoreData(self)
       e => raise e
     }
     let bytes_read = bitstream.num_read_bits() / 8
     let x = frame.toc().total_byte_size()
-    if buffer.length() < bytes_read + x {
+    if buffer.length().to_int64() < bytes_read.to_int64() + x {
       return NeedMoreData(self)
     }
-    x
+    x.to_int()
   } else {
     0
   }

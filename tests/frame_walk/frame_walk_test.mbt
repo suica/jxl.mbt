@@ -100,30 +100,38 @@ fn walk(
   let mut preview = None
   if image_header.metadata.preview is Some(_) {
     let bs = @bitstream.Bitstream::new_range(cs, pos, cs.length() - pos)
-    let frame = @frame.Frame::parse(bs, image_header)
+    let frame = @frame.Frame::parse(bs, {
+      image_header,
+      tracker: None,
+      pool: @threadpool.JxlThreadPool::none(),
+    })
     preview = Some({ header: frame.header(), toc: frame.toc(), })
-    pos += bs.num_read_bits() / 8 + frame.toc().total_byte_size()
+    pos += bs.num_read_bits() / 8 + frame.toc().total_byte_size().to_int()
   }
   let frames = []
   while true {
     let bs = @bitstream.Bitstream::new_range(cs, pos, cs.length() - pos)
-    let frame = @frame.Frame::parse(bs, image_header)
+    let frame = @frame.Frame::parse(bs, {
+      image_header,
+      tracker: None,
+      pool: @threadpool.JxlThreadPool::none(),
+    })
     let header = frame.header()
     let toc = frame.toc()
     // Data starts right after the TOC.
     let data_start = bs.num_read_bits() / 8
-    assert_eq(toc.bookmark(), data_start)
+    assert_eq(toc.bookmark(), data_start.to_int64())
     // Feed the frame data and check every group is complete.
     let rest = frame.feed_bytes(
       cs[pos + data_start:@cmp.minimum(
         cs.length(),
-        pos + data_start + toc.total_byte_size(),
+        pos + data_start + toc.total_byte_size().to_int(),
       )],
     )
     assert_eq(rest.length(), 0)
     assert_true(frame.is_loading_done())
     frames.push({ header, toc, })
-    pos += data_start + toc.total_byte_size()
+    pos += data_start + toc.total_byte_size().to_int()
     if header.is_last {
       break
     }
@@ -297,6 +305,7 @@ fn decode_frame_data(frame : @frame.Frame) -> Unit raise {
         vardct,
         allow_partial: false,
         tracker: None,
+        pool: @threadpool.JxlThreadPool::none(),
       }) catch {
         e => fail("PassGroup \{pass_idx}/\{group_idx}: \{@debug.to_string(e)}")
       }
@@ -330,9 +339,13 @@ test "conformance frame data decode" {
     let mut idx = 0
     while true {
       let bs = @bitstream.Bitstream::new_range(cs, pos, cs.length() - pos)
-      let frame = @frame.Frame::parse(bs, image_header)
+      let frame = @frame.Frame::parse(bs, {
+        image_header,
+        tracker: None,
+        pool: @threadpool.JxlThreadPool::none(),
+      })
       let data_start = bs.num_read_bits() / 8
-      let total = frame.toc().total_byte_size()
+      let total = frame.toc().total_byte_size().to_int()
       frame.feed_bytes(cs[pos + data_start:pos + data_start + total]) |> ignore
       if image_header.metadata.preview is None || idx > 0 {
         decode_frame_data(frame) catch {

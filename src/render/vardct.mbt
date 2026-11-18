@@ -229,6 +229,7 @@ fn render_vardct(
           }),
           allow_partial,
           tracker,
+          pool: @threadpool.JxlThreadPool::none(),
         }) catch {
           e => if !allow_partial { result = Some(e) }
         }

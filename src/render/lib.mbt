@@ -490,7 +490,12 @@ pub fn RenderContext::load_frame_header(
   }
   // Parse from a copy so that `bitstream` is untouched on error.
   let bs = bitstream.clone()
-  let frame = @frame.Frame::parse(bs, self.image_header, tracker=self.tracker)
+  let frame = @frame.Frame::parse(bs, {
+    image_header: self.image_header,
+    tracker: self.tracker,
+    // RenderContext has no pool yet; `JxlThreadPool::none()` is upstream's default.
+    pool: @threadpool.JxlThreadPool::none(),
+  })
   bitstream.skip_bits(bs.num_read_bits() - bitstream.num_read_bits())
   let header = frame.header()
   // Check if LF frame exists

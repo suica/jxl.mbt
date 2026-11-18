@@ -61,13 +61,21 @@ fn reconstruct(path : String) -> Bytes raise {
   let mut pos = bs.num_read_bits() / 8
   if image_header.metadata.preview is Some(_) {
     let bs = @bitstream.Bitstream::new_range(cs, pos, cs.length() - pos)
-    let frame = @frame.Frame::parse(bs, image_header)
-    pos += bs.num_read_bits() / 8 + frame.toc().total_byte_size()
+    let frame = @frame.Frame::parse(bs, {
+      image_header,
+      tracker: None,
+      pool: @threadpool.JxlThreadPool::none(),
+    })
+    pos += bs.num_read_bits() / 8 + frame.toc().total_byte_size().to_int()
   }
   let bs = @bitstream.Bitstream::new_range(cs, pos, cs.length() - pos)
-  let frame = @frame.Frame::parse(bs, image_header)
+  let frame = @frame.Frame::parse(bs, {
+    image_header,
+    tracker: None,
+    pool: @threadpool.JxlThreadPool::none(),
+  })
   let data_start = pos + bs.num_read_bits() / 8
-  let end = data_start + frame.toc().total_byte_size()
+  let end = data_start + frame.toc().total_byte_size().to_int()
   let _ = frame.feed_bytes(
     cs[data_start:if end < cs.length() { end } else { cs.length() }],
   )

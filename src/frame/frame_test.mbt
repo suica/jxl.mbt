@@ -49,7 +49,6 @@ fn image_header(width : Int32, height : Int32) -> @image.ImageHeader {
 test "all-default frame header" {
   let ih = image_header(1000, 600)
   let h = @frame.FrameHeader::default(ih)
-  assert_true(h.all_default)
   assert_true(h.frame_type == RegularFrame)
   assert_true(h.encoding == VarDct)
   assert_true(h.is_last)
@@ -176,10 +175,10 @@ test "toc parse single entry" {
   let bs = BitWriter::new().put(0, 1).put(0, 7).put(0, 2).put(123, 10).finish()
   let toc = @frame.Toc::parse(bs, h)
   assert_true(toc.is_single_entry())
-  assert_eq(toc.total_byte_size(), 123)
-  assert_eq(toc.bookmark(), 3)
+  assert_eq(toc.total_byte_size(), 123L)
+  assert_eq(toc.bookmark(), 3L)
   assert_eq(toc.group_index_bitstream_order(All), 0)
-  let groups = toc.iter_bitstream_order()
+  let groups = toc.iter_bitstream_order().to_array()
   assert_eq(groups.length(), 1)
   assert_true(groups[0].kind == All)
 }
@@ -195,8 +194,8 @@ test "toc parse multi entry" {
   let bs = w.finish()
   let toc = @frame.Toc::parse(bs, h)
   assert_false(toc.is_single_entry())
-  assert_eq(toc.total_byte_size(), 150)
-  let groups = toc.iter_bitstream_order()
+  assert_eq(toc.total_byte_size(), 150L)
+  let groups = toc.iter_bitstream_order().to_array()
   inspect(
     groups.map(g => "\{g.kind}@\{g.offset}+\{g.size}").join(", "),
     content="LfGlobal@9+10, LfGroup(0)@19+20, HfGlobal@39+30, GroupPass { pass_idx: 0, group_idx: 0 }@69+40, GroupPass { pass_idx: 0, group_idx: 1 }@109+50",
@@ -217,4 +216,31 @@ test "noise parameters" {
   assert_eq(noise.lut[0], 0.0)
   assert_eq(noise.lut[4], 0.5)
   assert_eq(noise.lut[7], 0.875)
+}
+
+///|
+test "frame parse and adjust_region" {
+  // all_default = 1; TOC: permutated = 0, zero pad, one entry of 5 bytes.
+  let bs = BitWriter::new()
+    .put(1, 1)
+    .put(0, 1)
+    .put(0, 6)
+    .put(0, 2)
+    .put(5, 10)
+    .finish()
+  let frame = @frame.Frame::parse(bs, {
+    image_header: image_header(100, 100),
+    tracker: None,
+    pool: @threadpool.JxlThreadPool::none(),
+  })
+  assert_eq(frame.toc().total_byte_size(), 5L)
+  assert_true(frame.current_loading_group() is Some({ kind: All, .. }))
+  let rest = frame.feed_bytes(b"\x01\x02\x03\x04\x05\x06"[:])
+  assert_eq(rest.length(), 1)
+  assert_true(frame.is_loading_done())
+  assert_eq(frame.data(All).unwrap().length(), 5)
+  // All-default frame: Gabor and EPF enabled → padding of 3 pixels, no crop.
+  let region = Ref((10, 0, 50, 50))
+  frame.adjust_region(region)
+  assert_eq(region.val, (7, 0, 56, 53))
 }

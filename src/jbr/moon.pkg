@@ -1,5 +1,6 @@
 import {
   "suica/jxl/bitstream",
+  "suica/jxl/threadpool",
   "suica/jxl/brotli",
   "suica/jxl/frame",
   "suica/jxl/grid",

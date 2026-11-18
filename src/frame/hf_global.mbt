@@ -1,10 +1,11 @@
 ///|
-pub(all) struct HfGlobalParams {
-  metadata : @image.ImageMetadata
-  frame_header : FrameHeader
-  ma_config : @modular.MaConfig?
-  hf_block_ctx : @vardct.HfBlockContext
-  tracker : @grid.AllocTracker?
+pub struct HfGlobalParams {
+  priv metadata : @image.ImageMetadata
+  priv frame_header : FrameHeader
+  priv ma_config : @modular.MaConfig?
+  priv hf_block_ctx : @vardct.HfBlockContext
+  priv tracker : @grid.AllocTracker?
+  priv pool : @threadpool.JxlThreadPool
 }
 
 ///|
@@ -13,6 +14,7 @@ pub fn HfGlobalParams::new(
   frame_header : FrameHeader,
   lf_global : LfGlobal,
   tracker : @grid.AllocTracker?,
+  pool : @threadpool.JxlThreadPool,
 ) -> HfGlobalParams {
   guard lf_global.vardct is Some(lf_vardct) else {
     abort("VarDCT not initialized")
@@ -23,6 +25,7 @@ pub fn HfGlobalParams::new(
     ma_config: lf_global.gmodular.ma_config,
     hf_block_ctx: lf_vardct.hf_block_ctx,
     tracker,
+    pool,
   }
 }
 
@@ -38,7 +41,9 @@ pub fn HfGlobal::parse(
   bs : @bitstream.Bitstream,
   params : HfGlobalParams,
 ) -> HfGlobal raise @bitstream.JxlError {
-  let { metadata, frame_header, ma_config, hf_block_ctx, tracker, } = params
+  // `pool` is passed to the VarDCT parsers upstream; `@vardct` runs sequentially
+  // and takes no pool (same as upstream with `JxlThreadPool::none()`).
+  let { metadata, frame_header, ma_config, hf_block_ctx, tracker, pool: _, } = params
   let dequant_matrix_params = @vardct.DequantMatrixSetParams::new(
     metadata.bit_depth.bits_per_sample(),
     frame_header.num_lf_groups(),

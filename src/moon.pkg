@@ -1,6 +1,7 @@
 import {
   "moonbitlang/core/cmp",
   "suica/jxl/bitstream",
+  "suica/jxl/threadpool",
   "suica/jxl/brotli",
   "suica/jxl/cms",
   "suica/jxl/color",

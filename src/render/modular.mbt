@@ -74,6 +74,7 @@ pub fn render_modular(
         modular,
         allow_partial,
         tracker,
+        @threadpool.JxlThreadPool::none(),
       ) catch {
         e => if !allow_partial { result = Some(e) }
       }

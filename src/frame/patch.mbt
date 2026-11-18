@@ -103,9 +103,9 @@ pub fn Patches::parse(
     let width = decoder.read_varint(bs, 2) + 1
     let height = decoder.read_varint(bs, 2) + 1
     let count = decoder.read_varint(bs, 7) + 1
+    // u32 addition; wraps as in upstream release builds.
     total_patches += count
-    // Upstream uses wrapping-free u32 addition; detect overflow as "too many".
-    if total_patches > max_num_patches || total_patches < count {
+    if total_patches > max_num_patches {
       raise ProfileConformance("too many patches")
     }
     let mut prev_xy : (Int32, Int32)? = None

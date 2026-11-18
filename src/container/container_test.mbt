@@ -174,18 +174,6 @@ test "box errors" {
 }
 
 ///|
-test "large box header" {
-  let r = @container.ContainerBoxHeader::parse(
-    b"\x00\x00\x00\x01jxlc\x00\x00\x00\x00\x00\x00\x00\x20",
-  )
-  guard r is Done(header~, header_size~) else { fail("expected header") }
-  inspect(header_size, content="16")
-  assert_eq(header.box_size(), Some(16UL))
-  inspect(header.box_type(), content="jxlc")
-  inspect(header.is_last(), content="false")
-}
-
-///|
 fn err_of(input : Bytes) -> @bitstream.JxlError? {
   try {
     collect(@container.ContainerParser::new(), input) |> ignore
@@ -193,4 +181,37 @@ fn err_of(input : Bytes) -> @bitstream.JxlError? {
   } catch {
     e => Some(e)
   }
+}
+
+///|
+test "default parser" {
+  let p : @container.ContainerParser = Default::default()
+  inspect(p.kind(), content="Unknown")
+}
+
+///|
+test "parse events iterator" {
+  let p = @container.ContainerParser::new()
+  let input = Buffer()
+  input.write_bytes(@container.container_sig)
+  input.write_bytes(b"\x00\x00\x00\x0ajxlc\xff\x0a")
+  input.write_bytes(b"\x00\x00\x00\x0ajxlc\xff\x0a")
+  let log = p
+    .feed_bytes(input.to_bytes())
+    .iter()
+    .map(r => {
+      match r {
+        Ok(ev) => "\{ev}"
+        Err(e) => "Err(\{@debug.to_string(e)})"
+      }
+    })
+    .to_array()
+  inspect(
+    log.join("\n"),
+    content=(
+      #|BitstreamKind(Container)
+      #|Codestream(2 byte(s))
+      #|Err(InvalidBox)
+    ),
+  )
 }

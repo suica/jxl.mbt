@@ -19,13 +19,16 @@ pub fn Splines::parse(
 ) -> Splines raise @bitstream.JxlError {
   let decoder = @coding.Decoder::parse(bs, 6)
   decoder.begin(bs)
-  let num_splines = decoder.read_varint(bs, 2).reinterpret_as_int().to_int64()
+  // `as usize` (u32 → u64)
+  let num_splines = decoder.read_varint(bs, 2).to_uint64()
   // `(header.width * header.height) as usize` (u32 multiplication)
   let num_pixels = (header.width.reinterpret_as_uint() *
   header.height.reinterpret_as_uint()).to_int64()
-  let max_num_splines = @cmp.minimum(max_num_splines.to_int64(), num_pixels / 4)
-  if num_splines.reinterpret_as_uint64() >=
-    max_num_splines.reinterpret_as_uint64() {
+  let max_num_splines = @cmp.minimum(
+    max_num_splines.to_uint64(),
+    num_pixels.reinterpret_as_uint64() / 4,
+  )
+  if num_splines >= max_num_splines {
     raise ProfileConformance("too many splines")
   }
   let num_splines = num_splines.to_int() + 1
@@ -60,7 +63,7 @@ pub fn Splines::parse(
 
 ///|
 /// Estimated area covered by the splines (`Splines::estimate_area`).
-pub fn Splines::estimate_area(
+fn Splines::estimate_area(
   self : Splines,
   base_correlation_xb : (Float, Float)?,
 ) -> UInt64 {
@@ -147,6 +150,28 @@ pub(all) struct QuantSpline {
   manhattan_distance : UInt64
   xyb_dct : FixedArray[FixedArray[Int32]]
   sigma_dct : FixedArray[Int32]
+}
+
+///|
+/// `#[derive(Default)]`
+pub fn QuantSpline::default() -> QuantSpline {
+  {
+    quant_points: [],
+    manhattan_distance: 0,
+    xyb_dct: FixedArray::makei(3, _ => FixedArray::make(32, 0)),
+    sigma_dct: FixedArray::make(32, 0),
+  }
+}
+
+///|
+/// `#[derive(Clone)]`
+pub fn QuantSpline::clone(self : QuantSpline) -> QuantSpline {
+  {
+    quant_points: self.quant_points.copy(),
+    manhattan_distance: self.manhattan_distance,
+    xyb_dct: self.xyb_dct.map(a => a.copy()),
+    sigma_dct: self.sigma_dct.copy(),
+  }
 }
 
 ///|

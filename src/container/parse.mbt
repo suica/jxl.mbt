@@ -269,7 +269,7 @@ pub(all) enum ParseEvent {
   AuxBoxStart(
     ty~ : ContainerBoxType,
     brotli_compressed~ : Bool,
-    last_box~ : Bool
+    last_box~ : Bool,
   )
   /// Auxiliary box data is read.
   ///
@@ -295,4 +295,18 @@ pub impl Show for ParseEvent with fn output(self, logger) {
       logger.write_string("AuxBoxData(\{ty}, \{buf.length()} byte(s))")
     AuxBoxEnd(ty) => logger.write_string("AuxBoxEnd(\{ty})")
   }
+}
+
+///|
+/// `impl Iterator for ParseEvents` (`Item = Result<ParseEvent>`).
+pub fn ParseEvents::iter(
+  self : ParseEvents,
+) -> Iter[Result[ParseEvent, @bitstream.JxlError]] {
+  Iter::new(() => {
+    let r = self.next() catch { e => return Some(Err(e)) }
+    match r {
+      Some(ev) => Some(Ok(ev))
+      None => None
+    }
+  })
 }

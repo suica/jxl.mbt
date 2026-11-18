@@ -18,6 +18,7 @@
 ///
 /// A frame represents a single unit of image that can be displayed or referenced by other frames.
 pub struct Frame {
+  priv pool : @threadpool.JxlThreadPool
   priv tracker : @grid.AllocTracker?
   priv image_header : @image.ImageHeader
   priv header : FrameHeader
@@ -102,15 +103,21 @@ fn bitstream_of(view : BytesView) -> @bitstream.Bitstream {
 }
 
 ///|
-/// `FrameContext`: the image header and an optional allocation tracker.
-/// (The thread pool of upstream is dropped; everything runs sequentially.)
+pub(all) struct FrameContext {
+  image_header : @image.ImageHeader
+  tracker : @grid.AllocTracker?
+  pool : @threadpool.JxlThreadPool
+}
+
+///|
+/// `Bundle<FrameContext>::parse`.
 pub fn Frame::parse(
   bs : @bitstream.Bitstream,
-  image_header : @image.ImageHeader,
-  tracker~ : @grid.AllocTracker? = None,
+  ctx : FrameContext,
 ) -> Frame raise @bitstream.JxlError {
+  let { image_header, tracker, pool, } = ctx
   bs.zero_pad_to_byte()
-  let base_offset = bs.num_read_bits() / 8
+  let base_offset = (bs.num_read_bits() / 8).to_int64()
   let header = FrameHeader::parse(bs, image_header)
   let width = header.width.reinterpret_as_uint().to_uint64()
   let height = header.height.reinterpret_as_uint().to_uint64()
@@ -174,7 +181,10 @@ pub fn Frame::parse(
   }
   let toc = Toc::parse(bs, header)
   toc.adjust_offsets(base_offset)
-  let data = toc.iter_bitstream_order().map(GroupData::from_toc_group)
+  let data = toc
+    .iter_bitstream_order()
+    .map(GroupData::from_toc_group)
+    .to_array()
   let passes = header.passes
   let pass_shifts = @sorted_map.SortedMap([])
   let mut maxshift = 3
@@ -188,6 +198,7 @@ pub fn Frame::parse(
   }
   pass_shifts.set(header.passes.num_passes - 1, (0, maxshift))
   {
+    pool,
     tracker,
     image_header,
     header,
@@ -211,6 +222,12 @@ pub fn Frame::alloc_tracker(self : Frame) -> @grid.AllocTracker? {
 
 ///|
 pub fn Frame::image_header(self : Frame) -> @image.ImageHeader {
+  self.image_header
+}
+
+///|
+/// `Arc::clone` of the image header; headers are immutable, so this is the same value.
+pub fn Frame::clone_image_header(self : Frame) -> @image.ImageHeader {
   self.image_header
 }
 
@@ -267,12 +284,7 @@ pub fn Frame::feed_bytes(
 
 ///|
 pub fn Frame::current_loading_group(self : Frame) -> TocGroup? {
-  let groups = self.toc.iter_bitstream_order()
-  if self.reading_data_index < groups.length() {
-    Some(groups[self.reading_data_index])
-  } else {
-    None
-  }
+  self.toc.iter_bitstream_order().nth(self.reading_data_index)
 }
 
 ///|
@@ -289,12 +301,12 @@ pub fn Frame::is_loading_done(self : Frame) -> Bool {
 ///   have different coordinates.
 /// - Some filters reference other samples, which requires padding to the region.
 ///
-/// This method takes care of those and returns the adjusted region `(left, top, width, height)`.
+/// This method takes care of those and adjusts the given region appropriately.
 pub fn Frame::adjust_region(
   self : Frame,
-  region : (Int32, Int32, Int32, Int32),
-) -> (Int32, Int32, Int32, Int32) {
-  let (left, top, width, height) = region
+  region : Ref[(Int32, Int32, Int32, Int32)],
+) -> Unit {
+  let (left, top, width, height) = region.val
   let mut left = left.reinterpret_as_uint()
   let mut top = top.reinterpret_as_uint()
   let mut width = width.reinterpret_as_uint()
@@ -305,9 +317,11 @@ pub fn Frame::adjust_region(
   }
   let mut padding = 0U
   if self.header.restoration_filter.gab.enabled() {
+    // Gabor-like filter requires padding of 1 pixel
     padding = 1
   }
   if self.header.restoration_filter.epf.enabled() {
+    // Edge-preserving filter requires padding of 3 pixels
     padding = 3
   }
   if padding > 0 {
@@ -318,7 +332,7 @@ pub fn Frame::adjust_region(
     width += delta_w + padding
     height += delta_h + padding
   }
-  (
+  region.val = (
     left.reinterpret_as_int(),
     top.reinterpret_as_int(),
     width.reinterpret_as_int(),

@@ -1,14 +1,13 @@
 ///|
 /// Frame header.
 #derive(Debug)
-pub(all) struct FrameHeader {
-  all_default : Bool
+pub struct FrameHeader {
+  priv all_default : Bool
   frame_type : FrameType
   encoding : Encoding
   flags : FrameFlags
   do_ycbcr : Bool
-  /// Use `encoded_color_channels()`.
-  encoded_color_channels : Int32
+  priv encoded_color_channels : Int32
   jpeg_upsampling : FixedArray[Int32]
   upsampling : Int32
   ec_upsampling : Array[Int32]
@@ -57,8 +56,8 @@ pub(all) struct BlendingInfo {
 
 ///|
 #derive(Debug)
-pub(all) struct RestorationFilter {
-  all_default : Bool
+pub struct RestorationFilter {
+  priv all_default : Bool
   gab : Gabor
   epf : EdgePreservingFilter
   extensions : @image.Extensions

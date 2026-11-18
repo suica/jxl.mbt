@@ -3,13 +3,15 @@
 ///
 /// Frame data are organized in groups. TOC specified the size and order of each group, and it is
 /// decoded after the frame header.
+#derive(Debug)
 pub struct Toc {
   priv num_lf_groups : Int32
   priv num_groups : Int32
   priv groups : Array[TocGroup]
   priv bitstream_to_original : Array[Int32]
   priv original_to_bitstream : Array[Int32]
-  priv total_size : Int32
+  /// `usize` upstream; Int64 so that sums of up to 65536 sizes cannot overflow.
+  priv total_size : Int64
 }
 
 ///|
@@ -27,7 +29,8 @@ pub(all) struct TocGroup {
   /// Kind of the group.
   kind : TocGroupKind
   /// Offset from the beginning of frame header.
-  mut offset : Int32
+  /// `usize` upstream.
+  mut offset : Int64
   /// Size of the group.
   size : Int32
 }
@@ -60,7 +63,7 @@ pub impl Show for TocGroupKind with fn output(self, logger) {
 
 ///|
 /// Returns the offset to the beginning of the data.
-pub fn Toc::bookmark(self : Toc) -> Int32 {
+pub fn Toc::bookmark(self : Toc) -> Int64 {
   let idx = if self.bitstream_to_original.is_empty() {
     0
   } else {
@@ -100,23 +103,24 @@ pub fn Toc::group_index_bitstream_order(
 
 ///|
 /// Returns the total size of the frame data in bytes.
-pub fn Toc::total_byte_size(self : Toc) -> Int32 {
+pub fn Toc::total_byte_size(self : Toc) -> Int64 {
   self.total_size
 }
 
 ///|
-/// Groups in bitstream order.
-pub fn Toc::iter_bitstream_order(self : Toc) -> Array[TocGroup] {
-  if self.bitstream_to_original.is_empty() {
+/// Groups in bitstream order (copies, like upstream's `TocGroup: Copy`).
+pub fn Toc::iter_bitstream_order(self : Toc) -> Iter[TocGroup] {
+  let groups = if self.bitstream_to_original.is_empty() {
     self.groups.map(g => { ..g, })
   } else {
     self.bitstream_to_original.map(idx => { ..self.groups[idx], })
   }
+  groups.iter()
 }
 
 ///|
-fn Toc::adjust_offsets(self : Toc, global_frame_offset : Int32) -> Unit {
-  if global_frame_offset == 0 {
+fn Toc::adjust_offsets(self : Toc, global_frame_offset : Int64) -> Unit {
+  if global_frame_offset == 0L {
     return
   }
   for group in self.groups {
@@ -167,13 +171,13 @@ pub fn Toc::parse(
     )
   }
   bs.zero_pad_to_byte()
-  let offsets = []
-  let mut acc = bs.num_read_bits() / 8
-  let mut total_size = 0
+  let offsets : Array[Int64] = []
+  let mut acc = (bs.num_read_bits() / 8).to_int64()
+  let mut total_size = 0L
   for size in sizes {
     offsets.push(acc)
-    acc += size
-    total_size += size
+    acc += size.to_int64()
+    total_size += size.to_int64()
   }
   let section_kinds : Array[TocGroupKind] = if entry_count == 1 {
     [All]

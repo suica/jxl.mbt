@@ -23,12 +23,12 @@ priv enum DetectState {
   InAuxBox(
     header~ : ContainerBoxHeader,
     brotli_box_type~ : ContainerBoxType?,
-    bytes_left~ : Int64?
+    bytes_left~ : Int64?,
   )
   InCodestream(
     kind~ : BitstreamKind,
     bytes_left~ : Int64?,
-    pending_no_more_aux_box~ : Bool
+    pending_no_more_aux_box~ : Bool,
   )
 }
 
@@ -56,6 +56,12 @@ pub fn ContainerParser::new() -> ContainerParser {
     jxlp_index_state: Initial,
     previous_consumed_bytes: 0,
   }
+}
+
+///|
+/// `#[derive(Default)]`
+pub impl Default for ContainerParser with fn default() {
+  ContainerParser::new()
 }
 
 ///|

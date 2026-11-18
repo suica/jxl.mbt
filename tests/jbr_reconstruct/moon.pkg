@@ -6,6 +6,7 @@ import {
   "suica/jxl/frame",
   "suica/jxl/image",
   "suica/jxl/jbr",
+  "suica/jxl/threadpool",
   "moonbitlang/x/fs",
   "moonbitlang/core/env",
 } for "test"

@@ -1,6 +1,7 @@
 import {
   "suica/jxl_tests/harness",
   "suica/jxl/bitstream",
+  "suica/jxl/threadpool",
   "suica/jxl/coding",
   "suica/jxl/container",
   "suica/jxl/frame",

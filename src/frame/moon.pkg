@@ -7,9 +7,11 @@ import {
   "suica/jxl/vardct",
   "moonbitlang/core/cmp",
   "moonbitlang/core/sorted_map",
+  "suica/jxl/threadpool",
 }
 
 import {
   "suica/jxl/bitstream",
   "suica/jxl/image",
+  "suica/jxl/threadpool",
 } for "test"

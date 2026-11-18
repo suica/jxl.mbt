@@ -9,6 +9,7 @@ pub(all) struct PassGroupParams {
   vardct : PassGroupParamsVardct?
   allow_partial : Bool
   tracker : @grid.AllocTracker?
+  pool : @threadpool.JxlThreadPool
 }
 
 ///|
@@ -33,6 +34,7 @@ pub fn decode_pass_group(
     vardct,
     allow_partial,
     tracker,
+    pool,
   } = params
   if vardct is Some({ lf_vardct, hf_global, hf_coeff_output, }) &&
     lf_group.hf_meta is Some(hf_meta) {
@@ -107,7 +109,7 @@ pub fn decode_pass_group(
   if modular is Some(modular) {
     decode_pass_group_modular(
       bs, frame_header, global_ma_config, pass_idx, group_idx, modular, allow_partial,
-      tracker,
+      tracker, pool,
     )
   }
 }
@@ -122,7 +124,10 @@ pub fn decode_pass_group_modular(
   modular : @modular.TransformedModularSubimage,
   allow_partial : Bool,
   tracker : @grid.AllocTracker?,
+  pool : @threadpool.JxlThreadPool,
 ) -> Unit raise @bitstream.JxlError {
+  // `subimage.finish(pool)` upstream; `@modular`'s `finish` runs sequentially.
+  let _ = pool
   if modular.is_empty() {
     return
   }

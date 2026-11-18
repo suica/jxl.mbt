@@ -93,10 +93,10 @@ pub fn ContainerBoxType::bytes(self : ContainerBoxType) -> Bytes {
 ///|
 /// Box header used in JPEG XL containers.
 #derive(Debug)
-pub(all) struct ContainerBoxHeader {
-  ty : ContainerBoxType
-  box_size : UInt64?
-  is_last : Bool
+pub struct ContainerBoxHeader {
+  priv ty : ContainerBoxType
+  priv box_size : UInt64?
+  priv is_last : Bool
 }
 
 ///|
@@ -123,7 +123,8 @@ fn be_u64(buf : BytesView, off : Int32) -> UInt64 {
 }
 
 ///|
-pub fn ContainerBoxHeader::parse(
+/// `pub(super)` upstream.
+fn ContainerBoxHeader::parse(
   buf : BytesView,
 ) -> HeaderParseResult raise @bitstream.JxlError {
   let (tbox, box_size, header_size) = if buf.length() >= 16 &&

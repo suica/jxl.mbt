@@ -154,6 +154,7 @@ pub fn JpegBitstreamReconstructor::new(
         }),
         allow_partial: false,
         tracker: None,
+        pool: @threadpool.JxlThreadPool::none(),
       })
     }
   }

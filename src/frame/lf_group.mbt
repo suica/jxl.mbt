@@ -7,6 +7,7 @@ pub(all) struct LfGroupParams {
   lf_group_idx : Int32
   allow_partial : Bool
   tracker : @grid.AllocTracker?
+  pool : @threadpool.JxlThreadPool
 }
 
 ///|

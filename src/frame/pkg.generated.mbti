@@ -3,18 +3,20 @@ package "suica/jxl/frame"
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/ref",
   "moonbitlang/core/sorted_map",
   "suica/jxl/bitstream",
   "suica/jxl/grid",
   "suica/jxl/image",
   "suica/jxl/modular",
+  "suica/jxl/threadpool",
   "suica/jxl/vardct",
 }
 
 // Values
 pub fn decode_pass_group(@bitstream.Bitstream, PassGroupParams) -> Unit raise @bitstream.JxlError
 
-pub fn decode_pass_group_modular(@bitstream.Bitstream, FrameHeader, @modular.MaConfig?, Int32, Int32, @modular.TransformedModularSubimage, Bool, @grid.AllocTracker?) -> Unit raise @bitstream.JxlError
+pub fn decode_pass_group_modular(@bitstream.Bitstream, FrameHeader, @modular.MaConfig?, Int32, Int32, @modular.TransformedModularSubimage, Bool, @grid.AllocTracker?, @threadpool.JxlThreadPool) -> Unit raise @bitstream.JxlError
 
 // Errors
 
@@ -87,21 +89,28 @@ pub fn EpfSigma::parse(@bitstream.Bitstream, Encoding) -> Self raise @bitstream.
 pub struct Frame {
   // private fields
 }
-pub fn Frame::adjust_region(Self, (Int32, Int32, Int32, Int32)) -> (Int32, Int32, Int32, Int32)
+pub fn Frame::adjust_region(Self, @ref.Ref[(Int32, Int32, Int32, Int32)]) -> Unit
 pub fn Frame::alloc_tracker(Self) -> @grid.AllocTracker?
+pub fn Frame::clone_image_header(Self) -> @image.ImageHeader
 pub fn Frame::current_loading_group(Self) -> TocGroup?
 pub fn Frame::data(Self, TocGroupKind) -> BytesView?
 pub fn Frame::feed_bytes(Self, BytesView) -> BytesView raise @bitstream.JxlError
 pub fn Frame::header(Self) -> FrameHeader
 pub fn Frame::image_header(Self) -> @image.ImageHeader
 pub fn Frame::is_loading_done(Self) -> Bool
-pub fn Frame::parse(@bitstream.Bitstream, @image.ImageHeader, tracker? : @grid.AllocTracker?) -> Self raise @bitstream.JxlError
+pub fn Frame::parse(@bitstream.Bitstream, FrameContext) -> Self raise @bitstream.JxlError
 pub fn Frame::pass_group_bitstream(Self, Int32, Int32) -> Result[PassGroupBitstream, @bitstream.JxlError]?
 pub fn Frame::pass_shifts(Self) -> @sorted_map.SortedMap[Int32, (Int32, Int32)]
 pub fn Frame::toc(Self) -> Toc
 pub fn Frame::try_parse_hf_global(Self, LfGlobal?) -> Result[HfGlobal, @bitstream.JxlError]?
 pub fn Frame::try_parse_lf_global(Self) -> Result[LfGlobal, @bitstream.JxlError]?
 pub fn Frame::try_parse_lf_group(Self, LfGlobalVarDct?, @modular.MaConfig?, @modular.TransformedModularSubimage?, Int32) -> Result[LfGroup, @bitstream.JxlError]?
+
+pub(all) struct FrameContext {
+  image_header : @image.ImageHeader
+  tracker : @grid.AllocTracker?
+  pool : @threadpool.JxlThreadPool
+}
 
 #derive(Eq, @debug.Debug)
 pub(all) struct FrameFlags(UInt64)
@@ -113,13 +122,11 @@ pub fn FrameFlags::splines(Self) -> Bool
 pub fn FrameFlags::use_lf_frame(Self) -> Bool
 
 #derive(@debug.Debug)
-pub(all) struct FrameHeader {
-  all_default : Bool
+pub struct FrameHeader {
   frame_type : FrameType
   encoding : Encoding
   flags : FrameFlags
   do_ycbcr : Bool
-  encoded_color_channels : Int32
   jpeg_upsampling : FixedArray[Int32]
   upsampling : Int32
   ec_upsampling : Array[Int32]
@@ -145,6 +152,7 @@ pub(all) struct FrameHeader {
   restoration_filter : RestorationFilter
   extensions : @image.Extensions
   bit_depth : @image.BitDepth
+  // private fields
 }
 pub fn FrameHeader::can_reference(Self) -> Bool
 pub fn FrameHeader::color_sample_height(Self) -> Int32
@@ -207,14 +215,10 @@ pub(all) struct HfGlobal {
 }
 pub fn HfGlobal::parse(@bitstream.Bitstream, HfGlobalParams) -> Self raise @bitstream.JxlError
 
-pub(all) struct HfGlobalParams {
-  metadata : @image.ImageMetadata
-  frame_header : FrameHeader
-  ma_config : @modular.MaConfig?
-  hf_block_ctx : @vardct.HfBlockContext
-  tracker : @grid.AllocTracker?
+pub struct HfGlobalParams {
+  // private fields
 }
-pub fn HfGlobalParams::new(@image.ImageMetadata, FrameHeader, LfGlobal, @grid.AllocTracker?) -> Self
+pub fn HfGlobalParams::new(@image.ImageMetadata, FrameHeader, LfGlobal, @grid.AllocTracker?, @threadpool.JxlThreadPool) -> Self
 
 pub(all) struct LfGlobal {
   patches : Patches?
@@ -256,6 +260,7 @@ pub(all) struct LfGroupParams {
   lf_group_idx : Int32
   allow_partial : Bool
   tracker : @grid.AllocTracker?
+  pool : @threadpool.JxlThreadPool
 }
 
 #derive(@debug.Debug)
@@ -279,6 +284,7 @@ pub(all) struct PassGroupParams {
   vardct : PassGroupParamsVardct?
   allow_partial : Bool
   tracker : @grid.AllocTracker?
+  pool : @threadpool.JxlThreadPool
 }
 
 pub(all) struct PassGroupParamsVardct {
@@ -342,13 +348,15 @@ pub(all) struct QuantSpline {
   xyb_dct : FixedArray[FixedArray[Int32]]
   sigma_dct : FixedArray[Int32]
 }
+pub fn QuantSpline::clone(Self) -> Self
+pub fn QuantSpline::default() -> Self
 
 #derive(@debug.Debug)
-pub(all) struct RestorationFilter {
-  all_default : Bool
+pub struct RestorationFilter {
   gab : Gabor
   epf : EdgePreservingFilter
   extensions : @image.Extensions
+  // private fields
 }
 pub fn RestorationFilter::default() -> Self
 pub fn RestorationFilter::parse(@bitstream.Bitstream, Encoding) -> Self raise @bitstream.JxlError
@@ -358,24 +366,24 @@ pub(all) struct Splines {
   quant_splines : Array[QuantSpline]
   quant_adjust : Int32
 }
-pub fn Splines::estimate_area(Self, (Float, Float)?) -> UInt64
 pub fn Splines::parse(@bitstream.Bitstream, FrameHeader) -> Self raise @bitstream.JxlError
 
+#derive(@debug.Debug)
 pub struct Toc {
   // private fields
 }
-pub fn Toc::bookmark(Self) -> Int32
+pub fn Toc::bookmark(Self) -> Int64
 pub fn Toc::group_index_bitstream_order(Self, TocGroupKind) -> Int32
 pub fn Toc::is_single_entry(Self) -> Bool
-pub fn Toc::iter_bitstream_order(Self) -> Array[TocGroup]
+pub fn Toc::iter_bitstream_order(Self) -> Iter[TocGroup]
 pub fn Toc::parse(@bitstream.Bitstream, FrameHeader) -> Self raise @bitstream.JxlError
-pub fn Toc::total_byte_size(Self) -> Int32
+pub fn Toc::total_byte_size(Self) -> Int64
 pub impl Show for Toc
 
 #derive(Eq, @debug.Debug)
 pub(all) struct TocGroup {
   kind : TocGroupKind
-  mut offset : Int32
+  mut offset : Int64
   size : Int32
 }
 

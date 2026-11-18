@@ -99,6 +99,7 @@ pub fn Frame::try_parse_lf_group(
         lf_group_idx,
         allow_partial: !loaded,
         tracker: self.tracker,
+        pool: self.pool,
       }),
     ) catch {
       e => Err(e)
@@ -128,6 +129,7 @@ pub fn Frame::try_parse_lf_group(
         lf_group_idx,
         allow_partial,
         tracker: self.tracker,
+        pool: self.pool,
       }),
     ) catch {
       e => Err(e)
@@ -215,6 +217,7 @@ pub fn Frame::try_parse_hf_global(
           self.header,
           lf_global,
           self.tracker,
+          self.pool,
         ),
       ),
     ) catch {
@@ -257,6 +260,7 @@ pub fn Frame::try_parse_hf_global(
       self.header,
       lf_global,
       self.tracker,
+      self.pool,
     )
     Some(Ok(HfGlobal::parse(bs, params)) catch { e => Err(e) })
   }
