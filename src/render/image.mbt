@@ -539,7 +539,7 @@ pub fn ImageWithRegion::upsample_nonseparable(
     let (region, shift) = self.regions[idx]
     let tracker = self.tracker
     guard shift is Shifts(upsampling_factor) else {
-      abort("invalid channel shift for upsampling: \{shift}")
+      abort("invalid channel shift for upsampling")
     }
     let bit_depth = if idx >= color_channels {
       image_header.metadata.ec_info[idx - color_channels].bit_depth
@@ -603,7 +603,7 @@ pub fn ImageWithRegion::prepare_color_upsampling(
         has_v_subsample=false,
         v_subsample=false
       ) => Shifts(upsampling_factor)
-      JpegUpsampling(..) => abort("unexpected chroma subsampling \{shift}")
+      JpegUpsampling(..) => abort("unexpected chroma subsampling")
     }
     self.regions[idx] = (region.upsample(upsampling_factor), new_shift)
   }
@@ -725,7 +725,132 @@ pub fn ImageWithRegion::color_groups_with_group_id(
     let group_x = base_group_x + idx % groups_per_row
     let group_y = base_group_y + idx / groups_per_row
     let group_idx = group_y * frame_groups_per_row + group_x
-    out.push((group_idx, [groups[0][idx], groups[1][idx], groups[2][idx]]))
+    out.push((
+      group_idx,
+      ([groups[0][idx], groups[1][idx], groups[2][idx]] : FixedArray[_]),
+    ))
   }
   out
+}
+
+///|
+/// A rendered (but possibly not yet blended) frame (jxl-render
+/// `RenderedImage`).
+pub struct RenderedImage {
+  image : FrameRenderHandle
+}
+
+///|
+pub fn RenderedImage::new(image : FrameRenderHandle) -> RenderedImage {
+  { image, }
+}
+
+///|
+/// Composites the rendered frame onto its references, caching the result.
+pub fn RenderedImage::blend(
+  self : RenderedImage,
+  oriented_image_region : Region?,
+) -> ImageWithRegion raise @bitstream.JxlError {
+  let image_header = self.image.frame.image_header()
+  let image_region = self.image.image_region
+  let oriented_image_region = match oriented_image_region {
+    Some(r) => r
+    None => apply_orientation_to_image_region(image_header, image_region)
+  }
+  self.image.wait_until_render()
+  if self.image.render is Blended(image) {
+    return image
+  }
+  let render = self.image.render
+  self.image.render = ErrTaken
+  guard render is Done(grid) else { abort("RenderedImage::blend: not done") }
+  let skip_composition = composite_preprocess(self.image.frame, grid)
+  if skip_composition {
+    self.image.render = Blended(grid)
+    return grid
+  }
+  self.image.render = Rendering
+  let grid = composite(
+    self.image.frame,
+    grid,
+    self.image.refs,
+    oriented_image_region,
+  )
+  self.image.done_render(Blended(grid))
+  grid
+}
+
+///|
+/// Upstream takes the blended image out of the handle when no one else holds
+/// it (`Arc::into_inner`). The call sites always hold another reference, so
+/// it never succeeds; without reference counting this always returns `None`.
+pub fn RenderedImage::try_take_blended(
+  _self : RenderedImage,
+) -> ImageWithRegion? {
+  None
+}
+
+///|
+/// Preprocesses image before composition.
+///
+/// Returns `true` if no actual composition is needed.
+fn composite_preprocess(
+  frame : IndexedFrame,
+  grid : ImageWithRegion,
+) -> Bool raise @bitstream.JxlError {
+  let image_header = frame.image_header()
+  let frame_header = frame.header()
+  if frame_header.can_reference() {
+    let n = grid.buffer.length()
+    for i in 0..<n {
+      let bit_depth = if i < grid.color_channels {
+        image_header.metadata.bit_depth
+      } else if i - grid.color_channels < image_header.metadata.ec_info.length() {
+        image_header.metadata.ec_info[i - grid.color_channels].bit_depth
+      } else {
+        break
+      }
+      ignore(grid.convert_channel_to_float_modular(i, bit_depth))
+    }
+  }
+  let skip_blending = !frame_header.frame_type.is_normal_frame() ||
+    frame_header.resets_canvas
+  if !(
+      grid.ct_done() ||
+      frame_header.save_before_ct ||
+      (skip_blending && frame_header.is_last)
+    ) {
+    convert_color_for_record(image_header, frame_header.do_ycbcr, grid)
+  }
+  if skip_blending {
+    grid.blend_done = true
+  }
+  skip_blending
+}
+
+///|
+fn composite(
+  frame : IndexedFrame,
+  grid : ImageWithRegion,
+  refs : FixedArray[Reference?],
+  oriented_image_region : Region,
+) -> ImageWithRegion raise @bitstream.JxlError {
+  let image_header = frame.image_header()
+  let frame_header = frame.header()
+  let frame_region = oriented_image_region
+    .translate(-frame_header.x0, -frame_header.y0)
+    .downsample(frame_header.lf_level * 3)
+  let frame_region = pad_lf_region(frame_header, frame_region)
+  let frame_region = pad_color_region(image_header, frame_header, frame_region)
+  let frame_region = frame_region.upsample(frame_header.upsampling.ctz())
+  let frame_region = if frame_header.frame_type.is_normal_frame() {
+    let full_image_region_in_frame = Region::with_size(
+      image_header.size.width,
+      image_header.size.height,
+    ).translate(-frame_header.x0, -frame_header.y0)
+    frame_region.intersection(full_image_region_in_frame)
+  } else {
+    frame_region
+  }
+  blend(image_header, refs, frame, grid, frame_region)
 }
