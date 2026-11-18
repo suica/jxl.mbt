@@ -4,8 +4,8 @@
 /// Parameters for decoding `DequantMatrixSet`.
 pub struct DequantMatrixSetParams {
   priv dct_select : TransformType
-  priv bit_depth : Int
-  priv stream_index : Int
+  priv bit_depth : Int32
+  priv stream_index : Int32
   priv tracker : @grid.AllocTracker?
 }
 
@@ -14,11 +14,11 @@ pub struct DequantMatrixSetParams {
 ///
 /// `num_lf_groups` is used to compute the stream index for Modular images.
 pub fn DequantMatrixSetParams::new(
-  bit_depth : Int,
-  num_lf_groups : Int,
+  bit_depth : Int32,
+  num_lf_groups : Int32,
   tracker : @grid.AllocTracker?,
 ) -> DequantMatrixSetParams {
-  { dct_select: Dct8, bit_depth, stream_index: 1 + num_lf_groups * 3, tracker }
+  { dct_select: Dct8, bit_depth, stream_index: 1 + num_lf_groups * 3, tracker, }
 }
 
 ///|
@@ -26,9 +26,11 @@ pub fn DequantMatrixSetParams::new(
 /// returning its three channels.
 fn decode_raw_dequant_matrix(
   _bitstream : @bitstream.Bitstream,
-  _width : Int,
-  _height : Int,
+  _width : Int32,
+  _height : Int32,
   _params : DequantMatrixSetParams,
-) -> FixedArray[FixedArray[Int]] raise @bitstream.JxlError {
-  raise @bitstream.NotSupported("raw dequant matrix: jxl-modular not merged yet")
+) -> FixedArray[FixedArray[Int32]] raise @bitstream.JxlError {
+  raise @bitstream.NotSupported(
+    "raw dequant matrix: jxl-modular not merged yet",
+  )
 }

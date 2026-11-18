@@ -133,7 +133,7 @@ fn fma_f64(a : Double, b : Double, c : Double) -> Double {
 }
 
 ///|
-fn powf_log2_inline(ix : UInt) -> Double {
+fn powf_log2_inline(ix : UInt32) -> Double {
   let tmp = ix - 0x3f330000U
   let i = ((tmp >> 19) % 16U).reinterpret_as_int()
   let top = tmp & 0xff800000U
@@ -173,7 +173,7 @@ fn powf_exp2_inline(xd : Double, sign_bias : UInt64) -> Float {
 
 ///|
 /// Returns 0 if not int, 1 if odd int, 2 if even int.
-fn powf_checkint(iy : UInt) -> Int {
+fn powf_checkint(iy : UInt32) -> Int32 {
   let e = ((iy >> 23) & 0xffU).reinterpret_as_int()
   if e < 0x7f {
     return 0
@@ -191,7 +191,7 @@ fn powf_checkint(iy : UInt) -> Int {
 }
 
 ///|
-fn powf_zeroinfnan(ix : UInt) -> Bool {
+fn powf_zeroinfnan(ix : UInt32) -> Bool {
   2U * ix - 1U >= 2U * 0x7f800000U - 1U
 }
 
@@ -215,7 +215,7 @@ fn powf(x : Float, y : Float) -> Float {
       if 2U * ix == 2U * 0x3f800000U {
         return 1.0
       }
-      if 2U * ix < 2U * 0x3f800000U == ((iy & 0x80000000U) == 0U) {
+      if (2U * ix < 2U * 0x3f800000U) == ((iy & 0x80000000U) == 0U) {
         return 0.0
       }
       return y * y
@@ -248,7 +248,7 @@ fn powf(x : Float, y : Float) -> Float {
   let logx = powf_log2_inline(ix)
   let ylogx = y.to_double() * logx
   if ((ylogx.reinterpret_as_uint64() >> 47) & 0xffffUL) >=
-    ((126.0 : Double).reinterpret_as_uint64() >> 47) {
+    (126.0 : Double).reinterpret_as_uint64() >> 47 {
     let neg = sign_bias != 0UL
     if ylogx > powf_oflow_bound {
       let inf = Float::reinterpret_from_uint(0x7f800000U)

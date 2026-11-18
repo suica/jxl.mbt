@@ -8,21 +8,21 @@ enum DequantMatrixParamsEncoding {
   Dct2(FixedArray[FixedArray[Float]])
   Dct4(
     params~ : FixedArray[FixedArray[Float]],
-    dct_params~ : FixedArray[FixedArray[Float]]
+    dct_params~ : FixedArray[FixedArray[Float]],
   )
   Dct4x8(
     params~ : FixedArray[FixedArray[Float]],
-    dct_params~ : FixedArray[FixedArray[Float]]
+    dct_params~ : FixedArray[FixedArray[Float]],
   )
   Afv(
     params~ : FixedArray[FixedArray[Float]],
     dct_params~ : FixedArray[FixedArray[Float]],
-    dct4x4_params~ : FixedArray[FixedArray[Float]]
+    dct4x4_params~ : FixedArray[FixedArray[Float]],
   )
   Dct(FixedArray[FixedArray[Float]])
   /// `params` holds the decoded channels of the Modular image (row-major,
   /// `dequant_matrix_size` samples each).
-  Raw(denominator~ : Float, params~ : FixedArray[FixedArray[Int]])
+  Raw(denominator~ : Float, params~ : FixedArray[FixedArray[Int32]])
 }
 
 ///|
@@ -55,11 +55,7 @@ fn dct4x8_default_params() -> FixedArray[FixedArray[Float]] {
 
 ///|
 fn dct4_default_params() -> FixedArray[FixedArray[Float]] {
-  [
-    [2200.0, 0.0, 0.0, 0.0],
-    [392.0, 0.0, 0.0, 0.0],
-    [112.0, -0.25, -0.25, -0.5],
-  ]
+  [[2200.0, 0.0, 0.0, 0.0], [392.0, 0.0, 0.0, 0.0], [112.0, -0.25, -0.25, -0.5]]
 }
 
 ///|
@@ -90,7 +86,11 @@ fn DequantMatrixParamsEncoding::default_with(
         [512.0, -2.0, -1.0, 0.0, -1.0, -2.0],
       ])
     Hornuss =>
-      Hornuss([[280.0, 3160.0, 3160.0], [60.0, 864.0, 864.0], [18.0, 200.0, 200.0]])
+      Hornuss([
+        [280.0, 3160.0, 3160.0],
+        [60.0, 864.0, 864.0],
+        [18.0, 200.0, 200.0],
+      ])
     Dct2 =>
       Dct2([
         [3840.0, 2560.0, 1280.0, 640.0, 480.0, 300.0],
@@ -98,12 +98,23 @@ fn DequantMatrixParamsEncoding::default_with(
         [640.0, 320.0, 128.0, 64.0, 32.0, 16.0],
       ])
     Dct4 =>
-      Dct4(params=[[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]], dct_params=dct4_default_params())
+      Dct4(
+        params=[[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]],
+        dct_params=dct4_default_params(),
+      )
     Dct16 =>
       Dct([
-        [8996.873, -1.3000778, -0.4942453, -0.43909377, -0.6350102, -0.9017726, -1.6162099],
-        [3191.4836, -0.67424583, -0.80745816, -0.4492584, -0.3586544, -0.3132239, -0.37615025],
-        [1157.504, -2.0531423, -1.4, -0.5068713, -0.4270873, -1.4856834, -4.920914],
+        [
+          8996.873, -1.3000778, -0.4942453, -0.43909377, -0.6350102, -0.9017726,
+          -1.6162099,
+        ],
+        [
+          3191.4836, -0.67424583, -0.80745816, -0.4492584, -0.3586544, -0.3132239,
+          -0.37615025,
+        ],
+        [
+          1157.504, -2.0531423, -1.4, -0.5068713, -0.4270873, -1.4856834, -4.920914,
+        ],
       ])
     Dct32 =>
       Dct([
@@ -112,7 +123,9 @@ fn DequantMatrixParamsEncoding::default_with(
           7305.7637, -0.8041958, -0.76330364, -0.5566038, -0.49785304, -0.43699592,
           -0.40180868, -0.27321684,
         ],
-        [3803.5317, -3.0607336, -2.041327, -2.023565, -0.54953897, -0.4, -0.4, -0.3],
+        [
+          3803.5317, -3.0607336, -2.041327, -2.023565, -0.54953897, -0.4, -0.4, -0.3,
+        ],
       ])
     Dct8x16 | Dct16x8 =>
       Dct([
@@ -122,16 +135,22 @@ fn DequantMatrixParamsEncoding::default_with(
       ])
     Dct8x32 | Dct32x8 =>
       Dct([
-        [16283.249, -1.7812846, -1.6309059, -1.0382179, -0.85, -0.7, -0.9, -1.2360638],
+        [
+          16283.249, -1.7812846, -1.6309059, -1.0382179, -0.85, -0.7, -0.9, -1.2360638,
+        ],
         [5089.1577, -0.3200494, -0.3536285, -0.3034, -0.61, -0.5, -0.5, -0.6],
-        [3397.7761, -0.32132736, -0.3450762, -0.7034, -0.9, -1.0, -1.0, -1.1754606],
+        [
+          3397.7761, -0.32132736, -0.3450762, -0.7034, -0.9, -1.0, -1.0, -1.1754606,
+        ],
       ])
     Dct16x32 | Dct32x16 =>
       Dct([
-        [13844.971, -0.971138, -0.658, -0.42026, -0.22712, -0.2206, -0.226, -0.6],
         [
-          4798.964, -0.6112531, -0.8377079, -0.7901486, -0.26927274, -0.38272768, -0.22924222,
-          -0.20719099,
+          13844.971, -0.971138, -0.658, -0.42026, -0.22712, -0.2206, -0.226, -0.6,
+        ],
+        [
+          4798.964, -0.6112531, -0.8377079, -0.7901486, -0.26927274, -0.38272768,
+          -0.22924222, -0.20719099,
         ],
         [1807.2369, -1.2, -1.2, -0.7, -0.7, -0.7, -0.4, -0.5],
       ])
@@ -147,14 +166,30 @@ fn DequantMatrixParamsEncoding::default_with(
         dct_params=dct4x8_default_params(),
         dct4x4_params=dct4_default_params(),
       )
-    Dct64 => DequantMatrixParamsEncoding::make_dct_param_common_seq(23966.166, 8380.191, 4493.024)
-    Dct32x64 | Dct64x32 => DequantMatrixParamsEncoding::make_dct_param_common_seq(15358.898, 5597.3604, 2919.9617)
-    Dct128 => DequantMatrixParamsEncoding::make_dct_param_common_seq(47932.332, 16760.383, 8986.048)
+    Dct64 =>
+      DequantMatrixParamsEncoding::make_dct_param_common_seq(
+        23966.166, 8380.191, 4493.024,
+      )
+    Dct32x64 | Dct64x32 =>
+      DequantMatrixParamsEncoding::make_dct_param_common_seq(
+        15358.898, 5597.3604, 2919.9617,
+      )
+    Dct128 =>
+      DequantMatrixParamsEncoding::make_dct_param_common_seq(
+        47932.332, 16760.383, 8986.048,
+      )
     Dct64x128 | Dct128x64 =>
-      DequantMatrixParamsEncoding::make_dct_param_common_seq(30717.797, 11194.721, 5839.9233)
-    Dct256 => DequantMatrixParamsEncoding::make_dct_param_common_seq(95864.664, 33520.766, 17972.096)
+      DequantMatrixParamsEncoding::make_dct_param_common_seq(
+        30717.797, 11194.721, 5839.9233,
+      )
+    Dct256 =>
+      DequantMatrixParamsEncoding::make_dct_param_common_seq(
+        95864.664, 33520.766, 17972.096,
+      )
     Dct128x256 | Dct256x128 =>
-      DequantMatrixParamsEncoding::make_dct_param_common_seq(61435.594, 24209.441, 12979.847)
+      DequantMatrixParamsEncoding::make_dct_param_common_seq(
+        61435.594, 24209.441, 12979.847,
+      )
   }
 }
 
@@ -162,7 +197,10 @@ fn DequantMatrixParamsEncoding::default_with(
 fn DequantMatrixParams::default_with(
   dct_select : TransformType,
 ) -> DequantMatrixParams {
-  { dct_select, encoding: DequantMatrixParamsEncoding::default_with(dct_select) }
+  {
+    dct_select,
+    encoding: DequantMatrixParamsEncoding::default_with(dct_select),
+  }
 }
 
 ///|
@@ -204,8 +242,8 @@ let sqrt_2_plus_eps : Float = sqrt_2_f32 + 1.0e-6
 ///|
 fn dct_quant_weights(
   params : FixedArray[Float],
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
 ) -> FixedArray[Float] raise @bitstream.JxlError {
   let bands = FixedArray::make(params.length(), (0.0 : Float))
   let mut last_band = params[0]
@@ -318,8 +356,20 @@ fn DequantMatrixParams::into_matrix(
         let mat = dct_quant_weights(dct_params[c], 8, 4)
         let ret = FixedArray::make(64, (0.0 : Float))
         for y in 0..<4 {
-          FixedArray::blit_to(mat, ret, len=8, src_offset=y * 8, dst_offset=y * 16)
-          FixedArray::blit_to(mat, ret, len=8, src_offset=y * 8, dst_offset=y * 16 + 8)
+          FixedArray::blit_to(
+            mat,
+            ret,
+            len=8,
+            src_offset=y * 8,
+            dst_offset=y * 16,
+          )
+          FixedArray::blit_to(
+            mat,
+            ret,
+            len=8,
+            src_offset=y * 8,
+            dst_offset=y * 16 + 8,
+          )
         }
         ret[8] = ret[8] / params[0]
         out[c] = ret
@@ -416,7 +466,7 @@ fn DequantMatrixParams::into_matrix(
 ///|
 fn read_fixed(
   bitstream : @bitstream.Bitstream,
-  n : Int,
+  n : Int32,
 ) -> FixedArray[FixedArray[Float]] raise @bitstream.JxlError {
   let out = FixedArray::make(3, FixedArray::make(0, (0.0 : Float)))
   for c in 0..<3 {
@@ -493,7 +543,7 @@ fn DequantMatrixParams::parse(
     }
     _ => abort("unreachable")
   }
-  { dct_select, encoding }
+  { dct_select, encoding, }
 }
 
 ///|
@@ -501,13 +551,28 @@ fn DequantMatrixParams::parse(
 pub struct DequantMatrixSet {
   priv matrices : FixedArray[FixedArray[FixedArray[Float]]]
   priv matrices_tr : FixedArray[FixedArray[FixedArray[Float]]]
-  priv jpeg_matrices : FixedArray[FixedArray[Int]]
+  priv jpeg_matrices : FixedArray[FixedArray[Int32]]
 }
 
 ///|
 let dct_select_list : FixedArray[TransformType] = [
-  Dct8, Hornuss, Dct2, Dct4, Dct16, Dct32, Dct8x16, Dct8x32, Dct16x32, Dct4x8, Afv0,
-  Dct64, Dct32x64, Dct128, Dct64x128, Dct256, Dct128x256,
+  Dct8,
+  Hornuss,
+  Dct2,
+  Dct4,
+  Dct16,
+  Dct32,
+  Dct8x16,
+  Dct8x32,
+  Dct16x32,
+  Dct4x8,
+  Afv0,
+  Dct64,
+  Dct32x64,
+  Dct128,
+  Dct64x128,
+  Dct256,
+  Dct128x256,
 ]
 
 ///|
@@ -535,10 +600,9 @@ pub fn DequantMatrixSet::parse(
       2040 => params.map(ch => ch.copy())
     _ => []
   }
-  let matrices = FixedArray::makei(dct_select_list.length(), _ => FixedArray::make(
-    0,
-    FixedArray::make(0, (0.0 : Float)),
-  ))
+  let matrices = FixedArray::makei(dct_select_list.length(), _ => {
+    FixedArray::make(0, FixedArray::make(0, (0.0 : Float)))
+  })
   for idx, p in param_list {
     matrices[idx] = p.into_matrix()
   }
@@ -553,7 +617,7 @@ pub fn DequantMatrixSet::parse(
       })
     })
   })
-  { matrices, matrices_tr, jpeg_matrices }
+  { matrices, matrices_tr, jpeg_matrices, }
 }
 
 ///|
@@ -562,7 +626,7 @@ pub fn DequantMatrixSet::parse(
 /// The coefficients is in the raster order.
 pub fn DequantMatrixSet::get(
   self : DequantMatrixSet,
-  channel : Int,
+  channel : Int32,
   dct_select : TransformType,
 ) -> FixedArray[Float] {
   self.matrices[dct_select.dequant_matrix_param_index()][channel]
@@ -574,7 +638,7 @@ pub fn DequantMatrixSet::get(
 /// The coefficients is in the raster order.
 pub fn DequantMatrixSet::get_transposed(
   self : DequantMatrixSet,
-  channel : Int,
+  channel : Int32,
   dct_select : TransformType,
 ) -> FixedArray[Float] {
   self.matrices_tr[dct_select.dequant_matrix_param_index()][channel]
@@ -583,8 +647,8 @@ pub fn DequantMatrixSet::get_transposed(
 ///|
 pub fn DequantMatrixSet::jpeg_quant_values(
   self : DequantMatrixSet,
-  channel : Int,
-) -> FixedArray[Int]? {
+  channel : Int32,
+) -> FixedArray[Int32]? {
   if channel >= 0 && channel < self.jpeg_matrices.length() {
     Some(self.jpeg_matrices[channel])
   } else {

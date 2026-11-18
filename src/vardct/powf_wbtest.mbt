@@ -2,8 +2,8 @@
 /// Hashes of `f32::powf` results computed by Rust (glibc 2.35, x86_64 with FMA)
 /// for LCG-generated arguments; see `powf_hash`.
 test "powf matches glibc bit-exactly" {
-  let expected : FixedArray[UInt] = [1494689381U, 4156348878U, 613265149U]
-  let state = { state: 12345U }
+  let expected : FixedArray[UInt32] = [1494689381U, 4156348878U, 613265149U]
+  let state = { state: 12345U, }
   for mode in 0..<3 {
     let mut h = 2166136261U
     for _ in 0..<200000 {
