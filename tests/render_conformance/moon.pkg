@@ -9,4 +9,5 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/core/debug",
   "moonbitlang/x/fs",
+  "suica/jxl_tests/harness",
 } for "test"
