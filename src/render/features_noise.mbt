@@ -2,7 +2,7 @@
 
 ///|
 /// Padding for 5x5 kernel convolution step
-let noise_padding : Int = 2
+let noise_padding : Int32 = 2
 
 ///|
 /// `render_noise` on plain values.
@@ -15,19 +15,19 @@ let noise_padding : Int = 2
 ///   intersected with the frame and downsampled with the channel shift.
 /// - `lut`: `NoiseParameters::lut` (8 values).
 pub fn render_noise_raw(
-  frame_width : Int,
-  frame_height : Int,
-  group_dim : Int,
-  visible_frames_num : Int,
-  invisible_frames_num : Int,
+  frame_width : Int32,
+  frame_height : Int32,
+  group_dim : Int32,
+  visible_frames_num : Int32,
+  invisible_frames_num : Int32,
   base_correlations_xb : (Float, Float)?,
   grid_x : @grid.Grid[Float],
   grid_y : @grid.Grid[Float],
   grid_b : @grid.Grid[Float],
-  left : Int,
-  top : Int,
-  width : Int,
-  height : Int,
+  left : Int32,
+  top : Int32,
+  width : Int32,
+  height : Int32,
   lut : FixedArray[Float],
   tracker : @grid.AllocTracker?,
 ) -> Unit raise @bitstream.JxlError {
@@ -72,8 +72,10 @@ pub fn render_noise_raw(
       let in_x_frac = in_scaled_x - Float::from_int(in_x_int)
       let in_y_int = noise_min7(in_scaled_y.to_int())
       let in_y_frac = in_scaled_y - Float::from_int(in_y_int)
-      let sx = (lut9[in_x_int + 1] - lut9[in_x_int]) * in_x_frac + lut9[in_x_int]
-      let sy = (lut9[in_y_int + 1] - lut9[in_y_int]) * in_y_frac + lut9[in_y_int]
+      let sx = (lut9[in_x_int + 1] - lut9[in_x_int]) * in_x_frac +
+        lut9[in_x_int]
+      let sy = (lut9[in_y_int + 1] - lut9[in_y_int]) * in_y_frac +
+        lut9[in_y_int]
       let nx : Float = 0.22 * sx * (0.0078125 * noise_x + 0.9921875 * noise_b)
       let ny : Float = 0.22 * sy * (0.0078125 * noise_y + 0.9921875 * noise_b)
       bx[row_x + fx] = bx[row_x + fx] + (corr_x * (nx + ny) + nx - ny)
@@ -99,7 +101,7 @@ fn noise_fmax0(v : Float) -> Float {
 }
 
 ///|
-fn noise_min7(v : Int) -> Int {
+fn noise_min7(v : Int32) -> Int32 {
   if v < 7 {
     v
   } else {
@@ -110,11 +112,11 @@ fn noise_min7(v : Int) -> Int {
 ///|
 /// Generates the convolved noise images of the whole frame, one per channel.
 fn init_noise(
-  visible_frames : Int,
-  invisible_frames : Int,
-  frame_width : Int,
-  frame_height : Int,
-  group_dim : Int,
+  visible_frames : Int32,
+  invisible_frames : Int32,
+  frame_width : Int32,
+  frame_height : Int32,
+  group_dim : Int32,
   tracker : @grid.AllocTracker?,
 ) -> Array[@grid.Grid[Float]] raise @bitstream.JxlError {
   let seed0 = rng_seed0(visible_frames, invisible_frames)
@@ -133,7 +135,11 @@ fn init_noise(
     let x0 = group_x * group_dim
     let y0 = group_y * group_dim
     let seed1 = rng_seed1(x0, y0)
-    let group_width = if group_dim < width - x0 { group_dim } else { width - x0 }
+    let group_width = if group_dim < width - x0 {
+      group_dim
+    } else {
+      width - x0
+    }
     let group_height = if group_dim < height - y0 {
       group_dim
     } else {
@@ -158,7 +164,8 @@ fn init_noise(
       let group_y = group_idx / groups_per_row
       // `adjacent_groups[4] == this`
       let adjacent_groups : FixedArray[@grid.SubGrid[Float]?] = FixedArray::make(
-        9, None,
+        9,
+        None,
       )
       for idx in 0..<9 {
         let x = group_x + idx % 3 - 1
@@ -166,7 +173,9 @@ fn init_noise(
         if x >= 0 && y >= 0 && x < groups_per_row {
           let gi = y * groups_per_row + x
           if gi < noise_groups.length() {
-            adjacent_groups[idx] = Some(noise_groups[gi].as_subgrid(channel_idx))
+            adjacent_groups[idx] = Some(
+              noise_groups[gi].as_subgrid(channel_idx),
+            )
           }
         }
       }
@@ -185,29 +194,29 @@ fn init_noise(
 ///|
 /// Seed for `XorShift128Plus` from the number of ‘visible’ frames decoded so far
 /// and the number of ‘invisible’ frames since the previous visible frame.
-fn rng_seed0(visible_frames : Int, invisible_frames : Int) -> UInt64 {
+fn rng_seed0(visible_frames : Int32, invisible_frames : Int32) -> UInt64 {
   (visible_frames.to_uint64() << 32) + invisible_frames.to_uint64()
 }
 
 ///|
 /// Seed for `XorShift128Plus` from the coordinates of the top-left pixel of the
 /// group within the frame.
-fn rng_seed1(x0 : Int, y0 : Int) -> UInt64 {
+fn rng_seed1(x0 : Int32, y0 : Int32) -> UInt64 {
   (x0.to_uint64() << 32) + y0.to_uint64()
 }
 
 ///|
 priv struct NoiseGroup {
   buf : FixedArray[FixedArray[Float]]
-  width : Int
-  height : Int
-  stride : Int
+  width : Int32
+  height : Int32
+  stride : Int32
 }
 
 ///|
 fn NoiseGroup::new(
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
   seed0 : UInt64,
   seed1 : UInt64,
   tracker : @grid.AllocTracker?,
@@ -221,7 +230,7 @@ fn NoiseGroup::new(
   let rng = XorShift128Plus::new(seed0, seed1)
   let buf : FixedArray[FixedArray[Float]] = FixedArray::make(3, [])
   let num_iters = width_n2 * height
-  let bits = FixedArray::make(noise_n * 2, (0 : UInt))
+  let bits = FixedArray::make(noise_n * 2, (0 : UInt32))
   for c in 0..<3 {
     let b = FixedArray::make(num_iters * noise_n * 2, (0.0 : Float))
     for i in 0..<num_iters {
@@ -234,13 +243,13 @@ fn NoiseGroup::new(
     }
     buf[c] = b
   }
-  { buf, width, height, stride }
+  { buf, width, height, stride, }
 }
 
 ///|
 fn NoiseGroup::as_subgrid(
   self : NoiseGroup,
-  channel_idx : Int,
+  channel_idx : Int32,
 ) -> @grid.SubGrid[Float] {
   @grid.SubGrid::from_buf(
     self.buf[channel_idx],
@@ -253,7 +262,7 @@ fn NoiseGroup::as_subgrid(
 
 ///|
 /// Offset of row `y` of `g` in its buffer.
-fn noise_row(g : @grid.SubGrid[Float], y : Int) -> Int {
+fn noise_row(g : @grid.SubGrid[Float], y : Int32) -> Int32 {
   guard y >= 0 && y < g.height else { abort("noise: row out of bounds") }
   g.offset + y * g.stride
 }
@@ -344,7 +353,13 @@ fn convolve_fill(
     if y != height - 1 {
       let next_y = y + 3
       let fill_y = (next_y + 2) % 5
-      fill_once(rbuf, fill_y * input_width, input_width, next_y, adjacent_groups)
+      fill_once(
+        rbuf,
+        fill_y * input_width,
+        input_width,
+        next_y,
+        adjacent_groups,
+      )
     }
   }
   if tracker is Some(t) {
@@ -355,15 +370,20 @@ fn convolve_fill(
 ///|
 fn fill_once(
   out : FixedArray[Float],
-  out_off : Int,
-  out_len : Int,
-  fill_y : Int,
+  out_off : Int32,
+  out_len : Int32,
+  fill_y : Int32,
   adjacent_groups : FixedArray[@grid.SubGrid[Float]?],
 ) -> Unit {
   let this = adjacent_groups[4].unwrap()
   let height = this.height
   let (source_y, c, l, r) = if fill_y >= height {
-    (fill_y - height, adjacent_groups[7], adjacent_groups[6], adjacent_groups[8])
+    (
+      fill_y - height,
+      adjacent_groups[7],
+      adjacent_groups[6],
+      adjacent_groups[8],
+    )
   } else {
     (fill_y, adjacent_groups[4], adjacent_groups[3], adjacent_groups[5])
   }
@@ -396,12 +416,12 @@ fn fill_once(
 /// a row index.
 fn fill_padded_row(
   out : FixedArray[Float],
-  out_off : Int,
-  out_len : Int,
+  out_off : Int32,
+  out_len : Int32,
   this : @grid.SubGrid[Float],
-  this_y : Int,
-  left : (@grid.SubGrid[Float], Int)?,
-  right : (@grid.SubGrid[Float], Int)?,
+  this_y : Int32,
+  left : (@grid.SubGrid[Float], Int32)?,
+  right : (@grid.SubGrid[Float], Int32)?,
 ) -> Unit {
   let this_len = this.width
   guard out_len == this_len + noise_padding * 2 else {
@@ -446,7 +466,7 @@ fn fill_padded_row(
 }
 
 ///|
-let noise_n : Int = 8
+let noise_n : Int32 = 8
 
 ///|
 /// Shift-register pseudo-random number generator
@@ -466,7 +486,7 @@ fn XorShift128Plus::new(seed0 : UInt64, seed1 : UInt64) -> XorShift128Plus {
     s0[i] = split_mix_64(s0[i - 1])
     s1[i] = split_mix_64(s1[i - 1])
   }
-  { s0, s1 }
+  { s0, s1, }
 }
 
 ///|
@@ -474,7 +494,7 @@ fn XorShift128Plus::new(seed0 : UInt64, seed1 : UInt64) -> XorShift128Plus {
 /// halves of each `u64` of the batch, low half first).
 fn XorShift128Plus::get_u32_bits(
   self : XorShift128Plus,
-  out : FixedArray[UInt],
+  out : FixedArray[UInt32],
 ) -> Unit {
   for i in 0..<noise_n {
     let v = self.next_u64(i)
@@ -485,7 +505,7 @@ fn XorShift128Plus::get_u32_bits(
 
 ///|
 /// One lane of `fill_batch`.
-fn XorShift128Plus::next_u64(self : XorShift128Plus, i : Int) -> UInt64 {
+fn XorShift128Plus::next_u64(self : XorShift128Plus, i : Int32) -> UInt64 {
   let mut s1 = self.s0[i]
   let s0 = self.s1[i]
   let ret = s1 + s0

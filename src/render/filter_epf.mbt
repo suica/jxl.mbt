@@ -7,7 +7,7 @@
 /// kernels (`sharp_lut` and `quant_mul` are only used when computing sigma,
 /// which happens in vardct).
 pub(all) struct EpfKernelParams {
-  iters : Int
+  iters : Int32
   channel_scale : FixedArray[Float]
   pass0_sigma_scale : Float
   pass2_sigma_scale : Float
@@ -28,19 +28,19 @@ pub(all) struct EpfKernelParams {
 pub fn apply_epf_grids(
   fb : Array[@grid.SubGrid[Float]],
   fb_scratch_arr : Array[@grid.Grid[Float]],
-  region_left : Int,
-  region_top : Int,
-  region_width : Int,
-  region_height : Int,
-  group_dim : Int,
-  lf_groups_per_row : Int,
+  region_left : Int32,
+  region_top : Int32,
+  region_width : Int32,
+  region_height : Int32,
+  group_dim : Int32,
+  lf_groups_per_row : Int32,
   sigma_grid_map : Array[@grid.Grid[Float]?],
   epf_params : EpfKernelParams,
 ) -> Bool {
   let iters = epf_params.iters
   let mut fb = fb
   let mut fb_scratch = fb_scratch_arr.map(fn(g) { g.as_subgrid() })
-  let run = fn(step : Int, input, output) {
+  let run = fn(step : Int32, input, output) {
     epf_step(
       step, input, output, region_left, region_top, region_width, region_height,
       group_dim, lf_groups_per_row, sigma_grid_map, epf_params,
@@ -74,15 +74,15 @@ pub fn apply_epf_grids(
 /// One EPF pass (`impls::epf::<STEP>` → `run_epf_rows` → `epf_row::<STEP>`),
 /// reading `input` and writing `output`.
 pub fn epf_step(
-  step : Int,
+  step : Int32,
   input : Array[@grid.SubGrid[Float]],
   output : Array[@grid.SubGrid[Float]],
-  left : Int,
-  top : Int,
-  width : Int,
-  height : Int,
-  group_dim : Int,
-  lf_groups_per_row : Int,
+  left : Int32,
+  top : Int32,
+  width : Int32,
+  height : Int32,
+  group_dim : Int32,
+  lf_groups_per_row : Int32,
   sigma_grid_map : Array[@grid.Grid[Float]?],
   epf_params : EpfKernelParams,
 ) -> Unit {
@@ -123,15 +123,7 @@ pub fn epf_step(
       }
       let image_y = top + y
       epf_row(
-        step,
-        input,
-        input_rows,
-        output,
-        y,
-        width,
-        image_y,
-        sigma_row,
-        epf_params,
+        step, input, input_rows, output, y, width, image_y, sigma_row, epf_params,
       )
     }
     base_y += 8
@@ -140,7 +132,7 @@ pub fn epf_step(
 
 ///|
 /// `util::mirror`: reflects `offset` into `0..len`.
-fn epf_mirror(offset : Int, len : Int) -> Int {
+fn epf_mirror(offset : Int32, len : Int32) -> Int32 {
   let mut offset = offset
   while true {
     if offset < 0 {
@@ -155,16 +147,16 @@ fn epf_mirror(offset : Int, len : Int) -> Int {
 }
 
 ///|
-let epf_kernel_1 : FixedArray[Int] = [0, -1, 0, 1, -1, 0, 1, 0]
+let epf_kernel_1 : FixedArray[Int32] = [0, -1, 0, 1, -1, 0, 1, 0]
 
 ///|
-let epf_kernel_2 : FixedArray[Int] = [
+let epf_kernel_2 : FixedArray[Int32] = [
   0, -2, -1, -1, 0, -1, 1, -1, -2, 0, -1, 0, 1, 0, 2, 0, -1, 1, 0, 1, 1, 1, 0, 2,
 ]
 
 ///|
 /// `epf_kernel_offsets::<STEP>()` as flattened `(x, y)` pairs.
-fn epf_kernel_offsets(step : Int) -> FixedArray[Int] {
+fn epf_kernel_offsets(step : Int32) -> FixedArray[Int32] {
   if step == 0 {
     epf_kernel_2
   } else if step == 1 || step == 2 {
@@ -175,17 +167,17 @@ fn epf_kernel_offsets(step : Int) -> FixedArray[Int] {
 }
 
 ///|
-let epf_dist_0 : FixedArray[Int] = [0, -1, 1, 0, 0, 0, -1, 0, 0, 1]
+let epf_dist_0 : FixedArray[Int32] = [0, -1, 1, 0, 0, 0, -1, 0, 0, 1]
 
 ///|
-let epf_dist_1 : FixedArray[Int] = [0, -1, 0, 0, 0, 1, -1, 0, 1, 0]
+let epf_dist_1 : FixedArray[Int32] = [0, -1, 0, 0, 0, 1, -1, 0, 1, 0]
 
 ///|
-let epf_dist_2 : FixedArray[Int] = [0, 0]
+let epf_dist_2 : FixedArray[Int32] = [0, 0]
 
 ///|
 /// `epf_dist_offsets::<STEP>()` as flattened `(x, y)` pairs.
-fn epf_dist_offsets(step : Int) -> FixedArray[Int] {
+fn epf_dist_offsets(step : Int32) -> FixedArray[Int32] {
   if step == 0 {
     epf_dist_0
   } else if step == 1 {
@@ -205,13 +197,13 @@ fn epf_dist_offsets(step : Int) -> FixedArray[Int] {
 /// and a mirrored right edge; `mirror` is the identity for in-range indices, so
 /// one loop that mirrors only out-of-range indices gives the same result.
 fn epf_row(
-  step : Int,
+  step : Int32,
   input : Array[@grid.SubGrid[Float]],
-  input_rows : FixedArray[Int],
+  input_rows : FixedArray[Int32],
   output : Array[@grid.SubGrid[Float]],
-  out_y : Int,
-  width : Int,
-  y : Int,
+  out_y : Int32,
+  width : Int32,
+  y : Int32,
   sigma_row : FixedArray[Float],
   epf_params : EpfKernelParams,
 ) -> Unit {
@@ -278,7 +270,8 @@ fn epf_row(
           let bdy = 3 + iy
           let bdx = epf_index(dx + ix, width)
           acc = acc +
-            (buf[input_rows[c * 7 + kdy] + kdx] - buf[input_rows[c * 7 + bdy] + bdx]).abs()
+            (buf[input_rows[c * 7 + kdy] + kdx] -
+            buf[input_rows[c * 7 + bdy] + bdx]).abs()
         }
         dist = dist + scale * acc
       }
@@ -297,7 +290,7 @@ fn epf_row(
 }
 
 ///|
-fn epf_index(x : Int, width : Int) -> Int {
+fn epf_index(x : Int32, width : Int32) -> Int32 {
   if x >= 0 && x < width {
     x
   } else {

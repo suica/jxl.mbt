@@ -11,7 +11,7 @@ pub fn upsample_raw(
   up2_weight : FixedArray[Float],
   up4_weight : FixedArray[Float],
   up8_weight : FixedArray[Float],
-  factor : Int,
+  factor : Int32,
   tracker : @grid.AllocTracker?,
 ) -> @grid.Grid[Float]? raise @bitstream.JxlError {
   let mut out : @grid.Grid[Float]? = None
@@ -34,7 +34,7 @@ pub fn upsample_raw(
 /// `upsample_inner::<K, NW>`.
 fn upsample_inner(
   grid : @grid.SubGrid[Float],
-  k : Int,
+  k : Int32,
   weights : FixedArray[Float],
   tracker : @grid.AllocTracker?,
 ) -> @grid.Grid[Float] raise @bitstream.JxlError {
@@ -65,7 +65,9 @@ fn upsample_inner(
       padded_buf[base + x] = grid.buf[row + x]
     }
   }
-  upsampling_mirror_edges_padding(padded_buf, padded_width, grid_height, padding)
+  upsampling_mirror_edges_padding(
+    padded_buf, padded_width, grid_height, padding,
+  )
 
   // For K = 8:
   // 0  1  2  3  3h 2h 1h 0h
@@ -146,9 +148,9 @@ fn upsample_inner(
 /// `stride` holding `height` rows of samples between `padding` rows of padding.
 fn upsampling_mirror_edges_padding(
   buf : FixedArray[Float],
-  stride : Int,
-  height : Int,
-  padding : Int,
+  stride : Int32,
+  height : Int32,
+  padding : Int32,
 ) -> Unit {
   // Mirror horizontally.
   for y in padding..<(height + padding) {

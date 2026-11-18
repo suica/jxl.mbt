@@ -6,10 +6,10 @@
 /// `target_height` the size of `target_region`.
 pub fn apply_jpeg_upsampling_single_raw(
   grid : @grid.SubGrid[Float],
-  hshift : Int,
-  vshift : Int,
-  target_width : Int,
-  target_height : Int,
+  hshift : Int32,
+  vshift : Int32,
+  target_width : Int32,
+  target_height : Int32,
   tracker : @grid.AllocTracker?,
 ) -> @grid.Grid[Float] raise @bitstream.JxlError {
   let height = grid.height

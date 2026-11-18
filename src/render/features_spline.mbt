@@ -9,12 +9,12 @@ priv struct SplinePoint {
 
 ///|
 fn SplinePoint::new(x : Float, y : Float) -> SplinePoint {
-  { x, y }
+  { x, y, }
 }
 
 ///|
 fn SplinePoint::mirror(self : SplinePoint, center : SplinePoint) -> SplinePoint {
-  { x: center.x + center.x - self.x, y: center.y + center.y - self.y }
+  { x: center.x + center.x - self.x, y: center.y + center.y - self.y, }
 }
 
 ///|
@@ -28,18 +28,18 @@ fn SplinePoint::norm(self : SplinePoint) -> Float {
 }
 
 ///|
-impl Add for SplinePoint with add(self, rhs) {
+impl Add for SplinePoint with fn add(self, rhs) {
   SplinePoint::new(self.x + rhs.x, self.y + rhs.y)
 }
 
 ///|
-impl Sub for SplinePoint with sub(self, rhs) {
+impl Sub for SplinePoint with fn sub(self, rhs) {
   SplinePoint::new(self.x - rhs.x, self.y - rhs.y)
 }
 
 ///|
 fn SplinePoint::scale(self : SplinePoint, rhs : Float) -> SplinePoint {
-  { x: self.x * rhs, y: self.y * rhs }
+  { x: self.x * rhs, y: self.y * rhs, }
 }
 
 ///|
@@ -63,15 +63,17 @@ let spline_channel_weights : FixedArray[Float] = [0.0042, 0.075, 0.07, 0.3333]
 ///|
 fn Spline::dequant(
   quant_points : Array[(Int64, Int64)],
-  quant_xyb_dct : FixedArray[FixedArray[Int]],
-  quant_sigma_dct : FixedArray[Int],
-  quant_adjust : Int,
+  quant_xyb_dct : FixedArray[FixedArray[Int32]],
+  quant_sigma_dct : FixedArray[Int32],
+  quant_adjust : Int32,
   base_correlations_xb : (Float, Float)?,
 ) -> Spline {
   let points = quant_points.map(fn(p) {
     SplinePoint::new(Float::from_int64(p.0), Float::from_int64(p.1))
   })
-  let xyb_dct = FixedArray::makei(3, fn(_) { FixedArray::make(32, (0.0 : Float)) })
+  let xyb_dct = FixedArray::makei(3, fn(_) {
+    FixedArray::make(32, (0.0 : Float))
+  })
   let sigma_dct = FixedArray::make(32, (0.0 : Float))
   let quant_adjust = Float::from_int(quant_adjust)
   let inverted_qa : Float = if quant_adjust >= 0.0 {
@@ -99,7 +101,7 @@ fn Spline::dequant(
       spline_channel_weights[3] *
       inverted_qa
   }
-  { points, xyb_dct, sigma_dct }
+  { points, xyb_dct, sigma_dct, }
 }
 
 ///|
@@ -107,13 +109,13 @@ fn Spline::get_samples(self : Spline) -> Array[SplineArc] {
   let upsampled_points = self.get_upsampled_points()
   let mut current = upsampled_points[0]
   let mut next_idx = 0
-  let all_samples = [{ point: current, length: 1.0 }]
+  let all_samples = [{ point: current, length: 1.0, }]
   while next_idx < upsampled_points.length() {
     let mut prev = current
     let mut arclength : Float = 0.0
     while true {
       if next_idx >= upsampled_points.length() {
-        all_samples.push({ point: prev, length: arclength })
+        all_samples.push({ point: prev, length: arclength, })
         break
       }
       let next = upsampled_points[next_idx]
@@ -123,7 +125,7 @@ fn Spline::get_samples(self : Spline) -> Array[SplineArc] {
           (upsampled_points[next_idx] - prev).scale(
             (1.0 - arclength) / arclength_to_next,
           )
-        all_samples.push({ point: current, length: 1.0 })
+        all_samples.push({ point: current, length: 1.0, })
         break
       }
       arclength = arclength + arclength_to_next
@@ -167,17 +169,13 @@ fn Spline::get_upsampled_points(self : Spline) -> Array[SplinePoint] {
       // knot t from t1 to t2
       let knot = t[1] + Float::from_int(step) / 16.0 * (t[2] - t[1])
       for k in 0..<3 {
-        a[k] = p[k] +
-          (p[k + 1] - p[k]).scale((knot - t[k]) / (t[k + 1] - t[k]))
+        a[k] = p[k] + (p[k + 1] - p[k]).scale((knot - t[k]) / (t[k + 1] - t[k]))
       }
       for k in 0..<2 {
-        b[k] = a[k] +
-          (a[k + 1] - a[k]).scale((knot - t[k]) / (t[k + 2] - t[k]))
+        b[k] = a[k] + (a[k + 1] - a[k]).scale((knot - t[k]) / (t[k + 2] - t[k]))
       }
       // C = ((t2 - t) * B1 + (t - t1) * B2) / (t2 - t1)
-      upsampled.push(
-        b[0] + (b[1] - b[0]).scale((knot - t[1]) / (t[2] - t[1])),
-      )
+      upsampled.push(b[0] + (b[1] - b[0]).scale((knot - t[1]) / (t[2] - t[1])))
     }
   }
   upsampled.push(s[s.length() - 1])
@@ -208,15 +206,15 @@ let spline_ln_10 : Float = Float::from_double(@math.ln(10.0))
 /// `quant_points`, `quant_xyb_dct` and `quant_sigma_dct` are the fields of
 /// `QuantSpline`; `quant_adjust` is `Splines::quant_adjust`.
 pub fn render_spline_raw(
-  frame_width : Int,
-  frame_height : Int,
+  frame_width : Int32,
+  frame_height : Int32,
   channels : Array[@grid.Grid[Float]],
-  region_left : Int,
-  region_top : Int,
+  region_left : Int32,
+  region_top : Int32,
   quant_points : Array[(Int64, Int64)],
-  quant_xyb_dct : FixedArray[FixedArray[Int]],
-  quant_sigma_dct : FixedArray[Int],
-  quant_adjust : Int,
+  quant_xyb_dct : FixedArray[FixedArray[Int32]],
+  quant_sigma_dct : FixedArray[Int32],
+  quant_adjust : Int32,
   base_correlations_xb : (Float, Float)?,
 ) -> Unit {
   let spline = Spline::dequant(

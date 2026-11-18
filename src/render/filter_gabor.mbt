@@ -70,11 +70,11 @@ fn run_gabor_rows(
 /// (`row_a` is `None`). Rows are given as offsets into `inb`.
 fn gabor_row_edge(
   inb : FixedArray[Float],
-  row_c : Int,
-  row_a : Int?,
+  row_c : Int32,
+  row_a : Int32?,
   out : FixedArray[Float],
-  out_off : Int,
-  width : Int,
+  out_off : Int32,
+  width : Int32,
   w0 : Float,
   w1 : Float,
 ) -> Unit {
@@ -90,15 +90,15 @@ fn gabor_row_edge(
           global_weight
         return
       }
+      // 1 | 1 0
       {
-        // 1 | 1 0
         let a1 = inb[row_a]
         let a0 = inb[row_a + 1]
         let c1 = inb[row_c]
         let c0 = inb[row_c + 1]
-        out[out_off] = (c1 * (1.0 + 2.0 * w0 + w1) +
-          (a1 + c0) * (w0 + w1) +
-          a0 * w1) *
+        out[out_off] = (
+            c1 * (1.0 + 2.0 * w0 + w1) + (a1 + c0) * (w0 + w1) + a0 * w1
+          ) *
           global_weight
       }
       // 0 1 2
@@ -109,22 +109,20 @@ fn gabor_row_edge(
         let c0 = inb[row_c + x - 1]
         let c1 = inb[row_c + x]
         let c2 = inb[row_c + x + 1]
-        out[out_off + x] = (c1 +
-          (a1 + c0 + c1 + c2) * w0 +
-          (a0 + a2 + c0 + c2) * w1) *
+        out[out_off + x] = (
+            c1 + (a1 + c0 + c1 + c2) * w0 + (a0 + a2 + c0 + c2) * w1
+          ) *
           global_weight
       }
-      {
-        // 0 1 | 1
-        let a0 = inb[row_a + width - 2]
-        let a1 = inb[row_a + width - 1]
-        let c0 = inb[row_c + width - 2]
-        let c1 = inb[row_c + width - 1]
-        out[out_off + width - 1] = (c1 * (1.0 + 2.0 * w0 + w1) +
-          (a1 + c0) * (w0 + w1) +
-          a0 * w1) *
-          global_weight
-      }
+      // 0 1 | 1
+      let a0 = inb[row_a + width - 2]
+      let a1 = inb[row_a + width - 1]
+      let c0 = inb[row_c + width - 2]
+      let c1 = inb[row_c + width - 1]
+      out[out_off + width - 1] = (
+          c1 * (1.0 + 2.0 * w0 + w1) + (a1 + c0) * (w0 + w1) + a0 * w1
+        ) *
+        global_weight
     }
     None => {
       // Single row case
@@ -147,13 +145,10 @@ fn gabor_row_edge(
         out[out_off + x] = (c1 * merged_w0 + (c0 + c2) * merged_w1) *
           global_weight
       }
-      {
-        let c0 = inb[row_c + width - 2]
-        let c1 = inb[row_c + width - 1]
-        out[out_off + width - 1] = (c1 * (merged_w0 + merged_w1) +
-          c0 * merged_w1) *
-          global_weight
-      }
+      let c0 = inb[row_c + width - 2]
+      let c1 = inb[row_c + width - 1]
+      out[out_off + width - 1] = (c1 * (merged_w0 + merged_w1) + c0 * merged_w1) *
+        global_weight
     }
   }
 }
@@ -162,12 +157,12 @@ fn gabor_row_edge(
 /// Inner rows: `t`, `c`, `b` are offsets of the top, centre and bottom rows.
 fn run_gabor_row_generic(
   inb : FixedArray[Float],
-  t : Int,
-  c : Int,
-  b : Int,
+  t : Int32,
+  c : Int32,
+  b : Int32,
   out : FixedArray[Float],
-  out_off : Int,
-  width : Int,
+  out_off : Int32,
+  width : Int32,
   w0 : Float,
   w1 : Float,
 ) -> Unit {
@@ -185,10 +180,10 @@ fn run_gabor_row_generic(
     out[out_off] = unweighted_sum * global_weight
     return
   }
+  // t1 t1 t0
+  // c1 c1 c0
+  // b1 b1 b0
   {
-    // t1 t1 t0
-    // c1 c1 c0
-    // b1 b1 b0
     let t1 = inb[t]
     let c1 = inb[c]
     let b1 = inb[b]
@@ -215,19 +210,17 @@ fn run_gabor_row_generic(
     let unweighted_sum = c1 + sum_side * w0 + sum_diag * w1
     out[out_off + x] = unweighted_sum * global_weight
   }
-  {
-    // t0 t1 t1
-    // c0 c1 c1
-    // b0 b1 b1
-    let t1 = inb[t + width - 1]
-    let c1 = inb[c + width - 1]
-    let b1 = inb[b + width - 1]
-    let t0 = inb[t + width - 2]
-    let c0 = inb[c + width - 2]
-    let b0 = inb[b + width - 2]
-    let sum_side = t1 + c0 + c1 + b1
-    let sum_diag = t0 + t1 + b0 + b1
-    let unweighted_sum = c1 + sum_side * w0 + sum_diag * w1
-    out[out_off + width - 1] = unweighted_sum * global_weight
-  }
+  // t0 t1 t1
+  // c0 c1 c1
+  // b0 b1 b1
+  let t1 = inb[t + width - 1]
+  let c1 = inb[c + width - 1]
+  let b1 = inb[b + width - 1]
+  let t0 = inb[t + width - 2]
+  let c0 = inb[c + width - 2]
+  let b0 = inb[b + width - 2]
+  let sum_side = t1 + c0 + c1 + b1
+  let sum_diag = t0 + t1 + b0 + b1
+  let unweighted_sum = c1 + sum_side * w0 + sum_diag * w1
+  out[out_off + width - 1] = unweighted_sum * global_weight
 }
