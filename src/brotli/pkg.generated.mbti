@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "suica/jxl/brotli"
+
+import {
+  "suica/jxl/bitstream",
+}
+
+// Values
+pub fn decompress(Bytes) -> Bytes raise @bitstream.JxlError
+
+pub fn decompress_partial(Bytes) -> Bytes raise @bitstream.JxlError
+
+pub fn dictionary_data() -> Bytes
+
+// Errors
+
+// Types and methods
+pub struct DecompressorWriter {
+  // private fields
+}
+pub fn DecompressorWriter::close(Self) -> Unit raise @bitstream.JxlError
+pub fn DecompressorWriter::flush(Self) -> Unit raise @bitstream.JxlError
+pub fn DecompressorWriter::get_ref(Self) -> Bytes
+pub fn DecompressorWriter::new() -> Self
+pub fn DecompressorWriter::write_all(Self, Bytes) -> Unit
+
+// Type aliases
+
+// Traits
