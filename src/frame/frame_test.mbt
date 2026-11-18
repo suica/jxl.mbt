@@ -39,10 +39,11 @@ fn BitWriter::finish(self : BitWriter) -> @bitstream.Bitstream {
 
 ///|
 fn image_header(width : Int32, height : Int32) -> @image.ImageHeader {
-  {
-    size: { div8: false, h_div8: 0, height, ratio: 0, w_div8: 0, width, },
-    metadata: @image.ImageMetadata::default(),
-  }
+  // SizeHeader's div8/ratio fields are private (as upstream); set width/height only.
+  let size = @image.SizeHeader::default()
+  size.width = width
+  size.height = height
+  { size, metadata: @image.ImageMetadata::default(), }
 }
 
 ///|

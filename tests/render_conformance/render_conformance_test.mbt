@@ -118,7 +118,7 @@ fn load_image(
   if target_icc is Some(icc) {
     ctx.request_color_encoding(@color.ColorEncodingWithProfile::with_icc(icc))
   }
-  if image_header.metadata.have_preview {
+  if image_header.metadata.preview is Some(_) {
     // Skip the preview frame.
     fail("preview frames are not supported by this test")
   }

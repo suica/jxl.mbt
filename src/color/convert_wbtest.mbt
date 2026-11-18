@@ -5,7 +5,10 @@ fn default_oim() -> OpsinInverseMatrix {
 
 ///|
 fn default_tone_mapping(intensity_target : Float) -> ToneMapping {
-  { ..ToneMapping::default(), all_default: false, intensity_target, }
+  // `all_default` is private (as upstream); set the public field only.
+  let tone_mapping = ToneMapping::default()
+  tone_mapping.intensity_target = intensity_target
+  tone_mapping
 }
 
 ///|
