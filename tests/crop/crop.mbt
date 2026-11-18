@@ -90,8 +90,9 @@ fn test_crop_region(
   name : String,
 ) -> Unit raise Error {
   let debug = @harness.debug_enabled()
+  let crop_str = "CropInfo { width: \{crop.width}, height: \{crop.height}, left: \{crop.left}, top: \{crop.top} }"
   if debug {
-    println("Testing crop region \{crop}")
+    println("Testing crop region \{crop_str}")
   }
   let { width: crop_width, left: crop_left, top: crop_top, .. } = crop
   let width = image.width()
@@ -122,7 +123,7 @@ fn test_crop_region(
           if (e - a).abs() > 1.0e-6 || (e - a).is_nan() {
             let artifact = write_artifacts(name, full_render, cropped_render)
             fail(
-              "\{name}: \{crop}: frame #\{idx}: test failed at c=\{c}, x=\{x}, y=\{y} (expected=\{e}, actual=\{a})\{artifact}",
+              "\{name}: \{crop_str}: frame #\{idx}: test failed at c=\{c}, x=\{x}, y=\{y} (expected=\{e}, actual=\{a})\{artifact}",
             )
           }
         }

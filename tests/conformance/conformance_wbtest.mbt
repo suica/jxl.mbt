@@ -8,7 +8,7 @@
 
 ///|
 test "conformance/alpha_nonpremultiplied" {
-  run_conformance("alpha_nonpremultiplied", Upstream(Uniform({ peak: 6.1035e-5, rmse: 6.1035e-5 })))
+  run_conformance("alpha_nonpremultiplied", Upstream(Uniform({ peak: 0.000061035, rmse: 0.000061035 })))
 }
 
 ///|
@@ -17,7 +17,7 @@ test "conformance/alpha_premultiplied" {
       { peak: 0.004, rmse: 0.0001 },
       { peak: 0.004, rmse: 0.0001 },
       { peak: 0.004, rmse: 0.0001 },
-      { peak: 3.815e-06, rmse: 3.815e-06 },
+      { peak: 0.000003815, rmse: 0.000003815 },
     ])))
 }
 
@@ -58,7 +58,7 @@ test "conformance/animation_spline_5" {
 
 ///|
 test "conformance/bench_oriented_brg" {
-  run_conformance("bench_oriented_brg", Upstream(Uniform({ peak: 0.004, rmse: 1e-5 })))
+  run_conformance("bench_oriented_brg", Upstream(Uniform({ peak: 0.004, rmse: 0.00001 })))
 }
 
 ///|
@@ -93,7 +93,7 @@ test "conformance/blendmodes_5" {
 
 ///|
 test "conformance/cafe" {
-  run_conformance("cafe", Upstream(Uniform({ peak: 0.004, rmse: 1e-5 })))
+  run_conformance("cafe", Upstream(Uniform({ peak: 0.004, rmse: 0.00001 })))
 }
 
 ///|
@@ -123,7 +123,7 @@ test "conformance/grayscale_5" {
 
 ///|
 test "conformance/grayscale_jpeg" {
-  run_conformance("grayscale_jpeg", Upstream(Uniform({ peak: 0.004, rmse: 1e-5 })))
+  run_conformance("grayscale_jpeg", Upstream(Uniform({ peak: 0.004, rmse: 0.00001 })))
 }
 
 ///|
@@ -203,7 +203,7 @@ test "conformance/progressive_5" {
 
 ///|
 test "conformance/spot" {
-  run_conformance("spot", Upstream(Uniform({ peak: 3.815e-6, rmse: 3.815e-6 })))
+  run_conformance("spot", Upstream(Uniform({ peak: 0.000003815, rmse: 0.000003815 })))
 }
 
 ///|

@@ -86,7 +86,8 @@ pub fn JxlImageBuilder::read(
   let mut uninit = self.build_uninit()
   let len = data.length()
   let mut pos = 0
-  let image = for {
+  let mut initialized : JxlImage? = None
+  while initialized is None {
     // The whole input is available at once; the container parser keeps what
     // it cannot use yet, which is fed again with the rest.
     let consumed = uninit.feed_bytes(data[pos:])
@@ -100,9 +101,10 @@ pub fn JxlImageBuilder::read(
           )
         }
       }
-      Initialized(x) => break x
+      Initialized(x) => initialized = Some(x)
     }
   }
+  let image = initialized.unwrap()
   while !image.inner.end_of_image && pos < len {
     let consumed = image.feed_bytes(data[pos:])
     if consumed == 0 {
@@ -246,7 +248,7 @@ pub fn UninitializedJxlImage::try_init(
 ///|
 /// The CMS set on new images (upstream: `Lcms2` with the `lcms2` feature).
 fn default_cms() -> &@color.ColorManagementSystem {
-  @cms.Cms::new()
+  @cms.MoonCms::{  }
 }
 
 ///|
@@ -708,11 +710,11 @@ pub fn JxlImage::reconstruct_jpeg(
   }
   let exif = if expected_exif_len > 0 {
     match aux_boxes.first_exif() {
-      Data(x) => x.payload()
-      _ => b""[:]
+      Data(x) => x.payload().to_owned()
+      _ => b""
     }
   } else {
-    b""[:]
+    b""
   }
   let xmp = if expected_xmp_len > 0 {
     aux_boxes.first_xml().unwrap_or(b"")
@@ -787,7 +789,7 @@ fn JxlImageInner::feed_bytes_inner(
       e => raise e
     }
     let frame_index = frame.index()
-    guard self.frame_offsets.length() == frame_index
+    guard! self.frame_offsets.length() == frame_index
     self.frame_offsets.push(self.buffer_offset)
     let read_bytes = bitstream.num_read_bits() / 8
     buf = buf[read_bytes:]
@@ -813,7 +815,7 @@ fn concat_bytes(a : Bytes, b : BytesView) -> Bytes {
   if a.length() == 0 {
     return b.to_owned()
   }
-  let out = Buffer(size_hint=a.length() + b.length())
+  let out = Buffer()
   out.write_bytes(a)
   out.write_bytesview(b)
   out.to_bytes()
@@ -892,7 +894,7 @@ pub(all) enum LoadResult {
 
 ///|
 /// The result of loading and rendering the keyframe.
-pub enum RenderResult {
+pub(all) enum RenderResult {
   /// The frame is rendered.
   Done(Render)
   /// More data is needed to fully render the frame.

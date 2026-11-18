@@ -201,7 +201,7 @@ fn ImageStream::from_render(render : Render, skip_alpha : Bool) -> ImageStream {
   let fb = render.image.buffer()
   let color_channels = render.image.color_channels
   let regions_and_shifts = render.image.regions_and_shifts()
-  let grids = render.color_channels().to_array()
+  let grids = Array::from_iter(render.color_channels().iter())
   let bit_depth = Array::make(grids.length(), render.color_bit_depth)
   let start_offset_xy = []
   for i in 0..<color_channels {
@@ -291,6 +291,7 @@ pub fn ImageStream::channels(self : ImageStream) -> Int {
 ///|
 /// Output sample type of `ImageStream::write_to_buffer` (upstream sealed trait
 /// `FrameBufferSample`, implemented by `f32`, `u16` and `u8`).
+#derive(Debug, Eq)
 pub(all) enum SampleKind {
   /// 32-bit float samples, with nominal range of `[0, 1]`.
   F32
@@ -298,7 +299,7 @@ pub(all) enum SampleKind {
   U16
   /// 8-bit unsigned integer samples.
   U8
-} derive(Debug, Eq)
+}
 
 ///|
 /// `f32 as u16` conversion of `(val * 65535 + 0.5).clamp(0, 65535)`.

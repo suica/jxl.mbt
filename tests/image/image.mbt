@@ -36,6 +36,6 @@ pub fn check_decode(
       }
     }
     (F32(buf), Rgb32F | Rgba32F) => assert_eq(buf.length(), len)
-    _ => fail("sample type does not match colour type \{color}")
+    _ => fail("sample type does not match colour type of \{name}")
   }
 }

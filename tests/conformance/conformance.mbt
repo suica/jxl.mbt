@@ -34,7 +34,7 @@ pub fn run_conformance(
   }
   let expected = @harness.read_npy(npy_buf)
   guard expected.shape.length() == 4 else {
-    fail("\{name}: unexpected npy shape \{expected.shape}")
+    fail("\{name}: unexpected npy shape \{shape_str(expected.shape)}")
   }
   let num_frames = expected.shape[0]
   let channels = expected.shape[3]
@@ -72,7 +72,7 @@ pub fn run_conformance(
     let buf = fb.buf()
     if buf.length() != frame_len {
       fail(
-        "\{name}: keyframe #\{keyframe_idx}: \{fb.width()}x\{fb.height()}x\{fb.channels()} rendered, reference \{expected.shape}",
+        "\{name}: keyframe #\{keyframe_idx}: \{fb.width()}x\{fb.height()}x\{fb.channels()} rendered, reference \{shape_str(expected.shape)}",
       )
     }
     let err = @harness.channel_errors(
@@ -102,4 +102,9 @@ pub fn run_conformance(
   if !image.is_loading_done() {
     fail("\{name}: image loading not done")
   }
+}
+
+///|
+fn shape_str(shape : Array[Int]) -> String {
+  "(" + shape.map(fn(d) { d.to_string() }).join(", ") + ")"
 }

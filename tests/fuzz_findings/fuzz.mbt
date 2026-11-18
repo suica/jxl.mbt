@@ -14,7 +14,7 @@ pub fn fuzz_decode(name : String) -> Unit raise Error {
   }
   image.image_header() |> ignore
   for keyframe_idx in 0..<image.num_loaded_keyframes() {
-    image.render_frame(keyframe_idx) |> ignore catch {
+    (image.render_frame(keyframe_idx) |> ignore) catch {
       _ => ()
     }
   }
