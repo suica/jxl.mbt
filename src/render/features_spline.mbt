@@ -183,20 +183,50 @@ fn Spline::get_upsampled_points(self : Spline) -> Array[SplinePoint] {
 }
 
 ///|
-/// `f32::powf`, computed in f64 and rounded.
+/// `f32::powf` (glibc `powf`, see libm_glibc.mbt).
 fn spline_powf(x : Float, y : Float) -> Float {
-  Float::from_double(@math.pow(x.to_double(), y.to_double()))
+  glibc_powf(x, y)
 }
 
 ///|
-/// `f32::cos`, computed in f64 and rounded.
+/// `f32::cos` (glibc `cosf`, see libm_glibc.mbt).
 fn spline_cosf(x : Float) -> Float {
-  Float::from_double(@math.cos(x.to_double()))
+  glibc_cosf(x)
 }
 
 ///|
 /// `f32::ln(10.0)`
-let spline_ln_10 : Float = Float::from_double(@math.ln(10.0))
+/// (0x40135d8e: glibc `logf(10.0)`, the same as the correctly rounded value.)
+let spline_ln_10 : Float = Float::reinterpret_from_uint(0x40135d8e)
+
+///|
+/// `features::render_spline`: renders the splines onto the colour channels of
+/// `base_grid`. (Upstream also logs each dequantized spline with
+/// `tracing::trace!`; logging is not ported.)
+fn render_spline(
+  frame_header : @frame.FrameHeader,
+  base_grid : ImageWithRegion,
+  splines : @frame.Splines,
+  base_correlations_xb : (Float, Float)?,
+) -> Unit raise @bitstream.JxlError {
+  let region = base_grid.regions_and_shifts()[0].0
+  let channels = base_grid.as_color_floats_mut()
+  let channels = [channels[0], channels[1], channels[2]]
+  for quant_spline in splines.quant_splines {
+    render_spline_raw(
+      frame_header.width,
+      frame_header.height,
+      channels,
+      region.left,
+      region.top,
+      quant_spline.quant_points,
+      quant_spline.xyb_dct,
+      quant_spline.sigma_dct,
+      splines.quant_adjust,
+      base_correlations_xb,
+    )
+  }
+}
 
 ///|
 /// Renders one spline (`render_spline` for one element of
@@ -205,7 +235,7 @@ let spline_ln_10 : Float = Float::from_double(@math.ln(10.0))
 ///
 /// `quant_points`, `quant_xyb_dct` and `quant_sigma_dct` are the fields of
 /// `QuantSpline`; `quant_adjust` is `Splines::quant_adjust`.
-pub fn render_spline_raw(
+fn render_spline_raw(
   frame_width : Int32,
   frame_height : Int32,
   channels : Array[@grid.Grid[Float]],

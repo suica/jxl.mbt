@@ -36,7 +36,15 @@ test "rng seeds" {
 
 ///|
 test "noise convolution over groups" {
-  let conv = init_noise(2, 1, 257, 130, 128, None)
+  let conv = init_noise(
+    2,
+    1,
+    257,
+    130,
+    128,
+    None,
+    @threadpool.JxlThreadPool::none(),
+  )
   assert_eq(test_hash_subgrid(conv[0].as_subgrid()), ref_noise_conv_hash_0)
   assert_eq(test_hash_subgrid(conv[1].as_subgrid()), ref_noise_conv_hash_1)
   assert_eq(test_hash_subgrid(conv[2].as_subgrid()), ref_noise_conv_hash_2)
@@ -76,6 +84,7 @@ test "render noise with lut" {
     30,
     lut,
     Some(tracker),
+    @threadpool.JxlThreadPool::none(),
   )
   assert_eq(test_hash_subgrid(grids[0].as_subgrid()), ref_noise_render_hash_0)
   assert_eq(test_hash_subgrid(grids[1].as_subgrid()), ref_noise_render_hash_1)
@@ -86,7 +95,7 @@ test "render noise with lut" {
 
 ///|
 fn epf_test_in(x : Int32, y : Int32, c : Int32) -> Float {
-  Float::from_int((x * x + 3 * y + 7 * c) % 13) / 4096.0
+  Float::from_int((x * x + 3 * y + 7 * c) % 13) / 4093.0
 }
 
 ///|
@@ -102,7 +111,7 @@ fn run_epf_test(
   let w = 21
   let h = 19
   // colour planes are views into larger buffers, at (2, 1)
-  let fb = Array::makei(3, fn(c) {
+  let fb = FixedArray::makei(3, fn(c) {
     let big = @grid.Grid::new(w + 5, h + 3, (-1.0 : Float))
     let sub = big.as_subgrid().subgrid(2, 1, w, h)
     for y in 0..<h {
@@ -112,32 +121,36 @@ fn run_epf_test(
     }
     sub
   })
-  let scratch = Array::makei(3, fn(_) { @grid.Grid::new(w, h, (0.0 : Float)) })
+  let scratch = FixedArray::makei(3, fn(_) {
+    @grid.Grid::new(w, h, (0.0 : Float))
+  })
   let sigma_grid = @grid.Grid::new(8, 8, (0.0 : Float))
   for by in 0..<8 {
     for bx in 0..<8 {
       sigma_grid.set(bx, by, epf_test_sigma(bx, by))
     }
   }
-  let params : EpfKernelParams = {
+  let params : @frame.EpfParams = {
     iters,
+    sharp_lut: FixedArray::make(8, 0.0),
     channel_scale: [40.0, 5.0, 3.5],
-    pass0_sigma_scale: 0.9,
-    pass2_sigma_scale: 6.5,
-    border_sad_mul: (2.0 : Float) / 3.0,
+    sigma: {
+      quant_mul: 0.46,
+      pass0_sigma_scale: 0.9,
+      pass2_sigma_scale: 6.5,
+      border_sad_mul: (2.0 : Float) / 3.0,
+    },
     sigma_for_modular: 1.0,
   }
-  let in_scratch = apply_epf_grids(
+  let in_scratch = apply_epf_views(
     fb,
     scratch,
-    8,
-    16,
-    w,
-    h,
+    { left: 8, top: 16, width: w, height: h, },
     128,
     1,
     [if use_grid { Some(sigma_grid) } else { None }],
     params,
+    @threadpool.JxlThreadPool::none(),
   )
   assert_eq(in_scratch, iters == 1 || iters == 3)
   FixedArray::makei(3, fn(c) {
@@ -164,13 +177,13 @@ test "epf matches reference (modular sigma)" {
 }
 
 ///|
-test "epf mirror" {
-  assert_eq(epf_mirror(-1, 5), 0)
-  assert_eq(epf_mirror(-3, 5), 2)
-  assert_eq(epf_mirror(5, 5), 4)
-  assert_eq(epf_mirror(7, 5), 2)
-  assert_eq(epf_mirror(2, 1), 0)
-  assert_eq(epf_mirror(-2, 1), 0)
+test "util mirror" {
+  assert_eq(mirror(-1, 5), 0)
+  assert_eq(mirror(-3, 5), 2)
+  assert_eq(mirror(5, 5), 4)
+  assert_eq(mirror(7, 5), 2)
+  assert_eq(mirror(2, 1), 0)
+  assert_eq(mirror(-2, 1), 0)
 }
 
 ///|
@@ -184,9 +197,7 @@ fn gabor_reference(
   let w = input.width
   let h = input.height
   let out = @grid.Grid::new(w, h, (0.0 : Float))
-  let at = fn(x : Int32, y : Int32) {
-    input.get(epf_mirror(x, w), epf_mirror(y, h))
-  }
+  let at = fn(x : Int32, y : Int32) { input.get(mirror(x, w), mirror(y, h)) }
   for y in 0..<h {
     for x in 0..<w {
       let side = at(x, y - 1) + at(x - 1, y) + at(x + 1, y) + at(x, y + 1)
@@ -218,7 +229,12 @@ fn gabor_test_case(w : Int32, h : Int32) -> Unit raise Error {
     g
   })
   let scratch = Array::makei(3, fn(_) { @grid.Grid::new(w, h, (0.0 : Float)) })
-  apply_gabor_like_grids(inputs.map(fn(g) { g.as_subgrid() }), scratch, weights)
+  impls_apply_gabor_like(
+    FixedArray::makei(3, c => inputs[c].as_subgrid()),
+    FixedArray::makei(3, c => scratch[c]),
+    weights,
+    @threadpool.JxlThreadPool::none(),
+  )
   for c in 0..<3 {
     let r = gabor_reference(inputs[c], weights[c][0], weights[c][1])
     for y in 0..<h {
@@ -250,10 +266,11 @@ test "gabor single row follows upstream" {
   let w1 : Float = 0.05
   let input = @grid.Grid::from_buf(3, 1, ([1.0, 2.0, 4.0] : FixedArray[Float]))
   let out = @grid.Grid::new(3, 1, (0.0 : Float))
-  apply_gabor_like_grids(
+  impls_apply_gabor_like(
     [input.as_subgrid(), input.as_subgrid(), input.as_subgrid()],
     [out, @grid.Grid::new(3, 1, 0.0), @grid.Grid::new(3, 1, 0.0)],
     [[w0, w1], [w0, w1], [w0, w1]],
+    @threadpool.JxlThreadPool::none(),
   )
   let gw : Float = 1.0 / (1.0 + w0 * 4.0 + w1 * 4.0)
   let mw0 : Float = 1.0 + 2.0 + w0
@@ -263,10 +280,11 @@ test "gabor single row follows upstream" {
   // a 1x1 image is copied
   let one = @grid.Grid::from_buf(1, 1, ([3.5] : FixedArray[Float]))
   let out1 = @grid.Grid::new(1, 1, (0.0 : Float))
-  apply_gabor_like_grids(
+  impls_apply_gabor_like(
     [one.as_subgrid(), one.as_subgrid(), one.as_subgrid()],
     [out1, @grid.Grid::new(1, 1, 0.0), @grid.Grid::new(1, 1, 0.0)],
     [[w0, w1], [w0, w1], [w0, w1]],
+    @threadpool.JxlThreadPool::none(),
   )
   assert_eq(out1.get(0, 0), 3.5)
 }
@@ -308,8 +326,8 @@ fn upsample_reference(
           let ky = if sy < n { iy } else { 4 - iy }
           let kx = if sx < n { ix } else { 4 - ix }
           let v = input.get(
-            epf_mirror(x / k + ix - 2, w),
-            epf_mirror(y / k + iy - 2, h),
+            mirror(x / k + ix - 2, w),
+            mirror(y / k + iy - 2, h),
           )
           sum = sum + mat[(my * 5 + ky) * dim + mx * 5 + kx] * v
           lo = lo.min(v)

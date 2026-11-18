@@ -1,58 +1,118 @@
-// Port of jxl-render filter/gabor.rs and filter/impls/generic/gabor.rs
-// (Gaborish, a 3x3 symmetric convolution). Only the generic (scalar) path is
-// ported; it is what upstream runs on targets without SIMD.
+// Port of jxl-render filter/gabor.rs, filter/impls/generic.rs and
+// filter/impls/generic/gabor.rs (Gaborish, a 3x3 symmetric convolution).
+//
+// Upstream picks a row handler per CPU: x86_64 with AVX2+FMA runs
+// `run_gabor_row_x86_64_avx2`, which is the generic handler compiled with
+// those features (Rust never contracts `a * b + c`, so the results are the
+// generic ones); wasm32 uses the generic one; aarch64 NEON uses fused
+// multiply-adds and so differs in the last bits. This port runs the generic
+// handler, i.e. the x86_64 and wasm32 results.
 
 ///|
-/// Runs Gaborish on the three colour channels `fb` (views of the padded colour
-/// region), writing the results into `fb_scratch`, which must have the same
-/// sizes as the views (`filter/impls/generic.rs` `apply_gabor_like`).
-///
-/// `weights[c]` is `[w0, w1]` of channel `c`.
-pub fn apply_gabor_like_grids(
-  fb : Array[@grid.SubGrid[Float]],
-  fb_scratch : Array[@grid.Grid[Float]],
+/// `filter::apply_gabor_like`: Gaborish on the colour channels of `fb`
+/// within `color_padded_region`. The filtered channels are swapped into `fb`,
+/// and the previous buffers end up in `fb_scratch` (upstream swaps them
+/// through `&mut`).
+fn apply_gabor_like(
+  fb : ImageWithRegion,
+  color_padded_region : Region,
+  fb_scratch : FixedArray[@grid.Grid[Float]],
   weights : FixedArray[FixedArray[Float]],
+  pool~ : @threadpool.JxlThreadPool = @threadpool.JxlThreadPool::none(),
 ) -> Unit {
-  for c in 0..<3 {
-    run_gabor_rows(fb[c], fb_scratch[c], weights[c][0], weights[c][1])
+  let region = fb.regions_and_shifts()[0].0
+  guard region.contains(color_padded_region) else {
+    abort("assertion failed: region.contains(color_padded_region)")
+  }
+  let left = abs_diff(region.left, color_padded_region.left)
+  let top = abs_diff(region.top, color_padded_region.top)
+  let buffers = fb.as_color_floats_mut()
+  let views = buffers.map(g => {
+    g
+    .as_subgrid()
+    .subgrid(left, top, color_padded_region.width, color_padded_region.height)
+  })
+  impls_apply_gabor_like(views, fb_scratch, weights, pool)
+  let left = color_padded_region.left
+  let top = color_padded_region.top
+  for idx in 0..<3 {
+    let grid = fb_scratch[idx]
+    let region : Region = {
+      width: grid.width(),
+      height: grid.height(),
+      left,
+      top,
+    }
+    fb_scratch[idx] = fb.swap_channel_f32(idx, grid, region)
   }
 }
 
 ///|
-/// `run_gabor_rows` with the generic row handler.
+/// `impls::generic::apply_gabor_like`: Gaborish on the views `fb`, writing
+/// into `fb_scratch` (same sizes). `weights[c]` is `[w0, w1]` of channel `c`.
+fn impls_apply_gabor_like(
+  fb : FixedArray[@grid.SubGrid[Float]],
+  fb_scratch : FixedArray[@grid.Grid[Float]],
+  weights : FixedArray[FixedArray[Float]],
+  pool : @threadpool.JxlThreadPool,
+) -> Unit {
+  for c in 0..<3 {
+    run_gabor_rows(fb[c], fb_scratch[c], weights[c][0], weights[c][1], pool)
+  }
+}
+
+///|
+/// `run_gabor_rows` with the generic row handler; inner rows are split into
+/// jobs of 8 rows as upstream.
 fn run_gabor_rows(
   input : @grid.SubGrid[Float],
   output : @grid.Grid[Float],
   w0 : Float,
   w1 : Float,
+  pool : @threadpool.JxlThreadPool,
 ) -> Unit {
   let width = input.width
   let height = input.height
   let out = output.buf
-  guard out.length() >= width * height else {
-    abort("gabor: output size mismatch")
+  guard out.length() == width * height else {
+    abort("assertion failed: output_buf.len() == width * height")
   }
   let inb = input.buf
   let stride = input.stride
   let base = input.offset
+  guard height > 0 else { abort("row index out of bounds") }
   if height == 1 {
     gabor_row_edge(inb, base, None, out, 0, width, w0, w1)
     return
   }
   gabor_row_edge(inb, base, Some(base + stride), out, 0, width, w0, w1)
-  for y in 1..<(height - 1) {
-    run_gabor_row_generic(
-      inb,
-      base + (y - 1) * stride,
-      base + y * stride,
-      base + (y + 1) * stride,
-      out,
-      y * width,
-      width,
-      w0,
-      w1,
-    )
+  // `inner_rows.chunks_mut(width * 8)`: job `y8` covers output rows
+  // 1 + 8 * y8 .. (up to height - 1).
+  let jobs = []
+  if width > 0 {
+    let mut y8 = 0
+    while 1 + y8 * 8 < height - 1 {
+      jobs.push(y8)
+      y8 += 1
+    }
   }
+  pool.for_each_vec(jobs, y8 => {
+    let start = 1 + y8 * 8
+    let end = if start + 8 < height - 1 { start + 8 } else { height - 1 }
+    for y in start..<end {
+      run_gabor_row_generic(
+        inb,
+        base + (y - 1) * stride,
+        base + y * stride,
+        base + (y + 1) * stride,
+        out,
+        y * width,
+        width,
+        w0,
+        w1,
+      )
+    }
+  })
   gabor_row_edge(
     inb,
     base + (height - 1) * stride,
@@ -78,7 +138,7 @@ fn gabor_row_edge(
   w0 : Float,
   w1 : Float,
 ) -> Unit {
-  guard width > 0 else { abort("gabor: empty row") }
+  guard width > 0 else { abort("assertion failed: width > 0") }
   let global_weight : Float = 1.0 / (1.0 + w0 * 4.0 + w1 * 4.0)
   match row_a {
     Some(row_a) => {

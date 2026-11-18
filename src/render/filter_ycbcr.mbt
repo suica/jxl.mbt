@@ -1,10 +1,28 @@
 // Port of jxl-render filter/ycbcr.rs (JPEG-style chroma upsampling).
 
 ///|
+/// `filter::apply_jpeg_upsampling_single`.
+fn apply_jpeg_upsampling_single(
+  grid : @grid.SubGrid[Float],
+  shift : @modular.ChannelShift,
+  target_region : Region,
+  tracker : @grid.AllocTracker?,
+) -> @grid.Grid[Float] raise @bitstream.JxlError {
+  apply_jpeg_upsampling_single_raw(
+    grid,
+    shift.hshift(),
+    shift.vshift(),
+    target_region.width,
+    target_region.height,
+    tracker,
+  )
+}
+
+///|
 /// `apply_jpeg_upsampling_single` on plain values: `hshift`/`vshift` are the
 /// channel's `ChannelShift::hshift()`/`vshift()`, and `target_width` /
 /// `target_height` the size of `target_region`.
-pub fn apply_jpeg_upsampling_single_raw(
+fn apply_jpeg_upsampling_single_raw(
   grid : @grid.SubGrid[Float],
   hshift : Int32,
   vshift : Int32,
@@ -23,16 +41,19 @@ pub fn apply_jpeg_upsampling_single_raw(
   let buf = out.buf
   let h_upsampled = hshift == 0
   let v_upsampled = vshift == 0
+  guard target_width > 0 else { abort("chunk size must be non-zero") }
   let rows = if height < target_height { height } else { target_height }
   for y in 0..<rows {
     let row = grid.offset + y * grid.stride
     let out_row = y * target_width
     if h_upsampled {
+      guard gw >= target_width else { abort("range end index out of range") }
       for x in 0..<target_width {
         buf[out_row + x] = grid.buf[row + x]
       }
       continue
     }
+    guard gw > 0 else { abort("called `Option::unwrap()` on a `None` value") }
     let mut prev_sample = grid.buf[row]
     // One output pair per input sample, as far as the output row reaches.
     let num_chunks = (target_width + 1) / 2

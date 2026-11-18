@@ -5,6 +5,44 @@
 let noise_padding : Int32 = 2
 
 ///|
+/// `features::render_noise`: adds noise to the colour channels of `grid`.
+fn render_noise(
+  header : @frame.FrameHeader,
+  visible_frames_num : Int32,
+  invisible_frames_num : Int32,
+  base_correlations_xb : (Float, Float)?,
+  grid : ImageWithRegion,
+  params : @frame.NoiseParameters,
+  pool~ : @threadpool.JxlThreadPool = @threadpool.JxlThreadPool::none(),
+) -> Unit raise @bitstream.JxlError {
+  let (region, shift) = grid.regions_and_shifts()[0]
+  let tracker = grid.alloc_tracker()
+  let xyb = grid.as_color_floats_mut()
+  let full_frame_region = Region::with_size(header.width, header.height)
+  let actual_region = region
+    .intersection(full_frame_region)
+    .downsample_with_shift(shift)
+  render_noise_raw(
+    header.width,
+    header.height,
+    header.group_dim(),
+    visible_frames_num,
+    invisible_frames_num,
+    base_correlations_xb,
+    xyb[0],
+    xyb[1],
+    xyb[2],
+    actual_region.left,
+    actual_region.top,
+    actual_region.width,
+    actual_region.height,
+    params.lut,
+    tracker,
+    pool,
+  )
+}
+
+///|
 /// `render_noise` on plain values.
 ///
 /// - `frame_width`/`frame_height`/`group_dim`: from the frame header (the
@@ -14,7 +52,7 @@ let noise_padding : Int32 = 2
 /// - `left`/`top`/`width`/`height`: `actual_region`, i.e. the image region
 ///   intersected with the frame and downsampled with the channel shift.
 /// - `lut`: `NoiseParameters::lut` (8 values).
-pub fn render_noise_raw(
+fn render_noise_raw(
   frame_width : Int32,
   frame_height : Int32,
   group_dim : Int32,
@@ -30,6 +68,7 @@ pub fn render_noise_raw(
   height : Int32,
   lut : FixedArray[Float],
   tracker : @grid.AllocTracker?,
+  pool : @threadpool.JxlThreadPool,
 ) -> Unit raise @bitstream.JxlError {
   let (corr_x, corr_b) = match base_correlations_xb {
     Some(v) => v
@@ -37,7 +76,7 @@ pub fn render_noise_raw(
   }
   let noise_buffer = init_noise(
     visible_frames_num, invisible_frames_num, frame_width, frame_height, group_dim,
-    tracker,
+    tracker, pool,
   )
   let lut9 = FixedArray::make(9, (0.0 : Float))
   for i in 0..<8 {
@@ -118,6 +157,7 @@ fn init_noise(
   frame_height : Int32,
   group_dim : Int32,
   tracker : @grid.AllocTracker?,
+  pool : @threadpool.JxlThreadPool,
 ) -> Array[@grid.Grid[Float]] raise @bitstream.JxlError {
   let seed0 = rng_seed0(visible_frames, invisible_frames)
 
@@ -156,6 +196,7 @@ fn init_noise(
   ]
 
   // Each channel is convolved by the 5×5 kernel
+  let jobs : Array[(@grid.SubGrid[Float], FixedArray[@grid.SubGrid[Float]?])] = []
   for channel_idx in 0..<3 {
     let out = convolved[channel_idx]
     let groups = out.as_subgrid().into_groups(group_dim, group_dim)
@@ -179,14 +220,25 @@ fn init_noise(
           }
         }
       }
-      convolve_fill(out_subgrid, adjacent_groups, tracker)
+      jobs.push((out_subgrid, adjacent_groups))
     }
   }
+  // Every job runs; the error of a failed job is kept (the last one wins).
+  let mut result : @bitstream.JxlError? = None
+  pool.for_each_vec(jobs, job => {
+    let (out_subgrid, adjacent_groups) = job
+    convolve_fill(out_subgrid, adjacent_groups, tracker) catch {
+      e => result = Some(e)
+    }
+  })
   // The noise groups are dropped here upstream, returning their memory.
   if tracker is Some(t) {
     for g in noise_groups {
       t.free(g.stride * g.height * 3, 4)
     }
+  }
+  if result is Some(e) {
+    raise e
   }
   convolved
 }

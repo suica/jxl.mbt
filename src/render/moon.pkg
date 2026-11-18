@@ -6,6 +6,7 @@ import {
   "suica/jxl/frame",
   "suica/jxl/color",
   "suica/jxl/vardct",
+  "suica/jxl/threadpool",
   "moonbitlang/core/math",
   "moonbitlang/core/float",
   "moonbitlang/core/sorted_map",

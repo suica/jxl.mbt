@@ -2,11 +2,32 @@
 // upsampling with the weights from the image metadata).
 
 ///|
-/// `upsample` on plain values: `up2_weight` (15), `up4_weight` (55) and
-/// `up8_weight` (210) are `ImageMetadata`'s custom weights; `factor` is the
-/// log2 upsampling factor. Returns `None` when `factor == 0`. The caller
-/// upsamples its region by `factor` (`out_region.upsample(factor)`).
-pub fn upsample_raw(
+/// `features::upsample`: upsamples `grid` by `1 << factor`; `out_region` is
+/// upsampled by `factor`. Returns `None` when `factor == 0`.
+fn upsample(
+  grid : @grid.SubGrid[Float],
+  out_region : Ref[Region],
+  image_header : @image.ImageHeader,
+  factor : Int32,
+  tracker : @grid.AllocTracker?,
+) -> @grid.Grid[Float]? raise @bitstream.JxlError {
+  let metadata = image_header.metadata
+  let out = upsample_raw(
+    grid,
+    metadata.up2_weight,
+    metadata.up4_weight,
+    metadata.up8_weight,
+    factor,
+    tracker,
+  )
+  out_region.val = out_region.val.upsample(factor)
+  out
+}
+
+///|
+/// `upsample` on the weights: `up2_weight` (15), `up4_weight` (55) and
+/// `up8_weight` (210) are `ImageMetadata`'s custom weights.
+fn upsample_raw(
   grid : @grid.SubGrid[Float],
   up2_weight : FixedArray[Float],
   up4_weight : FixedArray[Float],
@@ -18,16 +39,24 @@ pub fn upsample_raw(
   let mut grid = grid
   let up8 = factor / 3
   let last_up = factor % 3
+  // Assigning `out` drops the previous buffer upstream, returning its memory.
+  let replace = (g : @grid.Grid[Float]) => {
+    if out is Some(old) && tracker is Some(t) {
+      t.free(old.width() * old.height(), 4)
+    }
+    out = Some(g)
+  }
   for _ in 0..<up8 {
     let g = upsample_inner(grid, 8, up8_weight, tracker)
-    out = Some(g)
+    replace(g)
     grid = g.as_subgrid()
   }
   match last_up {
-    1 => Some(upsample_inner(grid, 2, up2_weight, tracker))
-    2 => Some(upsample_inner(grid, 4, up4_weight, tracker))
-    _ => out
+    1 => replace(upsample_inner(grid, 2, up2_weight, tracker))
+    2 => replace(upsample_inner(grid, 4, up4_weight, tracker))
+    _ => ()
   }
+  out
 }
 
 ///|
@@ -40,7 +69,9 @@ fn upsample_inner(
 ) -> @grid.Grid[Float] raise @bitstream.JxlError {
   let nw = weights.length()
   guard (k == 2 && nw == 15) || (k == 4 && nw == 55) || (k == 8 && nw == 210) else {
-    abort("upsample: invalid weights")
+    abort(
+      "assertion failed: (K == 2 && NW == 15) || (K == 4 && NW == 55) || (K == 8 && NW == 210)",
+    )
   }
   let grid_width = grid.width
   let grid_height = grid.height
@@ -51,13 +82,14 @@ fn upsample_inner(
   // 5x5 kernel
   let padding = 2
   let padded_width = grid_width + padding * 2
-  let padded = @grid.Grid::with_alloc_tracker(
-    padded_width,
-    grid_height + padding * 2,
+  let padded = PaddedGrid::with_alloc_tracker(
+    grid_width,
+    grid_height,
+    padding,
     (0.0 : Float),
     tracker,
   )
-  let padded_buf = padded.buf
+  let padded_buf = padded.buf_padded_mut()
   for y in 0..<grid_height {
     let row = grid.offset + y * grid.stride
     let base = (y + padding) * padded_width + padding
@@ -65,9 +97,7 @@ fn upsample_inner(
       padded_buf[base + x] = grid.buf[row + x]
     }
   }
-  upsampling_mirror_edges_padding(
-    padded_buf, padded_width, grid_height, padding,
-  )
+  padded.mirror_edges_padding()
 
   // For K = 8:
   // 0  1  2  3  3h 2h 1h 0h
@@ -138,44 +168,7 @@ fn upsample_inner(
     }
   }
   if tracker is Some(t) {
-    t.free(padded.width * padded.height, 4)
+    t.free(padded.grid.width() * padded.grid.height(), 4)
   }
   out
-}
-
-///|
-/// `PaddedGrid::mirror_edges_padding` (util.rs) on a padded buffer of width
-/// `stride` holding `height` rows of samples between `padding` rows of padding.
-fn upsampling_mirror_edges_padding(
-  buf : FixedArray[Float],
-  stride : Int32,
-  height : Int32,
-  padding : Int32,
-) -> Unit {
-  // Mirror horizontally.
-  for y in padding..<(height + padding) {
-    for x in 0..<padding {
-      buf[y * stride + x] = buf[y * stride + padding * 2 - x - 1]
-      buf[(y + 1) * stride - x - 1] = buf[(y + 1) * stride - padding * 2 + x]
-    }
-  }
-  // Mirror vertically.
-  for i in 0..<padding {
-    // out row i <- in row (2 * padding - 1 - i)
-    let src = (2 * padding - 1 - i) * stride
-    let dst = i * stride
-    for x in 0..<stride {
-      buf[dst + x] = buf[src + x]
-    }
-  }
-  let in_rows = height + padding
-  let out_rows = padding
-  let n = if in_rows < out_rows { in_rows } else { out_rows }
-  for i in 0..<n {
-    let src = (in_rows - 1 - i) * stride
-    let dst = (in_rows + i) * stride
-    for x in 0..<stride {
-      buf[dst + x] = buf[src + x]
-    }
-  }
 }

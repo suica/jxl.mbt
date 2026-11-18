@@ -127,7 +127,7 @@ for c in range(3):
 # ---------------- EPF ----------------
 EW, EH, EL, ET = 21, 19, 8, 16
 def epf_in(x, y, c):
-    return f32((x * x + 3 * y + 7 * c) % 13) / f32(4096)
+    return f32((x * x + 3 * y + 7 * c) % 13) / f32(4093)
 def sigma_val(bx, by):
     return f32((bx * 3 + by * 5) % 7) * f32(0.1) + f32(0.25)
 scale = [f32(40.0), f32(5.0), f32(3.5)]
@@ -152,6 +152,36 @@ def epf_pass(img, step, use_sigma_grid):
                 continue
             border = (ix_img % 8 in (0, 7)) or (iy_img % 8 in (0, 7))
             sm = stepm * bsm if border else stepm
+            # SIMD handlers (SSE4.1/NEON/simd128) on pass 1: rows with 3 rows
+            # above and 4 below in the region, x in 4..((W - 2) & ~3).
+            if step == 1 and y >= 3 and y + 4 <= EH and EW >= 4 and 4 <= x < ((EW - 2) & ~3):
+                r = lambda c, dy, dx: img[c][y + dy][x + dx]
+                sw = f32(1.0)
+                sums = [img[c][y][x] for c in range(3)]
+                d0 = f32(0); d1 = f32(0)
+                for c in range(3):
+                    v0, v1, v2, v3, v4 = (r(c, k, 0) for k in (-2, -1, 0, 1, 2))
+                    tmp = abs(v1 - v2) + abs(v3 - v2)
+                    a0 = tmp + abs(v1 - v0); a1 = tmp + abs(v3 - v4)
+                    a0 = a0 + abs(r(c, -1, -1) - r(c, 0, -1)); a1 = a1 + abs(r(c, 1, -1) - r(c, 0, -1))
+                    a0 = a0 + abs(r(c, -1, 1) - r(c, 0, 1)); a1 = a1 + abs(r(c, 1, 1) - r(c, 0, 1))
+                    d0 = scale[c] * a0 + d0; d1 = scale[c] * a1 + d1
+                w0 = max(d0 * (NEG / s * sm) + f32(1.0), f32(0)); w1 = max(d1 * (NEG / s * sm) + f32(1.0), f32(0))
+                sw = sw + w0 + w1
+                for c in range(3): sums[c] = sums[c] + w0 * r(c, -1, 0) + w1 * r(c, 1, 0)
+                d0 = f32(0); d1 = f32(0)
+                for c in range(3):
+                    a0 = abs(r(c, -1, -1) - r(c, -1, 0)); a1 = abs(r(c, -1, 1) - r(c, -1, 0))
+                    v1rr, v1r, v1, v1l, v1ll = (r(c, 0, k) for k in (2, 1, 0, -1, -2))
+                    a0 = a0 + abs(v1ll - v1l); a0 = a0 + abs(v1 - v1l); a0 = a0 + abs(v1 - v1r)
+                    a1 = a1 + abs(v1 - v1l); a1 = a1 + abs(v1 - v1r); a1 = a1 + abs(v1rr - v1r)
+                    a0 = a0 + abs(r(c, 1, -1) - r(c, 1, 0)); a1 = a1 + abs(r(c, 1, 1) - r(c, 1, 0))
+                    d0 = scale[c] * a0 + d0; d1 = scale[c] * a1 + d1
+                w0 = max(d0 * (NEG / s * sm) + f32(1.0), f32(0)); w1 = max(d1 * (NEG / s * sm) + f32(1.0), f32(0))
+                sw = sw + w0 + w1
+                for c in range(3): sums[c] = sums[c] + w0 * r(c, 0, -1) + w1 * r(c, 0, 1)
+                for c in range(3): out[c][y][x] = sums[c] / sw
+                continue
             sw = f32(1.0)
             sums = [img[c][y][x] for c in range(3)]
             for (kx, ky) in kern:

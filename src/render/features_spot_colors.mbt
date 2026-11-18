@@ -1,9 +1,33 @@
 // Port of jxl-render features/spot_colors.rs.
 
 ///|
+/// Renders a spot color channel onto color_channels
+/// (`features::render_spot_color`).
+pub fn render_spot_color(
+  color_channels : FixedArray[@grid.Grid[Float]],
+  ec_grid : @grid.Grid[Float],
+  ec_ty : @image.ExtraChannelType,
+) -> Unit raise @bitstream.JxlError {
+  guard ec_ty is SpotColour(red~, green~, blue~, solidity~) else {
+    raise @bitstream.NotSupported("EC type is not SpotColour")
+  }
+  if color_channels.length() != 3 {
+    return
+  }
+  render_spot_color_raw(
+    [color_channels[0], color_channels[1], color_channels[2]],
+    ec_grid,
+    red,
+    green,
+    blue,
+    solidity,
+  )
+}
+
+///|
 /// Renders a spot colour channel onto `color_channels` (`render_spot_color`
 /// with the fields of `ExtraChannelType::SpotColour` given as values).
-pub fn render_spot_color_raw(
+fn render_spot_color_raw(
   color_channels : Array[@grid.Grid[Float]],
   ec_grid : @grid.Grid[Float],
   red : Float,
@@ -11,9 +35,6 @@ pub fn render_spot_color_raw(
   blue : Float,
   solidity : Float,
 ) -> Unit {
-  if color_channels.length() != 3 {
-    return
-  }
   let spot_colors : FixedArray[Float] = [red, green, blue]
   let s = ec_grid.buf
   let len = ec_grid.width * ec_grid.height
@@ -22,7 +43,7 @@ pub fn render_spot_color_raw(
     let channel = g.buf
     let color = spot_colors[c]
     guard g.width * g.height == len else {
-      abort("render_spot_color: size mismatch")
+      abort("assertion failed: channel.len() == s.len()")
     }
     for i in 0..<len {
       let mix = s[i] * solidity

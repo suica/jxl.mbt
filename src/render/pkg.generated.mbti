@@ -3,7 +3,6 @@ package "suica/jxl/render"
 
 import {
   "moonbitlang/core/debug",
-  "moonbitlang/core/ref",
   "moonbitlang/core/sorted_map",
   "suica/jxl/bitstream",
   "suica/jxl/color",
@@ -17,18 +16,6 @@ import {
 // Values
 pub fn adaptive_lf_smoothing(FixedArray[@modular.ChannelShift], FixedArray[@grid.Grid[Float]], @vardct.LfChannelDequantization, @vardct.Quantizer, @grid.AllocTracker?) -> Unit raise @bitstream.JxlError
 
-pub fn apply_epf(ImageWithRegion, FixedArray[@grid.Grid[Float]], Region, Map[Int32, @frame.LfGroup], @frame.FrameHeader, @frame.EpfParams) -> Unit
-
-pub fn apply_epf_grids(Array[@grid.SubGrid[Float]], Array[@grid.Grid[Float]], Int32, Int32, Int32, Int32, Int32, Int32, Array[@grid.Grid[Float]?], EpfKernelParams) -> Bool
-
-pub fn apply_gabor_like(ImageWithRegion, Region, FixedArray[@grid.Grid[Float]], FixedArray[FixedArray[Float]]) -> Unit
-
-pub fn apply_gabor_like_grids(Array[@grid.SubGrid[Float]], Array[@grid.Grid[Float]], FixedArray[FixedArray[Float]]) -> Unit
-
-pub fn apply_jpeg_upsampling_single(@grid.SubGrid[Float], @modular.ChannelShift, Region, @grid.AllocTracker?) -> @grid.Grid[Float] raise @bitstream.JxlError
-
-pub fn apply_jpeg_upsampling_single_raw(@grid.SubGrid[Float], Int32, Int32, Int32, Int32, @grid.AllocTracker?) -> @grid.Grid[Float] raise @bitstream.JxlError
-
 pub fn apply_orientation_to_image_region(@image.ImageHeader, Region) -> Region
 
 pub fn compute_modular_region(@frame.FrameHeader, @frame.GlobalModular, Region, Bool) -> Region
@@ -36,8 +23,6 @@ pub fn compute_modular_region(@frame.FrameHeader, @frame.GlobalModular, Region, 
 pub fn convert_color_for_record(@image.ImageHeader, Bool, ImageWithRegion) -> Unit raise @bitstream.JxlError
 
 pub fn copy_lf_dequant(@grid.SubGrid[Float], @vardct.Quantizer, Float, @grid.Grid[Int32], Int32) -> Unit
-
-pub fn epf_step(Int32, Array[@grid.SubGrid[Float]], Array[@grid.SubGrid[Float]], Int32, Int32, Int32, Int32, Int32, Int32, Array[@grid.Grid[Float]?], EpfKernelParams) -> Unit
 
 pub fn failed_reference() -> @bitstream.JxlError
 
@@ -65,36 +50,13 @@ pub fn patch(@image.ImageHeader, ImageWithRegion, ImageWithRegion, @frame.PatchR
 
 pub fn render_modular(IndexedFrame, RenderCache, Region) -> ImageWithRegion raise @bitstream.JxlError
 
-pub fn render_noise(@frame.FrameHeader, Int32, Int32, (Float, Float)?, ImageWithRegion, @frame.NoiseParameters) -> Unit raise @bitstream.JxlError
-
-pub fn render_noise_raw(Int32, Int32, Int32, Int32, Int32, (Float, Float)?, @grid.Grid[Float], @grid.Grid[Float], @grid.Grid[Float], Int32, Int32, Int32, Int32, FixedArray[Float], @grid.AllocTracker?) -> Unit raise @bitstream.JxlError
-
-pub fn render_spline(@frame.FrameHeader, ImageWithRegion, @frame.Splines, (Float, Float)?) -> Unit raise @bitstream.JxlError
-
-pub fn render_spline_raw(Int32, Int32, Array[@grid.Grid[Float]], Int32, Int32, Array[(Int64, Int64)], FixedArray[FixedArray[Int32]], FixedArray[Int32], Int32, (Float, Float)?) -> Unit
-
 pub fn render_spot_color(FixedArray[@grid.Grid[Float]], @grid.Grid[Float], @image.ExtraChannelType) -> Unit raise @bitstream.JxlError
 
-pub fn render_spot_color_raw(Array[@grid.Grid[Float]], @grid.Grid[Float], Float, Float, Float, Float) -> Unit
-
 pub fn uninitialized_lf_frame(Int32) -> @bitstream.JxlError
-
-pub fn upsample(@grid.SubGrid[Float], @ref.Ref[Region], @image.ImageHeader, Int32, @grid.AllocTracker?) -> @grid.Grid[Float]? raise @bitstream.JxlError
-
-pub fn upsample_raw(@grid.SubGrid[Float], FixedArray[Float], FixedArray[Float], FixedArray[Float], Int32, @grid.AllocTracker?) -> @grid.Grid[Float]? raise @bitstream.JxlError
 
 // Errors
 
 // Types and methods
-pub(all) struct EpfKernelParams {
-  iters : Int32
-  channel_scale : FixedArray[Float]
-  pass0_sigma_scale : Float
-  pass2_sigma_scale : Float
-  border_sad_mul : Float
-  sigma_for_modular : Float
-}
-
 type FrameDependence
 
 pub enum FrameRender {
